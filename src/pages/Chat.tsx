@@ -172,8 +172,8 @@ const Chat = () => {
             { role: 'user', content: messageContent }
           ],
           selectedModels,
-          chatId: currentChatId,
-          attachmentUrl: attachmentUrl,
+          ...(currentChatId && { chatId: currentChatId }),
+          ...(attachmentUrl && { attachmentUrl: attachmentUrl }),
         },
       });
 
