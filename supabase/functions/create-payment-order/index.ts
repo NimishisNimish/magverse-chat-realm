@@ -6,6 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Hardcoded price - never trust client input for payment amounts
+const PRO_SUBSCRIPTION_PRICE = 199; // INR
+
 const razorpayKeyId = Deno.env.get('RAZORPAY_KEY_ID');
 const razorpayKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
 
@@ -15,7 +18,7 @@ serve(async (req) => {
   }
 
   try {
-    const { amount } = await req.json();
+    // No need to accept amount from client - use hardcoded price
     
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
@@ -40,7 +43,7 @@ serve(async (req) => {
         'Authorization': `Basic ${btoa(`${razorpayKeyId}:${razorpayKeySecret}`)}`,
       },
       body: JSON.stringify({
-        amount: amount * 100, // Convert to paise
+        amount: PRO_SUBSCRIPTION_PRICE * 100, // Convert to paise - server-enforced price
         currency: 'INR',
         receipt: `order_${Date.now()}`,
       }),
@@ -51,7 +54,7 @@ serve(async (req) => {
     // Save transaction as pending
     await supabase.from('transactions').insert({
       user_id: user.id,
-      amount: amount,
+      amount: PRO_SUBSCRIPTION_PRICE,
       order_id: order.id,
       status: 'pending',
     });

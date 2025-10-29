@@ -105,11 +105,14 @@ const Chat = () => {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
+      // Generate signed URL with 1 hour expiration for security
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from('chat-attachments')
-        .getPublicUrl(filePath);
+        .createSignedUrl(filePath, 3600);
 
-      setAttachmentUrl(publicUrl);
+      if (signedUrlError) throw signedUrlError;
+
+      setAttachmentUrl(signedUrlData.signedUrl);
       setUploadStatus('success');
       toast({
         title: "File uploaded successfully",

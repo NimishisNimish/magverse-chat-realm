@@ -40,8 +40,9 @@ const Upgrade = () => {
     setLoading(true);
 
     try {
+      // Amount is now hardcoded server-side for security
       const { data: orderData, error: orderError } = await supabase.functions.invoke('create-payment-order', {
-        body: { amount: 199 },
+        body: {},
       });
 
       if (orderError) throw orderError;
