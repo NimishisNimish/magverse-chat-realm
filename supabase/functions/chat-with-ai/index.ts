@@ -29,7 +29,7 @@ const OPENROUTER_TIMEOUT_MS = 60000; // 60 seconds
 
 const modelMapping: Record<string, string> = {
   chatgpt: 'openai/gpt-4o',
-  gemini: 'google/gemini-2.0-flash-exp',
+  gemini: 'google/gemini-2.5-flash-preview',
   claude: 'anthropic/claude-3.5-sonnet',
   llama: 'meta-llama/llama-3.3-70b-instruct',
   mistral: 'mistralai/mistral-large-2411',
