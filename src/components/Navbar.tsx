@@ -24,8 +24,17 @@ const Navbar = () => {
           <span className="text-2xl font-bold gradient-text">Magverse AI</span>
         </Link>
         
-        <div className="flex items-center gap-4">
-          {user ? (
+      <div className="flex items-center gap-4">
+        <div className="hidden md:flex items-center gap-6 mr-4">
+          <a href="#about" className="text-foreground hover:text-primary transition-colors">
+            About
+          </a>
+          <a href="#contact" className="text-foreground hover:text-primary transition-colors">
+            Contact
+          </a>
+        </div>
+        
+        {user ? (
             <>
               <Link to="/chat">
                 <Button variant="ghost" className="text-foreground">

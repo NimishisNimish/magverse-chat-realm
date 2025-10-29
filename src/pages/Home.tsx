@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Zap, Shield, Infinity } from "lucide-react";
+import { Sparkles, Zap, Shield, Infinity, Mail, MapPin, Phone, Users, Target, Rocket } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
+import magverseLogo from "@/assets/magverse-logo.png";
 
 const Home = () => {
   const { user, profile } = useAuth();
@@ -88,6 +89,195 @@ const Home = () => {
           </div>
         </div>
       </section>
+      
+      {/* About Us Section */}
+      <section id="about" className="container mx-auto px-4 py-20 bg-gradient-to-b from-background to-background/50">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16 animate-fade-in">
+            <img 
+              src={magverseLogo} 
+              alt="Magverse AI Logo" 
+              className="w-32 h-32 mx-auto mb-6 animate-glow-pulse"
+            />
+            <h2 className="text-4xl md:text-5xl font-bold gradient-text mb-4">About Magverse AI</h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Empowering everyone with access to the world's most advanced AI models
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8 mb-12">
+            <div className="glass-card-hover p-8 rounded-2xl space-y-4">
+              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                <Target className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="text-2xl font-semibold">Our Mission</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                To democratize access to cutting-edge AI technology by providing an affordable, 
+                unified platform where anyone can harness the power of multiple AI models 
+                without breaking the bank.
+              </p>
+            </div>
+
+            <div className="glass-card-hover p-8 rounded-2xl space-y-4">
+              <div className="w-12 h-12 rounded-full bg-secondary/20 flex items-center justify-center">
+                <Rocket className="w-6 h-6 text-secondary" />
+              </div>
+              <h3 className="text-2xl font-semibold">Our Vision</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                To become the world's most accessible AI platform, enabling millions to 
+                leverage artificial intelligence for learning, creativity, productivity, 
+                and innovation.
+              </p>
+            </div>
+          </div>
+
+          <div className="glass-card p-8 rounded-2xl">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
+                <Users className="w-6 h-6 text-accent" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-semibold mb-4">Why Choose Magverse AI?</h3>
+                <div className="grid sm:grid-cols-2 gap-4 text-muted-foreground">
+                  <div className="flex items-start gap-2">
+                    <span className="text-primary">✓</span>
+                    <span>Access to 6 premium AI models in one place</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-primary">✓</span>
+                    <span>Lifetime access for a one-time payment</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-primary">✓</span>
+                    <span>Free daily credits to try before you buy</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-primary">✓</span>
+                    <span>Beautiful, futuristic interface</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-primary">✓</span>
+                    <span>Support for images, PDFs, and documents</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-primary">✓</span>
+                    <span>Chat history and organization</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      {/* Contact Us Section */}
+      <section id="contact" className="container mx-auto px-4 py-20">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12 animate-fade-in">
+            <h2 className="text-4xl md:text-5xl font-bold gradient-text mb-4">Get In Touch</h2>
+            <p className="text-xl text-muted-foreground">
+              Have questions? We'd love to hear from you.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6 mb-12">
+            <a 
+              href="mailto:support@magverse.ai" 
+              className="glass-card-hover p-6 rounded-xl text-center space-y-3 group"
+            >
+              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
+                <Mail className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="font-semibold">Email Us</h3>
+              <p className="text-sm text-muted-foreground">support@magverse.ai</p>
+            </a>
+
+            <a 
+              href="tel:+919876543210" 
+              className="glass-card-hover p-6 rounded-xl text-center space-y-3 group"
+            >
+              <div className="w-12 h-12 rounded-full bg-secondary/20 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
+                <Phone className="w-6 h-6 text-secondary" />
+              </div>
+              <h3 className="font-semibold">Call Us</h3>
+              <p className="text-sm text-muted-foreground">+91 98765 43210</p>
+            </a>
+
+            <div className="glass-card-hover p-6 rounded-xl text-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center mx-auto">
+                <MapPin className="w-6 h-6 text-accent" />
+              </div>
+              <h3 className="font-semibold">Location</h3>
+              <p className="text-sm text-muted-foreground">Mumbai, India</p>
+            </div>
+          </div>
+
+          <div className="glass-card p-8 rounded-2xl">
+            <h3 className="text-2xl font-semibold mb-6 text-center">Send Us a Message</h3>
+            <form className="space-y-4" onSubmit={(e) => {
+              e.preventDefault();
+              alert("Thank you for your message! We will get back to you soon.");
+            }}>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-muted-foreground mb-2 block">Name</label>
+                  <input 
+                    type="text" 
+                    required
+                    className="w-full px-4 py-2 rounded-lg bg-background/50 border border-glass-border focus:border-primary focus:outline-none"
+                    placeholder="Your name"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground mb-2 block">Email</label>
+                  <input 
+                    type="email" 
+                    required
+                    className="w-full px-4 py-2 rounded-lg bg-background/50 border border-glass-border focus:border-primary focus:outline-none"
+                    placeholder="your@email.com"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground mb-2 block">Subject</label>
+                <input 
+                  type="text" 
+                  required
+                  className="w-full px-4 py-2 rounded-lg bg-background/50 border border-glass-border focus:border-primary focus:outline-none"
+                  placeholder="How can we help?"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground mb-2 block">Message</label>
+                <textarea 
+                  required
+                  rows={5}
+                  className="w-full px-4 py-2 rounded-lg bg-background/50 border border-glass-border focus:border-primary focus:outline-none resize-none"
+                  placeholder="Tell us more..."
+                />
+              </div>
+              <Button type="submit" variant="hero" className="w-full">
+                Send Message
+              </Button>
+            </form>
+          </div>
+        </div>
+      </section>
+      
+      {/* Footer */}
+      <footer className="container mx-auto px-4 py-8 border-t border-glass-border">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <img src={magverseLogo} alt="Magverse AI" className="w-8 h-8" />
+            <span className="text-sm text-muted-foreground">© 2025 Magverse AI. All rights reserved.</span>
+          </div>
+          <div className="flex gap-6 text-sm text-muted-foreground">
+            <a href="#about" className="hover:text-primary transition-colors">About</a>
+            <a href="#contact" className="hover:text-primary transition-colors">Contact</a>
+            <Link to="/auth" className="hover:text-primary transition-colors">Login</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };
