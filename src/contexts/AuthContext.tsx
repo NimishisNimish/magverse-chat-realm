@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom';
 
 interface Profile {
   id: string;
-  email: string;
   is_pro: boolean;
   credits_remaining: number;
 }

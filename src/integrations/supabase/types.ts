@@ -83,7 +83,6 @@ export type Database = {
         Row: {
           created_at: string | null
           credits_remaining: number | null
-          email: string
           id: string
           is_pro: boolean | null
           last_credit_reset: string | null
@@ -91,7 +90,6 @@ export type Database = {
         Insert: {
           created_at?: string | null
           credits_remaining?: number | null
-          email: string
           id: string
           is_pro?: boolean | null
           last_credit_reset?: string | null
@@ -99,7 +97,6 @@ export type Database = {
         Update: {
           created_at?: string | null
           credits_remaining?: number | null
-          email?: string
           id?: string
           is_pro?: boolean | null
           last_credit_reset?: string | null

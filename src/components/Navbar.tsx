@@ -51,7 +51,7 @@ const Navbar = () => {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="border-accent/30">
-                    {profile?.email?.substring(0, 20)}
+                    {user.email?.substring(0, 20)}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="glass-card">

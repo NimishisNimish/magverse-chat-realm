@@ -80,7 +80,7 @@ const Upgrade = () => {
           }
         },
         prefill: {
-          email: profile?.email,
+          email: user.email,
         },
         theme: {
           color: "#3b82f6",
