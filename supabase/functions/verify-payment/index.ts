@@ -7,6 +7,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const ERROR_MESSAGES = {
+  AUTH_REQUIRED: 'Authentication required',
+  FORBIDDEN: 'Access denied',
+  INVALID_REQUEST: 'Invalid request',
+  SERVER_ERROR: 'An error occurred processing your request',
+};
+
 const razorpayKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET')!;
 
 serve(async (req) => {
@@ -19,7 +26,10 @@ serve(async (req) => {
     
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
-      throw new Error('No authorization header');
+      return new Response(
+        JSON.stringify({ error: ERROR_MESSAGES.AUTH_REQUIRED }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -30,7 +40,11 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
     if (userError || !user) {
-      throw new Error('Unauthorized');
+      console.error('Authentication error:', userError);
+      return new Response(
+        JSON.stringify({ error: ERROR_MESSAGES.AUTH_REQUIRED }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Verify signature
@@ -40,10 +54,16 @@ serve(async (req) => {
       .digest("hex");
 
     if (expectedSignature !== razorpay_signature) {
-      throw new Error('Invalid signature');
+      console.error('Invalid Razorpay signature');
+      return new Response(
+        JSON.stringify({ error: ERROR_MESSAGES.INVALID_REQUEST }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Update transaction status
+    // Note: Using service role key to bypass RLS - transactions should only be
+    // updated by server-side functions, never by client-side user actions
     await supabase
       .from('transactions')
       .update({
@@ -69,7 +89,7 @@ serve(async (req) => {
   } catch (error: any) {
     console.error('Error verifying payment:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: ERROR_MESSAGES.SERVER_ERROR }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

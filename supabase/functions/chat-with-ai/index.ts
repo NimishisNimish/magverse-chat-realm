@@ -8,6 +8,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const ERROR_MESSAGES = {
+  AUTH_REQUIRED: 'Authentication required',
+  INVALID_REQUEST: 'Invalid request',
+  SERVER_ERROR: 'An error occurred processing your request',
+};
+
 const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -65,13 +71,7 @@ serve(async (req) => {
     if (!validationResult.success) {
       console.error('Validation error:', validationResult.error.errors);
       return new Response(
-        JSON.stringify({ 
-          error: 'Invalid request parameters', 
-          details: validationResult.error.errors.map(e => ({
-            field: e.path.join('.'),
-            message: e.message
-          }))
-        }),
+        JSON.stringify({ error: ERROR_MESSAGES.INVALID_REQUEST }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -81,7 +81,7 @@ serve(async (req) => {
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'Authentication required' }),
+        JSON.stringify({ error: ERROR_MESSAGES.AUTH_REQUIRED }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -93,7 +93,7 @@ serve(async (req) => {
     if (userError || !user) {
       console.error('Auth error:', userError);
       return new Response(
-        JSON.stringify({ error: 'Authentication failed' }),
+        JSON.stringify({ error: ERROR_MESSAGES.AUTH_REQUIRED }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -109,10 +109,7 @@ serve(async (req) => {
     if (count && count >= RATE_LIMIT_REQUESTS) {
       console.log(`Rate limit exceeded for user ${user.id}: ${count} requests`);
       return new Response(
-        JSON.stringify({ 
-          error: 'Rate limit exceeded',
-          message: `Maximum ${RATE_LIMIT_REQUESTS} requests per minute. Please try again later.`
-        }),
+        JSON.stringify({ error: 'Too many requests. Please try again later.' }),
         { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -127,17 +124,14 @@ serve(async (req) => {
         
         if (fileSize > MAX_FILE_SIZE) {
           return new Response(
-            JSON.stringify({ 
-              error: 'File too large',
-              message: `Maximum file size is ${MAX_FILE_SIZE / 1_000_000}MB`
-            }),
+            JSON.stringify({ error: ERROR_MESSAGES.INVALID_REQUEST }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
       } catch (error) {
         console.error('Error checking file size:', error);
         return new Response(
-          JSON.stringify({ error: 'Unable to process attachment' }),
+          JSON.stringify({ error: ERROR_MESSAGES.INVALID_REQUEST }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -194,7 +188,7 @@ serve(async (req) => {
 
     if (!profile?.is_pro && (!profile?.credits_remaining || profile.credits_remaining <= 0)) {
       return new Response(
-        JSON.stringify({ error: 'No credits remaining. Please upgrade to Pro.' }),
+        JSON.stringify({ error: 'Insufficient credits. Please upgrade to continue.' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -300,12 +294,8 @@ serve(async (req) => {
     );
   } catch (error: any) {
     console.error('Error in chat-with-ai function:', error);
-    // Return generic error message to client, log details server-side
     return new Response(
-      JSON.stringify({ 
-        error: 'An error occurred processing your request',
-        message: 'Please try again or contact support if the issue persists'
-      }),
+      JSON.stringify({ error: ERROR_MESSAGES.SERVER_ERROR }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

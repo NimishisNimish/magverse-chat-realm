@@ -6,6 +6,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const ERROR_MESSAGES = {
+  AUTH_REQUIRED: 'Authentication required',
+  SERVER_ERROR: 'An error occurred processing your request',
+};
+
 // Hardcoded price - never trust client input for payment amounts
 const PRO_SUBSCRIPTION_PRICE = 199; // INR
 
@@ -22,7 +27,10 @@ serve(async (req) => {
     
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
-      throw new Error('No authorization header');
+      return new Response(
+        JSON.stringify({ error: ERROR_MESSAGES.AUTH_REQUIRED }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -33,7 +41,11 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
     if (userError || !user) {
-      throw new Error('Unauthorized');
+      console.error('Authentication error:', userError);
+      return new Response(
+        JSON.stringify({ error: ERROR_MESSAGES.AUTH_REQUIRED }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const response = await fetch('https://api.razorpay.com/v1/orders', {
@@ -66,7 +78,7 @@ serve(async (req) => {
   } catch (error: any) {
     console.error('Error creating payment order:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: ERROR_MESSAGES.SERVER_ERROR }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
