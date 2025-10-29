@@ -14,12 +14,14 @@ import {
   Star,
   Circle,
   Upload,
-  X
+  X,
+  History as HistoryIcon
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { Link, useSearchParams } from "react-router-dom";
 
 const aiModels = [
   { id: "chatgpt", name: "ChatGPT", icon: Bot, color: "text-primary" },
@@ -50,6 +52,34 @@ const Chat = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user, profile, refreshProfile } = useAuth();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const chatId = searchParams.get('id');
+    if (chatId && user) {
+      loadChatMessages(chatId);
+    }
+  }, [searchParams, user]);
+
+  const loadChatMessages = async (chatId: string) => {
+    setCurrentChatId(chatId);
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('chat_id', chatId)
+      .order('created_at', { ascending: true });
+
+    if (!error && data) {
+      const loadedMessages: Message[] = data.map(msg => ({
+        id: msg.id,
+        model: msg.model || 'AI',
+        content: msg.content,
+        timestamp: new Date(msg.created_at),
+        role: msg.role as 'user' | 'assistant',
+      }));
+      setMessages(loadedMessages);
+    }
+  };
 
   const toggleModel = (modelId: string) => {
     setSelectedModels(prev => 
@@ -94,6 +124,9 @@ const Chat = () => {
       });
     } finally {
       setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -237,6 +270,13 @@ const Chat = () => {
                 </p>
               )}
             </div>
+
+            <Link to="/history">
+              <Button variant="glass" className="w-full justify-start gap-3">
+                <HistoryIcon className="w-5 h-5" />
+                Chat History
+              </Button>
+            </Link>
           </div>
         </aside>
         
@@ -343,9 +383,15 @@ const Chat = () => {
                   size="icon" 
                   className="shrink-0"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
+                  disabled={uploadStatus === 'uploading'}
                 >
-                  {uploading ? <Upload className="w-5 h-5 animate-pulse text-accent" /> : <Paperclip className="w-5 h-5" />}
+                  {uploadStatus === 'uploading' ? (
+                    <Upload className="w-5 h-5 animate-spin text-accent" />
+                  ) : uploadStatus === 'success' ? (
+                    <Paperclip className="w-5 h-5 text-green-500" />
+                  ) : (
+                    <Paperclip className="w-5 h-5" />
+                  )}
                 </Button>
                 <Input
                   value={input}
