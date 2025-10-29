@@ -13,7 +13,8 @@ import {
   Zap,
   Star,
   Circle,
-  Upload
+  Upload,
+  X
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
@@ -45,6 +46,7 @@ const Chat = () => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user, profile, refreshProfile } = useAuth();
@@ -62,6 +64,7 @@ const Chat = () => {
     if (!file || !user) return;
 
     setUploading(true);
+    setUploadStatus('uploading');
     try {
       const fileExt = file.name.split('.').pop();
       const filePath = `${user.id}/${Date.now()}.${fileExt}`;
@@ -77,11 +80,13 @@ const Chat = () => {
         .getPublicUrl(filePath);
 
       setAttachmentUrl(publicUrl);
+      setUploadStatus('success');
       toast({
-        title: "File uploaded",
-        description: "Your file has been attached to the message.",
+        title: "File uploaded successfully",
+        description: "Your file is ready to send.",
       });
     } catch (error: any) {
+      setUploadStatus('error');
       toast({
         title: "Upload failed",
         description: error.message,
@@ -117,6 +122,10 @@ const Chat = () => {
     setInput("");
 
     try {
+      const messageContent = attachmentUrl 
+        ? `${input}\n\n[Attached file: ${attachmentUrl}]`
+        : input;
+
       const { data, error } = await supabase.functions.invoke('chat-with-ai', {
         body: {
           messages: [
@@ -124,10 +133,11 @@ const Chat = () => {
               role: m.role,
               content: m.content,
             })),
-            { role: 'user', content: input }
+            { role: 'user', content: messageContent }
           ],
           selectedModels,
           chatId: currentChatId,
+          attachmentUrl: attachmentUrl,
         },
       });
 
@@ -157,6 +167,7 @@ const Chat = () => {
     } finally {
       setLoading(false);
       setAttachmentUrl(null);
+      setUploadStatus('idle');
     }
   };
 
@@ -283,6 +294,42 @@ const Chat = () => {
           {/* Input Area */}
           <div className="border-t border-glass-border glass-card p-6">
             <div className="max-w-4xl mx-auto">
+              {attachmentUrl && (
+                <div className="glass-card p-3 rounded-lg border border-accent/30 flex items-center gap-3 mb-3 animate-fade-in">
+                  {attachmentUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                    <img 
+                      src={attachmentUrl} 
+                      alt="attachment preview" 
+                      className="w-16 h-16 rounded object-cover border border-glass-border" 
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded bg-accent/20 flex items-center justify-center border border-glass-border">
+                      <Paperclip className="w-8 h-8 text-accent" />
+                    </div>
+                  )}
+                  
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{attachmentUrl.split('/').pop()}</p>
+                    <p className="text-xs text-accent flex items-center gap-1">
+                      <Circle className="w-1.5 h-1.5 fill-accent" />
+                      Ready to send
+                    </p>
+                  </div>
+                  
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => {
+                      setAttachmentUrl(null);
+                      setUploadStatus('idle');
+                    }}
+                    className="shrink-0 hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+
               <div className="flex gap-3">
                 <input
                   ref={fileInputRef}
@@ -298,7 +345,7 @@ const Chat = () => {
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
                 >
-                  {uploading ? <Upload className="w-5 h-5 animate-pulse" /> : <Paperclip className="w-5 h-5" />}
+                  {uploading ? <Upload className="w-5 h-5 animate-pulse text-accent" /> : <Paperclip className="w-5 h-5" />}
                 </Button>
                 <Input
                   value={input}
@@ -318,11 +365,6 @@ const Chat = () => {
                   <Send className="w-5 h-5" />
                 </Button>
               </div>
-              {attachmentUrl && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  File attached: {attachmentUrl.split('/').pop()}
-                </p>
-              )}
               {!profile?.is_pro && (!profile?.credits_remaining || profile.credits_remaining <= 0) && (
                 <p className="text-sm text-destructive mt-2 text-center">
                   Daily limit reached. Upgrade to Pro for unlimited access.

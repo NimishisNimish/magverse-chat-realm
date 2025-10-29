@@ -26,7 +26,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, selectedModels, chatId } = await req.json();
+    const { messages, selectedModels, chatId, attachmentUrl } = await req.json();
     
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
@@ -66,12 +66,13 @@ serve(async (req) => {
       currentChatId = newChat?.id;
     }
 
-    // Save user message
+    // Save user message with attachment
     await supabase.from('chat_messages').insert({
       chat_id: currentChatId,
       user_id: user.id,
       role: 'user',
       content: messages[messages.length - 1].content,
+      attachment_url: attachmentUrl || null,
     });
 
     const responses = [];
