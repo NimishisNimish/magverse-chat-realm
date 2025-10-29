@@ -2,8 +2,11 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Zap, Shield, Infinity } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Home = () => {
+  const { user, profile } = useAuth();
+  
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -39,12 +42,14 @@ const Home = () => {
                 Start Chatting
               </Button>
             </Link>
-            <Link to="/upgrade">
-              <Button variant="glass" size="lg" className="w-full sm:w-auto text-lg px-8">
-                <Infinity className="w-5 h-5" />
-                Upgrade to Pro
-              </Button>
-            </Link>
+            {(!user || !profile?.is_pro) && (
+              <Link to="/upgrade">
+                <Button variant="glass" size="lg" className="w-full sm:w-auto text-lg px-8">
+                  <Infinity className="w-5 h-5" />
+                  Upgrade to Pro
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </section>
