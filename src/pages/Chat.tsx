@@ -95,20 +95,38 @@ const Chat = () => {
 
     setUploading(true);
     setUploadStatus('uploading');
+    
+    const uploadTimeout = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Upload timeout - file took too long to upload')), 30000);
+    });
+
     try {
       const fileExt = file.name.split('.').pop();
       const filePath = `${user.id}/${Date.now()}.${fileExt}`;
       
-      const { error: uploadError } = await supabase.storage
+      const uploadPromise = supabase.storage
         .from('chat-attachments')
         .upload(filePath, file);
+      
+      const { error: uploadError } = await Promise.race([
+        uploadPromise,
+        uploadTimeout
+      ]) as any;
 
       if (uploadError) throw uploadError;
 
-      // Generate signed URL with 1 hour expiration for security
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+      const signedUrlTimeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout generating signed URL')), 10000);
+      });
+
+      const signedUrlPromise = supabase.storage
         .from('chat-attachments')
         .createSignedUrl(filePath, 3600);
+
+      const { data: signedUrlData, error: signedUrlError } = await Promise.race([
+        signedUrlPromise,
+        signedUrlTimeout
+      ]) as any;
 
       if (signedUrlError) throw signedUrlError;
 
@@ -122,9 +140,10 @@ const Chat = () => {
       setUploadStatus('error');
       toast({
         title: "Upload failed",
-        description: error.message,
+        description: error.message || "File upload failed. Please try again.",
         variant: "destructive",
       });
+      setAttachmentUrl(null);
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -157,25 +176,32 @@ const Chat = () => {
     setMessages(prev => [...prev, userMessage]);
     setInput("");
 
+    const timeout = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Request timeout - AI took too long to respond')), 90000);
+    });
+
     try {
       const messageContent = attachmentUrl 
         ? `${input}\n\n[Attached file: ${attachmentUrl}]`
         : input;
 
-      const { data, error } = await supabase.functions.invoke('chat-with-ai', {
-        body: {
-          messages: [
-            ...messages.map(m => ({
-              role: m.role,
-              content: m.content,
-            })),
-            { role: 'user', content: messageContent }
-          ],
-          selectedModels,
-          ...(currentChatId && { chatId: currentChatId }),
-          ...(attachmentUrl && { attachmentUrl: attachmentUrl }),
-        },
-      });
+      const { data, error } = await Promise.race([
+        supabase.functions.invoke('chat-with-ai', {
+          body: {
+            messages: [
+              ...messages.map(m => ({
+                role: m.role,
+                content: m.content,
+              })),
+              { role: 'user', content: messageContent }
+            ],
+            selectedModels,
+            ...(currentChatId && { chatId: currentChatId }),
+            ...(attachmentUrl && { attachmentUrl: attachmentUrl }),
+          },
+        }),
+        timeout
+      ]) as any;
 
       if (error) throw error;
 
@@ -197,9 +223,11 @@ const Chat = () => {
       console.error('Chat error:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to get AI response",
+        description: error.message || "Failed to get AI response. Please try again.",
         variant: "destructive",
       });
+      
+      setMessages(prev => prev.slice(0, -1));
     } finally {
       setLoading(false);
       setAttachmentUrl(null);
@@ -327,7 +355,14 @@ const Chat = () => {
                 ))}
                 {loading && (
                   <div className="glass-card p-6 rounded-xl animate-pulse">
-                    <p className="text-muted-foreground">AI is thinking...</p>
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-accent rounded-full animate-bounce" />
+                      <div className="w-2 h-2 bg-accent rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                      <div className="w-2 h-2 bg-accent rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+                      <p className="text-muted-foreground ml-2">
+                        AI is thinking... (this may take up to 60 seconds)
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -386,9 +421,9 @@ const Chat = () => {
                   size="icon" 
                   className="shrink-0"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadStatus === 'uploading'}
+                  disabled={uploading || loading}
                 >
-                  {uploadStatus === 'uploading' ? (
+                  {uploading ? (
                     <Upload className="w-5 h-5 animate-spin text-accent" />
                   ) : uploadStatus === 'success' ? (
                     <Paperclip className="w-5 h-5 text-green-500" />

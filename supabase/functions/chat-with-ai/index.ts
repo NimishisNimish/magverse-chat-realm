@@ -25,6 +25,7 @@ const MAX_MESSAGE_LENGTH = 10000;
 const MAX_MODELS_PER_REQUEST = 3;
 const RATE_LIMIT_REQUESTS = 10;
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
+const OPENROUTER_TIMEOUT_MS = 60000; // 60 seconds
 
 const modelMapping: Record<string, string> = {
   chatgpt: 'openai/gpt-4o',
@@ -246,41 +247,58 @@ serve(async (req) => {
         ];
       }
 
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openRouterApiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://magverse.ai',
-          'X-Title': 'Magverse AI',
-        },
-        body: JSON.stringify({
-          model: modelName,
-          messages: finalMessages,
-        }),
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), OPENROUTER_TIMEOUT_MS);
 
-      if (!response.ok) {
-        console.error(`Error from ${modelId}:`, await response.text());
+      try {
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openRouterApiKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://magverse.ai',
+            'X-Title': 'Magverse AI',
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages: finalMessages,
+          }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          console.error(`Error from ${modelId}:`, await response.text());
+          continue;
+        }
+
+        const data = await response.json();
+        const content = data.choices[0]?.message?.content || 'No response';
+
+        // Save AI response
+        await supabase.from('chat_messages').insert({
+          chat_id: currentChatId,
+          user_id: user.id,
+          model: modelId,
+          role: 'assistant',
+          content: content,
+        });
+
+        responses.push({
+          model: modelId,
+          content: content,
+        });
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          console.error(`Timeout for model ${modelId} after ${OPENROUTER_TIMEOUT_MS}ms`);
+          // Continue to next model instead of failing entirely
+          continue;
+        }
+        console.error(`Fetch error for ${modelId}:`, fetchError);
         continue;
       }
-
-      const data = await response.json();
-      const content = data.choices[0]?.message?.content || 'No response';
-
-      // Save AI response
-      await supabase.from('chat_messages').insert({
-        chat_id: currentChatId,
-        user_id: user.id,
-        model: modelId,
-        role: 'assistant',
-        content: content,
-      });
-
-      responses.push({
-        model: modelId,
-        content: content,
-      });
     }
 
     // Deduct credit for free users
