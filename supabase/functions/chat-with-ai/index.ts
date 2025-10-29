@@ -70,7 +70,8 @@ serve(async (req) => {
     const validationResult = chatRequestSchema.safeParse(requestBody);
     
     if (!validationResult.success) {
-      console.error('Validation error:', validationResult.error.errors);
+      console.error('Validation error details:', JSON.stringify(validationResult.error.errors, null, 2));
+      console.error('Request body received:', JSON.stringify(requestBody, null, 2));
       return new Response(
         JSON.stringify({ error: ERROR_MESSAGES.INVALID_REQUEST }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

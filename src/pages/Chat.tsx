@@ -82,11 +82,24 @@ const Chat = () => {
   };
 
   const toggleModel = (modelId: string) => {
-    setSelectedModels(prev => 
-      prev.includes(modelId) 
-        ? prev.filter(id => id !== modelId)
-        : [...prev, modelId]
-    );
+    setSelectedModels(prev => {
+      if (prev.includes(modelId)) {
+        // Allow deselection
+        return prev.filter(id => id !== modelId);
+      } else {
+        // Check if already at max limit
+        if (prev.length >= 3) {
+          toast({
+            title: "Maximum models reached",
+            description: "You can select up to 3 AI models at a time.",
+            variant: "destructive",
+          });
+          return prev;
+        }
+        // Allow selection
+        return [...prev, modelId];
+      }
+    });
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -257,7 +270,7 @@ const Chat = () => {
           <div className="space-y-4">
             <div className="space-y-2">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                AI Models
+                AI Models ({selectedModels.length}/3)
               </h3>
               <div className="space-y-2">
                 {aiModels.map(model => {
