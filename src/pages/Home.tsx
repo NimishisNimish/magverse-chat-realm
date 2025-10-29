@@ -182,25 +182,25 @@ const Home = () => {
 
           <div className="grid md:grid-cols-3 gap-6 mb-12">
             <a 
-              href="mailto:support@magverse.ai" 
+              href="mailto:magverse4@gmail.com" 
               className="glass-card-hover p-6 rounded-xl text-center space-y-3 group"
             >
               <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
                 <Mail className="w-6 h-6 text-primary" />
               </div>
               <h3 className="font-semibold">Email Us</h3>
-              <p className="text-sm text-muted-foreground">support@magverse.ai</p>
+              <p className="text-sm text-muted-foreground">magverse4@gmail.com</p>
             </a>
 
             <a 
-              href="tel:+919876543210" 
+              href="tel:+919872021777" 
               className="glass-card-hover p-6 rounded-xl text-center space-y-3 group"
             >
               <div className="w-12 h-12 rounded-full bg-secondary/20 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
                 <Phone className="w-6 h-6 text-secondary" />
               </div>
               <h3 className="font-semibold">Call Us</h3>
-              <p className="text-sm text-muted-foreground">+91 98765 43210</p>
+              <p className="text-sm text-muted-foreground">+91 9872021777</p>
             </a>
 
             <div className="glass-card-hover p-6 rounded-xl text-center space-y-3">
@@ -208,7 +208,7 @@ const Home = () => {
                 <MapPin className="w-6 h-6 text-accent" />
               </div>
               <h3 className="font-semibold">Location</h3>
-              <p className="text-sm text-muted-foreground">Mumbai, India</p>
+              <p className="text-sm text-muted-foreground">Chitkara University, Rajpura</p>
             </div>
           </div>
 
