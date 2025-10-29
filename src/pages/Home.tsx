@@ -83,21 +83,6 @@ const Home = () => {
           </div>
         </div>
       </section>
-      
-      {/* Demo Video Placeholder */}
-      <section className="container mx-auto px-4 py-20">
-        <div className="max-w-4xl mx-auto">
-          <div className="glass-card rounded-2xl p-8 text-center space-y-4">
-            <h2 className="text-3xl font-bold gradient-text">See Magverse AI in Action</h2>
-            <div className="aspect-video bg-muted/20 rounded-xl flex items-center justify-center border border-accent/20">
-              <div className="text-center space-y-2">
-                <Sparkles className="w-16 h-16 text-primary mx-auto animate-glow-pulse" />
-                <p className="text-muted-foreground">Demo Video Coming Soon</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
     </div>
   );
 };

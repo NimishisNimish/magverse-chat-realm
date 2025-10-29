@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -12,10 +12,13 @@ import {
   Cpu,
   Zap,
   Star,
-  Circle
+  Circle,
+  Upload
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 const aiModels = [
   { id: "chatgpt", name: "ChatGPT", icon: Bot, color: "text-primary" },
@@ -31,15 +34,20 @@ interface Message {
   model: string;
   content: string;
   timestamp: Date;
+  role: 'user' | 'assistant';
 }
 
 const Chat = () => {
   const [selectedModels, setSelectedModels] = useState<string[]>(["chatgpt"]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [credits, setCredits] = useState(10);
-  const [isPro, setIsPro] = useState(false);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { user, profile, refreshProfile } = useAuth();
 
   const toggleModel = (modelId: string) => {
     setSelectedModels(prev => 
@@ -49,10 +57,45 @@ const Chat = () => {
     );
   };
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user.id}/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('chat-attachments')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('chat-attachments')
+        .getPublicUrl(filePath);
+
+      setAttachmentUrl(publicUrl);
+      toast({
+        title: "File uploaded",
+        description: "Your file has been attached to the message.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSend = async () => {
+    if (!input.trim() || !user || loading) return;
     
-    if (!isPro && credits <= 0) {
+    if (!profile?.is_pro && (!profile?.credits_remaining || profile.credits_remaining <= 0)) {
       toast({
         title: "Daily limit reached",
         description: "Upgrade to Pro for unlimited access.",
@@ -61,25 +104,60 @@ const Chat = () => {
       return;
     }
 
-    // Simulate AI responses
-    selectedModels.forEach(modelId => {
-      const model = aiModels.find(m => m.id === modelId);
-      if (model) {
-        const newMessage: Message = {
-          id: `${Date.now()}-${modelId}`,
-          model: model.name,
-          content: `This is a simulated response from ${model.name}. In production, this would use the OpenRouter API to generate actual AI responses based on your message: "${input}"`,
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, newMessage]);
-      }
-    });
-
-    if (!isPro) {
-      setCredits(prev => Math.max(0, prev - 1));
-    }
+    setLoading(true);
+    const userMessage: Message = {
+      id: `user-${Date.now()}`,
+      model: 'user',
+      content: input,
+      timestamp: new Date(),
+      role: 'user',
+    };
     
+    setMessages(prev => [...prev, userMessage]);
     setInput("");
+
+    try {
+      const { data, error } = await supabase.functions.invoke('chat-with-ai', {
+        body: {
+          messages: [
+            ...messages.map(m => ({
+              role: m.role,
+              content: m.content,
+            })),
+            { role: 'user', content: input }
+          ],
+          selectedModels,
+          chatId: currentChatId,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.chatId && !currentChatId) {
+        setCurrentChatId(data.chatId);
+      }
+
+      const aiMessages: Message[] = data.responses.map((response: any) => ({
+        id: `${Date.now()}-${response.model}`,
+        model: aiModels.find(m => m.id === response.model)?.name || response.model,
+        content: response.content,
+        timestamp: new Date(),
+        role: 'assistant' as const,
+      }));
+
+      setMessages(prev => [...prev, ...aiMessages]);
+      await refreshProfile();
+    } catch (error: any) {
+      console.error('Chat error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to get AI response",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      setAttachmentUrl(null);
+    }
   };
 
   return (
@@ -92,7 +170,10 @@ const Chat = () => {
           <Button 
             variant="hero" 
             className="w-full justify-start"
-            onClick={() => setMessages([])}
+            onClick={() => {
+              setMessages([]);
+              setCurrentChatId(null);
+            }}
           >
             <MessageSquarePlus className="w-5 h-5" />
             New Chat
@@ -133,24 +214,17 @@ const Chat = () => {
             <div className="glass-card p-4 rounded-lg space-y-2 border-accent/30">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Credits</span>
-                <span className={`text-lg font-bold ${isPro ? 'text-accent' : 'text-primary'}`}>
-                  {isPro ? '∞' : credits}
+                <span className={`text-lg font-bold ${profile?.is_pro ? 'text-accent' : 'text-primary'}`}>
+                  {profile?.is_pro ? '∞' : profile?.credits_remaining || 0}
                 </span>
               </div>
-              {!isPro && (
+              {!profile?.is_pro && (
                 <p className="text-xs text-muted-foreground">
-                  {credits > 0 ? `${credits} chats remaining today` : 'No credits left today'}
+                  {(profile?.credits_remaining || 0) > 0 
+                    ? `${profile?.credits_remaining} chats remaining today` 
+                    : 'No credits left today'}
                 </p>
               )}
-            </div>
-            
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                History
-              </h3>
-              <div className="text-sm text-muted-foreground">
-                No previous chats
-              </div>
             </div>
           </div>
         </aside>
@@ -173,19 +247,35 @@ const Chat = () => {
             ) : (
               <div className="max-w-4xl mx-auto space-y-6">
                 {messages.map(message => (
-                  <div key={message.id} className="glass-card-hover p-6 rounded-xl space-y-3 animate-fade-in">
+                  <div 
+                    key={message.id} 
+                    className={`glass-card-hover p-6 rounded-xl space-y-3 animate-fade-in ${
+                      message.role === 'user' ? 'bg-accent/5' : ''
+                    }`}
+                  >
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center">
-                        <Bot className="w-4 h-4 text-accent" />
+                      <div className={`w-6 h-6 rounded-full ${
+                        message.role === 'user' ? 'bg-primary/20' : 'bg-accent/20'
+                      } flex items-center justify-center`}>
+                        <Bot className={`w-4 h-4 ${
+                          message.role === 'user' ? 'text-primary' : 'text-accent'
+                        }`} />
                       </div>
-                      <span className="font-semibold text-sm">{message.model}</span>
+                      <span className="font-semibold text-sm">
+                        {message.role === 'user' ? 'You' : message.model}
+                      </span>
                       <span className="text-xs text-muted-foreground ml-auto">
                         {message.timestamp.toLocaleTimeString()}
                       </span>
                     </div>
-                    <p className="text-foreground leading-relaxed">{message.content}</p>
+                    <p className="text-foreground leading-relaxed whitespace-pre-wrap">{message.content}</p>
                   </div>
                 ))}
+                {loading && (
+                  <div className="glass-card p-6 rounded-xl animate-pulse">
+                    <p className="text-muted-foreground">AI is thinking...</p>
+                  </div>
+                )}
               </div>
             )}
           </ScrollArea>
@@ -194,28 +284,46 @@ const Chat = () => {
           <div className="border-t border-glass-border glass-card p-6">
             <div className="max-w-4xl mx-auto">
               <div className="flex gap-3">
-                <Button variant="ghost" size="icon" className="shrink-0">
-                  <Paperclip className="w-5 h-5" />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                  accept="image/*,.pdf,.txt"
+                />
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="shrink-0"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                >
+                  {uploading ? <Upload className="w-5 h-5 animate-pulse" /> : <Paperclip className="w-5 h-5" />}
                 </Button>
                 <Input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                   placeholder="Type your message..."
                   className="glass-card border-accent/30 focus:border-accent"
-                  disabled={!isPro && credits <= 0}
+                  disabled={loading || (!profile?.is_pro && (!profile?.credits_remaining || profile.credits_remaining <= 0))}
                 />
                 <Button 
                   variant="hero" 
                   size="icon" 
                   className="shrink-0"
                   onClick={handleSend}
-                  disabled={!input.trim() || (!isPro && credits <= 0)}
+                  disabled={!input.trim() || loading || (!profile?.is_pro && (!profile?.credits_remaining || profile.credits_remaining <= 0))}
                 >
                   <Send className="w-5 h-5" />
                 </Button>
               </div>
-              {!isPro && credits <= 0 && (
+              {attachmentUrl && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  File attached: {attachmentUrl.split('/').pop()}
+                </p>
+              )}
+              {!profile?.is_pro && (!profile?.credits_remaining || profile.credits_remaining <= 0) && (
                 <p className="text-sm text-destructive mt-2 text-center">
                   Daily limit reached. Upgrade to Pro for unlimited access.
                 </p>
