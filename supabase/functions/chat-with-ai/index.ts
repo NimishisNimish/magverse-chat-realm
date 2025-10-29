@@ -41,6 +41,52 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
+    // Process attachment if present
+    let processedMessages = [...messages];
+    if (attachmentUrl) {
+      const fileExtension = attachmentUrl.split('.').pop()?.toLowerCase();
+      const lastMessage = processedMessages[processedMessages.length - 1];
+      
+      if (fileExtension === 'pdf') {
+        // For PDFs, add a note to the message
+        processedMessages[processedMessages.length - 1] = {
+          ...lastMessage,
+          content: `${lastMessage.content}\n\n[I have uploaded a PDF document: ${attachmentUrl}]\nPlease help me analyze this document. Ask me to describe specific sections if needed.`
+        };
+      } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension || '')) {
+        // For images with vision models, use proper format
+        processedMessages[processedMessages.length - 1] = {
+          role: 'user',
+          content: [
+            { type: 'text', text: lastMessage.content },
+            { type: 'image_url', image_url: { url: attachmentUrl } }
+          ]
+        };
+      } else if (['txt', 'md', 'json', 'csv'].includes(fileExtension || '')) {
+        // For text files, try to fetch content
+        try {
+          const fileResponse = await fetch(attachmentUrl);
+          const fileContent = await fileResponse.text();
+          processedMessages[processedMessages.length - 1] = {
+            ...lastMessage,
+            content: `${lastMessage.content}\n\nFile content:\n\`\`\`\n${fileContent.slice(0, 5000)}\n\`\`\``
+          };
+        } catch (error) {
+          console.error('Error fetching file content:', error);
+          processedMessages[processedMessages.length - 1] = {
+            ...lastMessage,
+            content: `${lastMessage.content}\n\n[File attached: ${attachmentUrl}]`
+          };
+        }
+      } else {
+        // For other file types
+        processedMessages[processedMessages.length - 1] = {
+          ...lastMessage,
+          content: `${lastMessage.content}\n\n[File attached: ${attachmentUrl}]`
+        };
+      }
+    }
+
     // Check credits
     const { data: profile } = await supabase
       .from('profiles')
@@ -80,6 +126,24 @@ serve(async (req) => {
     for (const modelId of selectedModels) {
       const modelName = modelMapping[modelId] || modelMapping.chatgpt;
 
+      // Check if model supports vision
+      const visionModels = ['chatgpt', 'claude', 'gemini'];
+      const supportsVision = visionModels.includes(modelId);
+      
+      // Use appropriate messages based on vision support
+      let finalMessages = processedMessages;
+      if (!supportsVision && attachmentUrl?.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+        // For non-vision models with images, convert to text message
+        const lastMsg = messages[messages.length - 1];
+        finalMessages = [
+          ...messages.slice(0, -1),
+          {
+            role: 'user',
+            content: `${lastMsg.content}\n\n[Image attached: ${attachmentUrl}]\nNote: Please ask me to describe the image as this model cannot view it directly.`
+          }
+        ];
+      }
+
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -90,7 +154,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           model: modelName,
-          messages: messages,
+          messages: finalMessages,
         }),
       });
 
