@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.77.0';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,6 +12,14 @@ const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+const VALID_MODELS = ['chatgpt', 'gemini', 'claude', 'llama', 'mistral', 'grok'] as const;
+const STORAGE_BUCKET_URL = 'https://pqdgpxetysqcdcjwormb.supabase.co/storage/';
+const MAX_FILE_SIZE = 10_000_000; // 10MB
+const MAX_MESSAGE_LENGTH = 10000;
+const MAX_MODELS_PER_REQUEST = 3;
+const RATE_LIMIT_REQUESTS = 10;
+const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
+
 const modelMapping: Record<string, string> = {
   chatgpt: 'openai/gpt-4o',
   gemini: 'google/gemini-pro',
@@ -20,17 +29,61 @@ const modelMapping: Record<string, string> = {
   grok: 'x-ai/grok-2-1212',
 };
 
+// Validation schema
+const chatRequestSchema = z.object({
+  messages: z.array(z.object({
+    role: z.enum(['user', 'assistant', 'system']),
+    content: z.union([
+      z.string().max(MAX_MESSAGE_LENGTH, 'Message too long (max 10,000 characters)'),
+      z.array(z.any()) // Allow array for vision models with image content
+    ])
+  })).min(1, 'At least one message required').max(100, 'Too many messages'),
+  
+  selectedModels: z.array(
+    z.enum(VALID_MODELS)
+  ).min(1, 'Select at least one model')
+   .max(MAX_MODELS_PER_REQUEST, `Maximum ${MAX_MODELS_PER_REQUEST} models per request`),
+  
+  chatId: z.string().uuid().optional(),
+  
+  attachmentUrl: z.string().url().optional().refine(
+    (url) => !url || url.startsWith(STORAGE_BUCKET_URL),
+    'Attachment must be from your storage bucket'
+  )
+});
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { messages, selectedModels, chatId, attachmentUrl } = await req.json();
+    // Parse and validate request body
+    const requestBody = await req.json();
+    const validationResult = chatRequestSchema.safeParse(requestBody);
+    
+    if (!validationResult.success) {
+      console.error('Validation error:', validationResult.error.errors);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid request parameters', 
+          details: validationResult.error.errors.map(e => ({
+            field: e.path.join('.'),
+            message: e.message
+          }))
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { messages, selectedModels, chatId, attachmentUrl } = validationResult.data;
     
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
-      throw new Error('No authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -38,12 +91,57 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
     if (userError || !user) {
-      throw new Error('Unauthorized');
+      console.error('Auth error:', userError);
+      return new Response(
+        JSON.stringify({ error: 'Authentication failed' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Process attachment if present
+    // Rate limiting check
+    const rateLimitStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
+    const { count } = await supabase
+      .from('chat_messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .gte('created_at', rateLimitStart);
+
+    if (count && count >= RATE_LIMIT_REQUESTS) {
+      console.log(`Rate limit exceeded for user ${user.id}: ${count} requests`);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Rate limit exceeded',
+          message: `Maximum ${RATE_LIMIT_REQUESTS} requests per minute. Please try again later.`
+        }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Process attachment if present with size validation
     let processedMessages = [...messages];
     if (attachmentUrl) {
+      // Validate file size before processing
+      try {
+        const headResponse = await fetch(attachmentUrl, { method: 'HEAD' });
+        const fileSize = parseInt(headResponse.headers.get('content-length') || '0');
+        
+        if (fileSize > MAX_FILE_SIZE) {
+          return new Response(
+            JSON.stringify({ 
+              error: 'File too large',
+              message: `Maximum file size is ${MAX_FILE_SIZE / 1_000_000}MB`
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (error) {
+        console.error('Error checking file size:', error);
+        return new Response(
+          JSON.stringify({ error: 'Unable to process attachment' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       const fileExtension = attachmentUrl.split('.').pop()?.toLowerCase();
       const lastMessage = processedMessages[processedMessages.length - 1];
       
@@ -104,20 +202,30 @@ serve(async (req) => {
     // Create or get chat
     let currentChatId = chatId;
     if (!currentChatId) {
+      const firstContent = messages[0]?.content;
+      const title = typeof firstContent === 'string' 
+        ? firstContent.substring(0, 50) 
+        : 'New Chat';
+      
       const { data: newChat } = await supabase
         .from('chat_history')
-        .insert({ user_id: user.id, title: messages[0]?.content?.substring(0, 50) || 'New Chat' })
+        .insert({ user_id: user.id, title: title || 'New Chat' })
         .select()
         .single();
       currentChatId = newChat?.id;
     }
 
     // Save user message with attachment
+    const lastMessage = messages[messages.length - 1];
+    const messageContent = typeof lastMessage.content === 'string' 
+      ? lastMessage.content 
+      : JSON.stringify(lastMessage.content);
+    
     await supabase.from('chat_messages').insert({
       chat_id: currentChatId,
       user_id: user.id,
       role: 'user',
-      content: messages[messages.length - 1].content,
+      content: messageContent,
       attachment_url: attachmentUrl || null,
     });
 
@@ -192,8 +300,12 @@ serve(async (req) => {
     );
   } catch (error: any) {
     console.error('Error in chat-with-ai function:', error);
+    // Return generic error message to client, log details server-side
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: 'An error occurred processing your request',
+        message: 'Please try again or contact support if the issue persists'
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
