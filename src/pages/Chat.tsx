@@ -257,14 +257,28 @@ const Chat = () => {
       await refreshProfile();
     } catch (error: any) {
       console.error('Chat error:', error);
+      
+      // Provide more specific error messages
+      let errorMessage = "Failed to get AI response. Please try again.";
+      
+      if (error.message?.includes('timeout')) {
+        errorMessage = "Request timed out. The AI took too long to respond. Please try again.";
+      } else if (error.message?.includes('No AI responses')) {
+        errorMessage = "All selected AI models failed to respond. Please check your model selection or try different models.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: error.message || "Failed to get AI response. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
       
+      // Remove the user message on error
       setMessages(prev => prev.slice(0, -1));
     } finally {
+      // Always clear loading state and attachment
       setLoading(false);
       setAttachmentUrl(null);
       setUploadStatus('idle');

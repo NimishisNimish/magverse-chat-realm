@@ -152,7 +152,7 @@ const providerConfig: Record<string, any> = {
     provider: 'openrouter',
     apiKey: openRouterApiKey,
     endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-    model: 'x-ai/grok-2-1212',
+    model: 'x-ai/grok-4',
     headers: () => ({
       'Authorization': `Bearer ${openRouterApiKey}`,
       'Content-Type': 'application/json',
@@ -160,7 +160,7 @@ const providerConfig: Record<string, any> = {
       'X-Title': 'MagVerse AI Chat',
     }),
     bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
-      model: 'x-ai/grok-2-1212',
+      model: 'x-ai/grok-4',
       messages,
       temperature: 0.7,
       max_tokens: 2000,

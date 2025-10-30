@@ -147,6 +147,18 @@ serve(async (req) => {
 
     if (emailError) {
       console.error('Error sending email:', emailError);
+      
+      // Handle Resend validation errors (testing mode)
+      if ((emailError as any).statusCode === 403 && (emailError as any).name === 'validation_error') {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Email sending is in test mode. Please verify your domain at resend.com/domains to send emails to any address.',
+            details: 'Currently, emails can only be sent to the verified account email (magverse4@gmail.com).'
+          }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       return new Response(
         JSON.stringify({ error: 'Failed to send reset email' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
