@@ -4,63 +4,56 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Mail, ArrowLeft, Link as LinkIcon, Lock } from "lucide-react";
+import { Mail, ArrowLeft, Smartphone, Lock } from "lucide-react";
 import { z } from "zod";
 
 const emailSchema = z.string().email("Invalid email address");
+const phoneSchema = z.string().regex(/^[6-9]\d{9}$/, "Invalid phone number. Must be 10 digits.");
 
 const ResetPassword = () => {
+  const [resetType, setResetType] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState("");
-  const [method, setMethod] = useState<'link' | 'otp'>('link');
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
-  const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState("");
   const [countdown, setCountdown] = useState(0);
   
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { resetPassword, verifyOTP } = useAuth();
+  const { resetPassword, sendPhoneOTP, verifyPhoneOTP, verifyOTP } = useAuth();
 
-  const handleSendReset = async (e: React.FormEvent) => {
+  const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // Validate email
-      emailSchema.parse(email);
+      if (resetType === 'email') {
+        emailSchema.parse(email);
+        const { error } = await resetPassword(email, 'otp');
+        if (error) throw error;
+      } else {
+        phoneSchema.parse(phoneNumber);
+        const { error } = await sendPhoneOTP(phoneNumber);
+        if (error) throw error;
+      }
 
-      const { error } = await resetPassword(email, method);
-
-      if (error) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: error.message || "Failed to send reset email",
+      setOtpSent(true);
+      setCountdown(60);
+      const timer = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
         });
-        return;
-      }
-
-      setEmailSent(true);
-      if (method === 'otp') {
-        setOtpSent(true);
-        setCountdown(60);
-        const timer = setInterval(() => {
-          setCountdown(prev => {
-            if (prev <= 1) {
-              clearInterval(timer);
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-      }
+      }, 1000);
 
       toast({
         title: "Success",
-        description: method === 'link' 
-          ? "Password reset link sent! Check your email."
-          : "Verification code sent! Check your email.",
+        description: `OTP sent to your ${resetType === 'email' ? 'email' : 'phone number'}`,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -73,7 +66,7 @@ const ResetPassword = () => {
         toast({
           variant: "destructive",
           title: "Error",
-          description: "An unexpected error occurred",
+          description: error.message || "Failed to send OTP",
         });
       }
     } finally {
@@ -95,24 +88,34 @@ const ResetPassword = () => {
         return;
       }
 
-      const { error } = await verifyOTP(email, otp);
-
-      if (error) {
+      if (!newPassword || newPassword.length < 6) {
         toast({
           variant: "destructive",
-          title: "Error",
-          description: error.message || "Invalid or expired code",
+          title: "Invalid Password",
+          description: "Password must be at least 6 characters",
         });
         return;
       }
 
-      // Navigate to password reset confirmation
-      navigate('/reset-password-confirm?verified=true');
-    } catch (error) {
+      if (resetType === 'phone') {
+        const { error } = await verifyPhoneOTP(phoneNumber, otp, newPassword);
+        if (error) throw error;
+
+        toast({
+          title: "Success",
+          description: "Password reset successfully! You can now login.",
+        });
+        navigate('/auth');
+      } else {
+        const { error } = await verifyOTP(email, otp);
+        if (error) throw error;
+        navigate('/reset-password-confirm?verified=true');
+      }
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to verify code",
+        description: error?.message || "Failed to verify OTP",
       });
     } finally {
       setLoading(false);
@@ -137,69 +140,86 @@ const ResetPassword = () => {
             Reset Password
           </h1>
           <p className="text-muted-foreground">
-            {!emailSent 
-              ? "Enter your email to receive reset instructions"
-              : otpSent
-              ? "Enter the 6-digit code sent to your email"
-              : "Check your email for reset link"}
+            {!otpSent 
+              ? "Choose your preferred reset method"
+              : "Enter OTP and new password"}
           </p>
         </div>
 
-        {!emailSent ? (
-          <form onSubmit={handleSendReset} className="space-y-6 bg-card p-8 rounded-lg border shadow-lg">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-                <Input
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
-                  required
-                />
-              </div>
-            </div>
-
+        {!otpSent ? (
+          <form onSubmit={handleSendOTP} className="space-y-6 bg-card p-8 rounded-lg border shadow-lg">
             <div className="space-y-2">
               <label className="text-sm font-medium">Reset Method</label>
               <div className="grid grid-cols-2 gap-4">
                 <button
                   type="button"
-                  onClick={() => setMethod('link')}
+                  onClick={() => setResetType('email')}
                   className={`p-4 rounded-lg border-2 transition-all ${
-                    method === 'link'
+                    resetType === 'email'
                       ? 'border-primary bg-primary/5'
                       : 'border-border hover:border-primary/50'
                   }`}
                 >
-                  <LinkIcon className="h-6 w-6 mx-auto mb-2" />
-                  <div className="text-sm font-medium">Email Link</div>
-                  <div className="text-xs text-muted-foreground">Click to reset</div>
+                  <Mail className="h-6 w-6 mx-auto mb-2" />
+                  <div className="text-sm font-medium">Email</div>
                 </button>
                 
                 <button
                   type="button"
-                  onClick={() => setMethod('otp')}
+                  onClick={() => setResetType('phone')}
                   className={`p-4 rounded-lg border-2 transition-all ${
-                    method === 'otp'
+                    resetType === 'phone'
                       ? 'border-primary bg-primary/5'
                       : 'border-border hover:border-primary/50'
                   }`}
                 >
-                  <Lock className="h-6 w-6 mx-auto mb-2" />
-                  <div className="text-sm font-medium">OTP Code</div>
-                  <div className="text-xs text-muted-foreground">6-digit code</div>
+                  <Smartphone className="h-6 w-6 mx-auto mb-2" />
+                  <div className="text-sm font-medium">Phone</div>
                 </button>
               </div>
             </div>
 
+            {resetType === 'email' ? (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Phone Number</label>
+                <div className="relative">
+                  <Smartphone className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    type="tel"
+                    placeholder="10-digit mobile number"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    className="pl-10"
+                    maxLength={10}
+                    required
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Make sure your phone number is linked to your account
+                </p>
+              </div>
+            )}
+
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Sending..." : method === 'link' ? "Send Reset Link" : "Send OTP Code"}
+              {loading ? "Sending..." : "Send OTP"}
             </Button>
           </form>
-        ) : otpSent ? (
+        ) : (
           <form onSubmit={handleVerifyOTP} className="space-y-6 bg-card p-8 rounded-lg border shadow-lg">
             <div className="space-y-2">
               <label className="text-sm font-medium">Verification Code</label>
@@ -213,12 +233,31 @@ const ResetPassword = () => {
                 required
               />
               <p className="text-xs text-muted-foreground text-center">
-                Enter the 6-digit code sent to {email}
+                Enter the 6-digit code sent to your {resetType}
               </p>
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading || otp.length !== 6}>
-              {loading ? "Verifying..." : "Verify Code"}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">New Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
+                <Input
+                  type="password"
+                  placeholder="Enter new password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="pl-10"
+                  minLength={6}
+                  required
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Minimum 6 characters
+              </p>
+            </div>
+
+            <Button type="submit" className="w-full" disabled={loading || otp.length !== 6 || !newPassword}>
+              {loading ? "Verifying..." : "Reset Password"}
             </Button>
 
             <div className="text-center">
@@ -227,8 +266,8 @@ const ResetPassword = () => {
                 onClick={() => {
                   if (countdown === 0) {
                     setOtpSent(false);
-                    setEmailSent(false);
                     setOtp("");
+                    setNewPassword("");
                   }
                 }}
                 disabled={countdown > 0}
@@ -238,29 +277,6 @@ const ResetPassword = () => {
               </button>
             </div>
           </form>
-        ) : (
-          <div className="bg-card p-8 rounded-lg border shadow-lg text-center space-y-4">
-            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-              <Mail className="h-8 w-8 text-primary" />
-            </div>
-            <h3 className="text-lg font-semibold">Check Your Email</h3>
-            <p className="text-muted-foreground">
-              We've sent a password reset link to <strong>{email}</strong>
-            </p>
-            <p className="text-sm text-muted-foreground">
-              The link will expire in 1 hour.
-            </p>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setEmailSent(false);
-                setEmail("");
-              }}
-              className="mt-4"
-            >
-              Try Different Email
-            </Button>
-          </div>
         )}
       </div>
     </div>

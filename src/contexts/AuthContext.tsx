@@ -7,6 +7,9 @@ interface Profile {
   id: string;
   is_pro: boolean;
   credits_remaining: number;
+  phone_number?: string;
+  phone_verified?: boolean;
+  phone_verified_at?: string;
 }
 
 interface AuthContextType {
@@ -21,6 +24,9 @@ interface AuthContextType {
   resetPassword: (email: string, method: 'link' | 'otp') => Promise<{ error: any }>;
   verifyOTP: (email: string, otp: string) => Promise<{ error: any }>;
   updatePassword: (newPassword: string) => Promise<{ error: any }>;
+  sendPhoneOTP: (phoneNumber: string) => Promise<{ error: any }>;
+  verifyPhoneOTP: (phoneNumber: string, otp: string, newPassword: string) => Promise<{ error: any }>;
+  linkPhoneNumber: (phoneNumber: string) => Promise<{ error: any }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -163,6 +169,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const sendPhoneOTP = async (phoneNumber: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('send-phone-otp', {
+        body: { phoneNumber }
+      });
+      if (error) throw error;
+      return { error: null };
+    } catch (error: any) {
+      return { error };
+    }
+  };
+
+  const verifyPhoneOTP = async (phoneNumber: string, otp: string, newPassword: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('verify-phone-otp', {
+        body: { phoneNumber, otp, newPassword }
+      });
+      if (error) throw error;
+      return { error: null };
+    } catch (error: any) {
+      return { error };
+    }
+  };
+
+  const linkPhoneNumber = async (phoneNumber: string) => {
+    try {
+      if (!user) {
+        return { error: { message: 'You must be logged in to link a phone number' } };
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ phone_number: phoneNumber })
+        .eq('id', user.id);
+
+      if (error) throw error;
+      await refreshProfile();
+      return { error: null };
+    } catch (error: any) {
+      return { error };
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -175,7 +224,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       refreshProfile,
       resetPassword,
       verifyOTP,
-      updatePassword
+      updatePassword,
+      sendPhoneOTP,
+      verifyPhoneOTP,
+      linkPhoneNumber
     }}>
       {children}
     </AuthContext.Provider>

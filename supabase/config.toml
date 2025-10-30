@@ -11,3 +11,9 @@ verify_jwt = true
 
 [functions.send-otp-email]
 verify_jwt = false
+
+[functions.send-phone-otp]
+verify_jwt = false
+
+[functions.verify-phone-otp]
+verify_jwt = false
