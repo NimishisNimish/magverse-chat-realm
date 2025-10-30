@@ -16,7 +16,6 @@ const ERROR_MESSAGES = {
 
 const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
 const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-const a4fApiKey = Deno.env.get('A4F_API_KEY');
 const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
 const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -34,12 +33,12 @@ const API_TIMEOUT_MS = 60000; // 60 seconds
 // Provider configuration with direct API endpoints
 const providerConfig: Record<string, any> = {
   chatgpt: {
-    provider: 'a4f',
-    apiKey: a4fApiKey,
-    endpoint: 'https://api.api4free.com/v1/chat/completions',
+    provider: 'openai',
+    apiKey: openaiApiKey,
+    endpoint: 'https://api.openai.com/v1/chat/completions',
     model: 'gpt-4o-mini',
     headers: () => ({
-      'Authorization': `Bearer ${a4fApiKey}`,
+      'Authorization': `Bearer ${openaiApiKey}`,
       'Content-Type': 'application/json',
     }),
     bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
