@@ -29,7 +29,7 @@ const MAX_MESSAGE_LENGTH = 10000;
 const MAX_MODELS_PER_REQUEST = 3;
 const RATE_LIMIT_REQUESTS = 10;
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
-const API_TIMEOUT_MS = 20000; // 20 seconds
+const API_TIMEOUT_MS = 60000; // 60 seconds
 
 // Provider configuration with direct API endpoints
 const providerConfig: Record<string, any> = {
