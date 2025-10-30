@@ -42,7 +42,7 @@ const providerConfig: Record<string, any> = {
       'Authorization': `Bearer ${a4fApiKey}`,
       'Content-Type': 'application/json',
     }),
-    bodyTemplate: (messages: any[]) => ({
+    bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
       model: 'gpt-4o-mini',
       messages,
       max_tokens: 2000,
@@ -57,7 +57,7 @@ const providerConfig: Record<string, any> = {
     headers: () => ({
       'Content-Type': 'application/json',
     }),
-    bodyTemplate: (messages: any[]) => ({
+    bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
       contents: messages.map((msg: any) => ({
         role: msg.role === 'assistant' ? 'model' : 'user',
         parts: typeof msg.content === 'string' 
@@ -85,10 +85,32 @@ const providerConfig: Record<string, any> = {
       'Authorization': `Bearer ${perplexityApiKey}`,
       'Content-Type': 'application/json',
     }),
-    bodyTemplate: (messages: any[]) => ({
-      model: 'sonar-pro',
-      messages,
-    }),
+    bodyTemplate: (messages: any[], webSearchEnabled?: boolean, searchMode?: string) => {
+      const baseConfig: any = {
+        model: 'sonar-pro',
+        messages,
+      };
+      
+      // Add web search parameters if enabled
+      if (webSearchEnabled) {
+        const domains = getSearchDomains(searchMode);
+        if (domains.length > 0) {
+          baseConfig.search_domain_filter = domains;
+        }
+        baseConfig.search_recency_filter = 'month';
+        baseConfig.return_images = false;
+        baseConfig.return_related_questions = false;
+        
+        // Add search mode specific parameters
+        if (searchMode === 'finance') {
+          baseConfig.temperature = 0.2; // More precise for financial data
+        } else if (searchMode === 'academic') {
+          baseConfig.temperature = 0.3; // Slightly more precise for academic content
+        }
+      }
+      
+      return baseConfig;
+    },
   },
   claude: {
     provider: 'openrouter',
@@ -101,7 +123,7 @@ const providerConfig: Record<string, any> = {
       'HTTP-Referer': 'https://pqdgpxetysqcdcjwormb.supabase.co',
       'X-Title': 'MagVerse AI Chat',
     }),
-    bodyTemplate: (messages: any[]) => ({
+    bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
       model: 'anthropic/claude-3.5-sonnet',
       messages,
       temperature: 0.7,
@@ -119,7 +141,7 @@ const providerConfig: Record<string, any> = {
       'HTTP-Referer': 'https://pqdgpxetysqcdcjwormb.supabase.co',
       'X-Title': 'MagVerse AI Chat',
     }),
-    bodyTemplate: (messages: any[]) => ({
+    bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
       model: 'meta-llama/llama-3.3-70b-instruct',
       messages,
       temperature: 0.7,
@@ -137,7 +159,7 @@ const providerConfig: Record<string, any> = {
       'HTTP-Referer': 'https://pqdgpxetysqcdcjwormb.supabase.co',
       'X-Title': 'MagVerse AI Chat',
     }),
-    bodyTemplate: (messages: any[]) => ({
+    bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
       model: 'x-ai/grok-2-1212',
       messages,
       temperature: 0.7,
@@ -166,8 +188,48 @@ const chatRequestSchema = z.object({
   attachmentUrl: z.string().url().nullish().refine(
     (url) => !url || url.startsWith(STORAGE_BUCKET_URL),
     'Attachment must be from your storage bucket'
-  )
+  ),
+  
+  webSearchEnabled: z.boolean().optional(),
+  searchMode: z.enum(['general', 'finance', 'academic']).optional(),
 });
+
+/**
+ * Get domain filters based on search mode
+ */
+function getSearchDomains(searchMode?: string): string[] {
+  switch (searchMode) {
+    case 'finance':
+      return [
+        'bloomberg.com',
+        'reuters.com',
+        'wsj.com',
+        'marketwatch.com',
+        'investing.com',
+        'goldprice.org',
+        'kitco.com',
+        'cnbc.com',
+        'ft.com',
+        'forbes.com'
+      ];
+    case 'academic':
+      return [
+        'scholar.google.com',
+        'arxiv.org',
+        'pubmed.ncbi.nlm.nih.gov',
+        'jstor.org',
+        'researchgate.net',
+        'sciencedirect.com',
+        'nature.com',
+        'springer.com',
+        'ieee.org',
+        'acm.org'
+      ];
+    case 'general':
+    default:
+      return []; // No domain filter for general search (searches all web)
+  }
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -188,7 +250,7 @@ serve(async (req) => {
       );
     }
 
-    const { messages, selectedModels, chatId, attachmentUrl } = validationResult.data;
+    const { messages, selectedModels, chatId, attachmentUrl, webSearchEnabled = false, searchMode = 'general' } = validationResult.data;
     
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
@@ -377,7 +439,7 @@ serve(async (req) => {
       const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
       try {
-        const requestBody = config.bodyTemplate(finalMessages);
+        const requestBody = config.bodyTemplate(finalMessages, webSearchEnabled, searchMode);
         
         // Add debug logging
         console.log(`📤 Calling ${modelId} (${config.provider}):`, {
@@ -385,6 +447,8 @@ serve(async (req) => {
           endpoint: config.endpoint,
           messageCount: finalMessages.length,
           hasApiKey: !!config.apiKey,
+          webSearchEnabled,
+          searchMode,
         });
         
         const response = await fetch(config.endpoint, {

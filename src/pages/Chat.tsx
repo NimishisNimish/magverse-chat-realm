@@ -15,7 +15,10 @@ import {
   Circle,
   Upload,
   X,
-  History as HistoryIcon
+  History as HistoryIcon,
+  Globe,
+  TrendingUp,
+  GraduationCap
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
@@ -38,6 +41,8 @@ interface Message {
   content: string;
   timestamp: Date;
   role: 'user' | 'assistant';
+  webSearchEnabled?: boolean;
+  searchMode?: string;
 }
 
 const Chat = () => {
@@ -49,6 +54,8 @@ const Chat = () => {
   const [uploading, setUploading] = useState(false);
   const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [searchMode, setSearchMode] = useState<'general' | 'finance' | 'academic'>('general');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user, profile, refreshProfile } = useAuth();
@@ -184,6 +191,8 @@ const Chat = () => {
       content: input,
       timestamp: new Date(),
       role: 'user',
+      webSearchEnabled,
+      searchMode,
     };
     
     setMessages(prev => [...prev, userMessage]);
@@ -209,6 +218,8 @@ const Chat = () => {
               { role: 'user', content: messageContent }
             ],
             selectedModels,
+            webSearchEnabled,
+            searchMode,
             ...(currentChatId && { chatId: currentChatId }),
             ...(attachmentUrl && { attachmentUrl: attachmentUrl }),
           },
@@ -311,6 +322,85 @@ const Chat = () => {
               </div>
             </div>
             
+            {/* Web Search Settings */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                Web Search
+              </h3>
+              
+              {/* Toggle Web Search */}
+              <button
+                onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
+                  webSearchEnabled 
+                    ? 'glass-card border-accent/50 shadow-lg shadow-accent/20' 
+                    : 'hover:bg-muted/20'
+                }`}
+              >
+                <div className={`w-8 h-8 rounded-lg ${webSearchEnabled ? 'bg-accent/20' : 'bg-muted/20'} flex items-center justify-center`}>
+                  <Globe className={`w-4 h-4 ${webSearchEnabled ? 'text-accent' : 'text-muted-foreground'}`} />
+                </div>
+                <span className={`font-medium ${webSearchEnabled ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  Enable Web Search
+                </span>
+                {webSearchEnabled && <Circle className="w-2 h-2 ml-auto fill-accent text-accent" />}
+              </button>
+              
+              {/* Search Mode Selector */}
+              {webSearchEnabled && (
+                <div className="space-y-2 animate-fade-in pl-2">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Search Mode</p>
+                  
+                  <button
+                    onClick={() => setSearchMode('general')}
+                    className={`w-full flex items-center gap-2 p-2 rounded-lg text-sm transition-all ${
+                      searchMode === 'general' 
+                        ? 'bg-accent/20 text-accent' 
+                        : 'hover:bg-muted/10 text-muted-foreground'
+                    }`}
+                  >
+                    <Globe className="w-3.5 h-3.5" />
+                    <span>General</span>
+                    {searchMode === 'general' && <Circle className="w-1.5 h-1.5 ml-auto fill-accent" />}
+                  </button>
+                  
+                  <button
+                    onClick={() => setSearchMode('finance')}
+                    className={`w-full flex items-center gap-2 p-2 rounded-lg text-sm transition-all ${
+                      searchMode === 'finance' 
+                        ? 'bg-accent/20 text-accent' 
+                        : 'hover:bg-muted/10 text-muted-foreground'
+                    }`}
+                  >
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    <span>Finance & Markets</span>
+                    {searchMode === 'finance' && <Circle className="w-1.5 h-1.5 ml-auto fill-accent" />}
+                  </button>
+                  
+                  <button
+                    onClick={() => setSearchMode('academic')}
+                    className={`w-full flex items-center gap-2 p-2 rounded-lg text-sm transition-all ${
+                      searchMode === 'academic' 
+                        ? 'bg-accent/20 text-accent' 
+                        : 'hover:bg-muted/10 text-muted-foreground'
+                    }`}
+                  >
+                    <GraduationCap className="w-3.5 h-3.5" />
+                    <span>Academic & Research</span>
+                    {searchMode === 'academic' && <Circle className="w-1.5 h-1.5 ml-auto fill-accent" />}
+                  </button>
+                </div>
+              )}
+              
+              {webSearchEnabled && (
+                <p className="text-xs text-muted-foreground pl-2">
+                  {searchMode === 'general' && 'Search the web for real-time information'}
+                  {searchMode === 'finance' && 'Focus on markets, prices, and financial news'}
+                  {searchMode === 'academic' && 'Search scholarly articles and research papers'}
+                </p>
+              )}
+            </div>
+            
             <div className="glass-card p-4 rounded-lg space-y-2 border-accent/30">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Credits</span>
@@ -374,6 +464,15 @@ const Chat = () => {
                       <span className="text-xs text-muted-foreground ml-auto">
                         {message.timestamp.toLocaleTimeString()}
                       </span>
+                      {message.webSearchEnabled && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-accent/20 text-accent flex items-center gap-1">
+                          <Globe className="w-3 h-3" />
+                          {message.searchMode === 'finance' && <TrendingUp className="w-3 h-3" />}
+                          {message.searchMode === 'academic' && <GraduationCap className="w-3 h-3" />}
+                          {message.searchMode === 'general' ? 'Web' : 
+                           message.searchMode === 'finance' ? 'Finance' : 'Academic'}
+                        </span>
+                      )}
                     </div>
                     <p className="text-foreground leading-relaxed whitespace-pre-wrap">{message.content}</p>
                   </div>
