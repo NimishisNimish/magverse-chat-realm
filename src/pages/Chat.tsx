@@ -91,6 +91,15 @@ const Chat = () => {
   const toggleModel = (modelId: string) => {
     setSelectedModels(prev => {
       if (prev.includes(modelId)) {
+        // Prevent deselecting if it's the last model
+        if (prev.length === 1) {
+          toast({
+            title: "At least one model required",
+            description: "You must keep at least one AI model selected.",
+            variant: "destructive",
+          });
+          return prev;
+        }
         // Allow deselection
         return prev.filter(id => id !== modelId);
       } else {
@@ -174,6 +183,26 @@ const Chat = () => {
 
   const handleSend = async () => {
     if (!input.trim() || !user || loading) return;
+
+    // Validate at least one model is selected
+    if (selectedModels.length === 0) {
+      toast({
+        title: "No AI model selected",
+        description: "Please select at least one AI model to chat with.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check credits for non-pro users
+    if (!profile?.is_pro && (profile?.credits_remaining || 0) <= 0) {
+      toast({
+        title: "No credits remaining",
+        description: "You've used all your free credits for today. Upgrade to Pro for unlimited chats!",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setLoading(true);
     const userMessage: Message = {
