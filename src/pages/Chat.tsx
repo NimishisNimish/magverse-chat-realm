@@ -56,6 +56,7 @@ const Chat = () => {
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [searchMode, setSearchMode] = useState<'general' | 'finance' | 'academic'>('general');
+  const [deepResearchMode, setDeepResearchMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user, profile, refreshProfile } = useAuth();
@@ -161,9 +162,16 @@ const Chat = () => {
 
       setAttachmentUrl(signedUrlData.signedUrl);
       setUploadStatus('success');
+      
+      // Special message for PDFs
+      const fileExt = file.name.split('.').pop()?.toLowerCase();
+      const isPdf = fileExt === 'pdf';
+      
       toast({
         title: "File uploaded successfully",
-        description: "Your file is ready to send.",
+        description: isPdf 
+          ? "PDF uploaded - content will be extracted and analyzed automatically." 
+          : "Your file is ready to send.",
       });
     } catch (error: any) {
       setUploadStatus('error');
@@ -240,6 +248,7 @@ const Chat = () => {
             selectedModels,
             webSearchEnabled,
             searchMode,
+            deepResearchMode,
             ...(currentChatId && { chatId: currentChatId }),
             ...(attachmentUrl && { attachmentUrl: attachmentUrl }),
           },
@@ -365,6 +374,37 @@ const Chat = () => {
                   );
                 })}
               </div>
+            </div>
+            
+            {/* Deep Research Mode */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                Research Settings
+              </h3>
+              
+              {/* Deep Research Toggle */}
+              <button
+                onClick={() => setDeepResearchMode(!deepResearchMode)}
+                className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
+                  deepResearchMode 
+                    ? 'glass-card border-accent/50 shadow-lg shadow-accent/20' 
+                    : 'hover:bg-muted/20'
+                }`}
+              >
+                <div className={`w-8 h-8 rounded-lg ${deepResearchMode ? 'bg-accent/20' : 'bg-muted/20'} flex items-center justify-center`}>
+                  <Brain className={`w-4 h-4 ${deepResearchMode ? 'text-accent' : 'text-muted-foreground'}`} />
+                </div>
+                <span className={`font-medium ${deepResearchMode ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  Deep Research Mode
+                </span>
+                {deepResearchMode && <Circle className="w-2 h-2 ml-auto fill-accent text-accent" />}
+              </button>
+              
+              {deepResearchMode && (
+                <p className="text-xs text-muted-foreground pl-2 animate-fade-in">
+                  Get comprehensive, humanized explanations with examples and real-world context
+                </p>
+              )}
             </div>
             
             {/* Web Search Settings */}

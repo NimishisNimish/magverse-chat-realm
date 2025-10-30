@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.77.0';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import pdf from 'npm:pdf-parse@1.1.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -203,6 +204,7 @@ const chatRequestSchema = z.object({
   
   webSearchEnabled: z.boolean().optional(),
   searchMode: z.enum(['general', 'finance', 'academic']).optional(),
+  deepResearchMode: z.boolean().optional(),
 });
 
 /**
@@ -261,7 +263,7 @@ serve(async (req) => {
       );
     }
 
-    const { messages, selectedModels, chatId, attachmentUrl, webSearchEnabled = false, searchMode = 'general' } = validationResult.data;
+    const { messages, selectedModels, chatId, attachmentUrl, webSearchEnabled = false, searchMode = 'general', deepResearchMode = false } = validationResult.data;
     
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
@@ -325,11 +327,38 @@ serve(async (req) => {
       const lastMessage = processedMessages[processedMessages.length - 1];
       
       if (fileExtension === 'pdf') {
-        // For PDFs, add a note to the message
-        processedMessages[processedMessages.length - 1] = {
-          ...lastMessage,
-          content: `${lastMessage.content}\n\n[I have uploaded a PDF document: ${attachmentUrl}]\nPlease help me analyze this document. Ask me to describe specific sections if needed.`
-        };
+        // Enhanced PDF handling - actually parse the PDF content
+        try {
+          console.log('📄 Fetching and parsing PDF:', attachmentUrl);
+          const pdfResponse = await fetch(attachmentUrl);
+          
+          if (!pdfResponse.ok) {
+            throw new Error(`Failed to fetch PDF: ${pdfResponse.status}`);
+          }
+          
+          const pdfBuffer = await pdfResponse.arrayBuffer();
+          console.log('📄 PDF fetched, size:', pdfBuffer.byteLength, 'bytes');
+          
+          // Parse PDF content using pdf-parse
+          const pdfData = await pdf(Buffer.from(pdfBuffer));
+          const pdfText = pdfData.text.slice(0, 15000); // Limit to ~15k chars to stay within token limits
+          const pageCount = pdfData.numpages;
+          
+          console.log(`📄 PDF parsed successfully - ${pageCount} pages, ${pdfText.length} characters extracted`);
+          
+          // Add parsed content to message
+          processedMessages[processedMessages.length - 1] = {
+            ...lastMessage,
+            content: `${lastMessage.content}\n\n[PDF Document Content - ${pageCount} pages]\n\`\`\`\n${pdfText}\n\`\`\`\n\nPlease analyze this PDF content and answer my question based on it.`
+          };
+        } catch (error) {
+          console.error('❌ PDF parsing failed:', error);
+          // Fallback to current behavior if parsing fails
+          processedMessages[processedMessages.length - 1] = {
+            ...lastMessage,
+            content: `${lastMessage.content}\n\n[I have uploaded a PDF document: ${attachmentUrl}]\nNote: PDF text extraction failed. Please ask me to describe specific sections if needed.`
+          };
+        }
       } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension || '')) {
         // For images with vision models, use proper format
         processedMessages[processedMessages.length - 1] = {
@@ -439,6 +468,17 @@ serve(async (req) => {
           }
         ];
       }
+      
+      // Add Deep Research system prompt if enabled
+      if (deepResearchMode && finalMessages.length > 0) {
+        const deepResearchPrompt = {
+          role: 'system',
+          content: `You are in Deep Research mode. Provide comprehensive, detailed explanations in natural, humanized language. Avoid robotic or overly technical tone unless specifically requested. Include examples, multiple perspectives, step-by-step reasoning, and real-world context. Make complex topics accessible and engaging. Break down concepts clearly and provide practical applications where relevant.`
+        };
+        
+        // Insert system message at the beginning
+        finalMessages = [deepResearchPrompt, ...finalMessages];
+      }
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
@@ -454,6 +494,7 @@ serve(async (req) => {
           hasApiKey: !!config.apiKey,
           webSearchEnabled,
           searchMode,
+          deepResearchMode,
         });
         
         const response = await fetch(config.endpoint, {
