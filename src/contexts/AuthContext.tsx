@@ -18,6 +18,9 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  resetPassword: (email: string, method: 'link' | 'otp') => Promise<{ error: any }>;
+  verifyOTP: (email: string, otp: string) => Promise<{ error: any }>;
+  updatePassword: (newPassword: string) => Promise<{ error: any }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -94,8 +97,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     navigate('/');
   };
 
+  const resetPassword = async (email: string, method: 'link' | 'otp') => {
+    try {
+      const { data, error } = await supabase.functions.invoke('send-reset-email', {
+        body: { email, method }
+      });
+
+      if (error) throw error;
+      return { error: null };
+    } catch (error: any) {
+      return { error };
+    }
+  };
+
+  const verifyOTP = async (email: string, otp: string) => {
+    try {
+      // Verify OTP by checking verification_codes table
+      const { data: codes, error: fetchError } = await supabase
+        .from('verification_codes')
+        .select('*')
+        .eq('code', otp)
+        .eq('purpose', 'password_reset')
+        .gt('expires_at', new Date().toISOString())
+        .eq('verified', false)
+        .limit(1);
+
+      if (fetchError) throw fetchError;
+      
+      if (!codes || codes.length === 0) {
+        return { error: { message: 'Invalid or expired code' } };
+      }
+
+      // Mark as verified
+      const { error: updateError } = await supabase
+        .from('verification_codes')
+        .update({ verified: true })
+        .eq('id', codes[0].id);
+
+      if (updateError) throw updateError;
+
+      return { error: null };
+    } catch (error: any) {
+      return { error };
+    }
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) throw error;
+      return { error: null };
+    } catch (error: any) {
+      return { error };
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signUp, signIn, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      profile, 
+      loading, 
+      signUp, 
+      signIn, 
+      signOut, 
+      refreshProfile,
+      resetPassword,
+      verifyOTP,
+      updatePassword
+    }}>
       {children}
     </AuthContext.Provider>
   );

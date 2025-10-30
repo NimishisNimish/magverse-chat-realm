@@ -100,25 +100,37 @@ const Auth = () => {
                 <Lock className="w-4 h-4" />
                 Password
               </label>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="glass-card border-accent/30"
-              />
-            </div>
-          </div>
+          <Input
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="glass-card border-accent/30"
+          />
+        </div>
 
-          <Button
-            type="submit"
-            variant="hero"
-            className="w-full"
-            disabled={loading}
-          >
-            {loading ? "Please wait..." : (isLogin ? "Sign In" : "Sign Up")}
-          </Button>
+        {isLogin && (
+          <div className="text-right">
+            <button
+              type="button"
+              onClick={() => navigate('/reset-password')}
+              className="text-sm text-primary hover:text-primary/80 transition-colors"
+            >
+              Forgot Password?
+            </button>
+          </div>
+        )}
+      </div>
+
+      <Button
+        type="submit"
+        variant="hero"
+        className="w-full"
+        disabled={loading}
+      >
+        {loading ? "Please wait..." : (isLogin ? "Sign In" : "Sign Up")}
+      </Button>
 
           <div className="text-center">
             <button
