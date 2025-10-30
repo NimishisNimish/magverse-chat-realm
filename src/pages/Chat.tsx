@@ -190,7 +190,7 @@ const Chat = () => {
     setInput("");
 
     const timeout = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Request timeout - AI took too long to respond')), 90000);
+      setTimeout(() => reject(new Error('Request timeout - AI took too long to respond')), 45000);
     });
 
     try {
@@ -373,7 +373,7 @@ const Chat = () => {
                       <div className="w-2 h-2 bg-accent rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
                       <div className="w-2 h-2 bg-accent rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
                       <p className="text-muted-foreground ml-2">
-                        AI is thinking... (this may take up to 60 seconds)
+                        AI is thinking... (this may take up to 30 seconds)
                       </p>
                     </div>
                   </div>

@@ -14,7 +14,7 @@ const ERROR_MESSAGES = {
   SERVER_ERROR: 'An error occurred processing your request',
 };
 
-const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
+const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -25,15 +25,15 @@ const MAX_MESSAGE_LENGTH = 10000;
 const MAX_MODELS_PER_REQUEST = 3;
 const RATE_LIMIT_REQUESTS = 10;
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
-const OPENROUTER_TIMEOUT_MS = 60000; // 60 seconds
+const PERPLEXITY_TIMEOUT_MS = 30000; // 30 seconds
 
 const modelMapping: Record<string, string> = {
-  chatgpt: 'openai/gpt-4o',
-  gemini: 'google/gemini-2.5-flash-preview',
-  claude: 'anthropic/claude-3.5-sonnet',
-  llama: 'meta-llama/llama-3.3-70b-instruct',
-  mistral: 'mistralai/mistral-large-2411',
-  grok: 'x-ai/grok-2-1212',
+  chatgpt: 'llama-3.1-sonar-large-128k-online',
+  gemini: 'llama-3.1-sonar-small-128k-online',
+  claude: 'llama-3.1-sonar-large-128k-online',
+  llama: 'llama-3.1-sonar-small-128k-online',
+  mistral: 'llama-3.1-sonar-small-128k-online',
+  grok: 'llama-3.1-sonar-huge-128k-online',
 };
 
 // Validation schema
@@ -51,9 +51,9 @@ const chatRequestSchema = z.object({
   ).min(1, 'Select at least one model')
    .max(MAX_MODELS_PER_REQUEST, `Maximum ${MAX_MODELS_PER_REQUEST} models per request`),
   
-  chatId: z.string().uuid().optional(),
+  chatId: z.string().uuid().optional().nullable(),
   
-  attachmentUrl: z.string().url().optional().refine(
+  attachmentUrl: z.string().url().optional().nullable().refine(
     (url) => !url || url.startsWith(STORAGE_BUCKET_URL),
     'Attachment must be from your storage bucket'
   )
@@ -249,20 +249,23 @@ serve(async (req) => {
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), OPENROUTER_TIMEOUT_MS);
+      const timeoutId = setTimeout(() => controller.abort(), PERPLEXITY_TIMEOUT_MS);
 
       try {
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        const response = await fetch('https://api.perplexity.ai/chat/completions', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${openRouterApiKey}`,
+            'Authorization': `Bearer ${perplexityApiKey}`,
             'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://magverse.ai',
-            'X-Title': 'Magverse AI',
           },
           body: JSON.stringify({
             model: modelName,
             messages: finalMessages,
+            temperature: 0.2,
+            top_p: 0.9,
+            max_tokens: 2000,
+            return_images: false,
+            return_related_questions: false,
           }),
           signal: controller.signal,
         });
@@ -293,7 +296,7 @@ serve(async (req) => {
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
         if (fetchError.name === 'AbortError') {
-          console.error(`Timeout for model ${modelId} after ${OPENROUTER_TIMEOUT_MS}ms`);
+          console.error(`Timeout for model ${modelId} after ${PERPLEXITY_TIMEOUT_MS}ms`);
           // Continue to next model instead of failing entirely
           continue;
         }
