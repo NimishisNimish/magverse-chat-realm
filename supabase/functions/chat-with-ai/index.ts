@@ -18,6 +18,14 @@ const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
 const deepseekApiKey = Deno.env.get('DEEPSEEK_API_KEY');
 const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
 const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
+
+// Debug: Log API key availability (not the actual keys)
+console.log('🔑 API Keys loaded:', {
+  deepseek: !!deepseekApiKey,
+  google: !!googleApiKey,
+  perplexity: !!perplexityApiKey,
+  openrouter: !!openRouterApiKey
+});
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
