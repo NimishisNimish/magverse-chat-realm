@@ -51,9 +51,9 @@ const chatRequestSchema = z.object({
   ).min(1, 'Select at least one model')
    .max(MAX_MODELS_PER_REQUEST, `Maximum ${MAX_MODELS_PER_REQUEST} models per request`),
   
-  chatId: z.string().uuid().optional().nullable(),
+  chatId: z.string().uuid().nullish(),
   
-  attachmentUrl: z.string().url().optional().nullable().refine(
+  attachmentUrl: z.string().url().nullish().refine(
     (url) => !url || url.startsWith(STORAGE_BUCKET_URL),
     'Attachment must be from your storage bucket'
   )
