@@ -79,6 +79,30 @@ export type Database = {
           },
         ]
       }
+      password_reset_attempts: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          ip_address: string | null
+          method: string
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          ip_address?: string | null
+          method: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          ip_address?: string | null
+          method?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -160,6 +184,7 @@ export type Database = {
           created_at: string | null
           expires_at: string
           id: string
+          purpose: string | null
           user_id: string | null
           verified: boolean | null
         }
@@ -168,6 +193,7 @@ export type Database = {
           created_at?: string | null
           expires_at: string
           id?: string
+          purpose?: string | null
           user_id?: string | null
           verified?: boolean | null
         }
@@ -176,6 +202,7 @@ export type Database = {
           created_at?: string | null
           expires_at?: string
           id?: string
+          purpose?: string | null
           user_id?: string | null
           verified?: boolean | null
         }
@@ -187,6 +214,7 @@ export type Database = {
     }
     Functions: {
       check_and_deduct_credit: { Args: { p_user_id: string }; Returns: boolean }
+      check_reset_rate_limit: { Args: { p_email: string }; Returns: boolean }
       generate_verification_code: {
         Args: { p_user_id: string }
         Returns: string
