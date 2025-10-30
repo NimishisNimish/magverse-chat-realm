@@ -15,7 +15,7 @@ const ERROR_MESSAGES = {
 };
 
 const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
-const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
 const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -33,19 +33,18 @@ const API_TIMEOUT_MS = 60000; // 60 seconds
 // Provider configuration with direct API endpoints
 const providerConfig: Record<string, any> = {
   chatgpt: {
-    provider: 'openai',
-    apiKey: openaiApiKey,
-    endpoint: 'https://api.openai.com/v1/chat/completions',
-    model: 'gpt-4o-mini',
+    provider: 'lovable',
+    apiKey: lovableApiKey,
+    endpoint: 'https://ai.gateway.lovable.dev/v1/chat/completions',
+    model: 'google/gemini-2.5-flash',
     headers: () => ({
-      'Authorization': `Bearer ${openaiApiKey}`,
+      'Authorization': `Bearer ${lovableApiKey}`,
       'Content-Type': 'application/json',
     }),
     bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
-      model: 'gpt-4o-mini',
+      model: 'google/gemini-2.5-flash',
       messages,
-      max_tokens: 2000,
-      temperature: 0.7,
+      stream: false,
     }),
   },
   gemini: {
@@ -403,7 +402,7 @@ serve(async (req) => {
       if (!config.apiKey) {
         console.error(`❌ Missing API key for ${modelId} (provider: ${config.provider})`);
         console.error(`   Required secret: ${
-          modelId === 'chatgpt' ? 'A4F_API_KEY' :
+          modelId === 'chatgpt' ? 'LOVABLE_API_KEY' :
           modelId === 'gemini' ? 'GOOGLE_AI_API_KEY' :
           modelId === 'perplexity' ? 'PERPLEXITY_API_KEY' :
           'OPENROUTER_API_KEY'
@@ -477,6 +476,8 @@ serve(async (req) => {
           // Log specific error messages for common issues
           if (response.status === 429) {
             console.error(`   ⚠️ Rate limit/quota exceeded for ${modelId}`);
+          } else if (response.status === 402) {
+            console.error(`   ⚠️ Payment required - credits exhausted for ${modelId}`);
           } else if (response.status === 401) {
             console.error(`   ⚠️ Invalid API key for ${modelId}`);
           } else if (response.status === 404) {
