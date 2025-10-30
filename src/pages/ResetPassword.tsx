@@ -9,6 +9,12 @@ import { z } from "zod";
 
 const emailSchema = z.string().email("Invalid email address");
 const phoneSchema = z.string().regex(/^[6-9]\d{9}$/, "Invalid phone number. Must be 10 digits.");
+const passwordSchema = z.string()
+  .min(8, "Password must be at least 8 characters")
+  .max(100, "Password must be less than 100 characters")
+  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+  .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+  .regex(/[0-9]/, "Password must contain at least one number");
 
 const ResetPassword = () => {
   const [resetType, setResetType] = useState<'email' | 'phone'>('email');
@@ -88,13 +94,17 @@ const ResetPassword = () => {
         return;
       }
 
-      if (!newPassword || newPassword.length < 6) {
-        toast({
-          variant: "destructive",
-          title: "Invalid Password",
-          description: "Password must be at least 6 characters",
-        });
-        return;
+      try {
+        passwordSchema.parse(newPassword);
+      } catch (err) {
+        if (err instanceof z.ZodError) {
+          toast({
+            variant: "destructive",
+            title: "Invalid Password",
+            description: err.errors[0].message,
+          });
+          return;
+        }
       }
 
       if (resetType === 'phone') {
@@ -252,7 +262,7 @@ const ResetPassword = () => {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Minimum 6 characters
+                Must be 8+ characters with uppercase, lowercase, and number
               </p>
             </div>
 
