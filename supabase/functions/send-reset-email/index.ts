@@ -1,10 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
-import { Resend } from 'npm:resend@4.0.0';
-import React from 'npm:react@18.3.1';
-import { renderAsync } from 'npm:@react-email/components@0.0.22';
-import { ResetEmail } from './_templates/reset-email.tsx';
+import { Resend } from 'https://esm.sh/resend@4.0.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -127,15 +124,8 @@ serve(async (req) => {
       });
     }
 
-    // Render email template
-    const html = await renderAsync(
-      React.createElement(ResetEmail, {
-        method,
-        resetLink: method === 'link' ? resetLink : undefined,
-        otpCode: method === 'otp' ? otpCode : undefined,
-        expiresIn
-      })
-    );
+    // Generate HTML email
+    const html = generateEmailHTML(method, resetLink, otpCode, expiresIn);
 
     // Send email
     const { error: emailError } = await resend.emails.send({
@@ -185,3 +175,114 @@ serve(async (req) => {
     );
   }
 });
+
+// HTML email template generator
+function generateEmailHTML(
+  method: string,
+  resetLink: string,
+  otpCode: string,
+  expiresIn: string
+): string {
+  const isLink = method === 'link';
+  
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset Your Magverse AI Password</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Ubuntu, sans-serif; background-color: #f6f9fc;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f6f9fc; padding: 40px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); margin: 0 auto;">
+          <tr>
+            <td style="padding: 40px 40px 20px 40px; text-align: center;">
+              <h1 style="color: #1a1a1a; font-size: 32px; font-weight: bold; margin: 0 0 10px 0;">✨ Magverse AI</h1>
+              <h2 style="color: #1a1a1a; font-size: 24px; font-weight: 600; margin: 0;">Reset Your Password</h2>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 40px;">
+              <p style="color: #333; font-size: 16px; line-height: 26px; margin: 16px 0;">
+                We received a request to reset your password.
+                ${isLink ? ' Click the button below to reset your password.' : ' Use the code below to reset your password.'}
+              </p>
+            </td>
+          </tr>
+          ${isLink ? `
+          <tr>
+            <td style="padding: 27px 40px;">
+              <a href="${resetLink}" style="background-color: #5046e4; border-radius: 8px; color: #fff; font-size: 18px; font-weight: bold; text-decoration: none; text-align: center; display: block; padding: 16px 32px;">
+                🔐 Reset Password
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 40px;">
+              <p style="color: #333; font-size: 16px; line-height: 26px; margin: 8px 0;">
+                Or copy and paste this link in your browser:
+              </p>
+              <p style="color: #5046e4; font-size: 14px; word-break: break-all; margin: 8px 0;">
+                ${resetLink}
+              </p>
+            </td>
+          </tr>
+          ` : `
+          <tr>
+            <td style="padding: 0 40px;">
+              <p style="color: #333; font-size: 16px; line-height: 26px; margin: 16px 0;">
+                Your verification code is:
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 40px;">
+              <div style="background-color: #f4f4f4; border-radius: 8px; border: 2px solid #e1e1e1; padding: 24px; margin: 24px 0; text-align: center;">
+                <p style="color: #1a1a1a; font-size: 36px; font-weight: bold; letter-spacing: 8px; margin: 0; font-family: monospace;">
+                  ${otpCode}
+                </p>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 40px;">
+              <p style="color: #333; font-size: 16px; line-height: 26px; margin: 16px 0;">
+                Enter this code on the reset page to continue.
+              </p>
+            </td>
+          </tr>
+          `}
+          <tr>
+            <td style="padding: 24px 40px 0 40px;">
+              <p style="color: #666; font-size: 14px; text-align: center; margin: 0;">
+                This ${isLink ? 'link' : 'code'} expires in ${expiresIn}.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 40px; border-top: 1px solid #e1e1e1; margin-top: 24px;">
+              <p style="color: #666; font-size: 14px; line-height: 22px; margin: 0;">
+                If you didn't request this password reset, you can safely ignore this email.
+                Your password will not be changed.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 32px 40px 40px 40px; text-align: center;">
+              <p style="color: #898989; font-size: 12px; line-height: 22px; margin: 0;">
+                <a href="https://magverse-chat-realm.lovable.app" style="color: #5046e4; text-decoration: underline;">Magverse AI</a>
+                - Your AI Chat Companion
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+}
