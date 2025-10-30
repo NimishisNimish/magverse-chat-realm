@@ -15,25 +15,125 @@ const ERROR_MESSAGES = {
 };
 
 const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
+const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
+const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-const VALID_MODELS = ['chatgpt', 'gemini', 'claude', 'llama', 'mistral', 'grok'] as const;
+const VALID_MODELS = ['chatgpt', 'gemini', 'perplexity', 'claude', 'llama', 'grok'] as const;
 const STORAGE_BUCKET_URL = 'https://pqdgpxetysqcdcjwormb.supabase.co/storage/';
 const MAX_FILE_SIZE = 10_000_000; // 10MB
 const MAX_MESSAGE_LENGTH = 10000;
 const MAX_MODELS_PER_REQUEST = 3;
 const RATE_LIMIT_REQUESTS = 10;
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
-const OPENROUTER_TIMEOUT_MS = 60000; // 60 seconds
+const API_TIMEOUT_MS = 30000; // 30 seconds
 
-const modelMapping: Record<string, string> = {
-  chatgpt: 'openai/gpt-4o',                    // OpenAI GPT-4o
-  gemini: 'google/gemini-2.0-flash-exp:free',  // Google Gemini 2.0 (free)
-  claude: 'anthropic/claude-3.5-sonnet',       // Anthropic Claude 3.5 Sonnet
-  llama: 'meta-llama/llama-3.3-70b-instruct',  // Meta Llama 3.3 70B
-  mistral: 'mistralai/mistral-7b-instruct',    // Mistral 7B Instruct
-  grok: 'x-ai/grok-2-vision-1212',             // xAI Grok 2 Vision
+// Provider configuration with direct API endpoints
+const providerConfig: Record<string, any> = {
+  chatgpt: {
+    provider: 'openai',
+    apiKey: openaiApiKey,
+    endpoint: 'https://api.openai.com/v1/chat/completions',
+    model: 'gpt-4o',
+    headers: () => ({
+      'Authorization': `Bearer ${openaiApiKey}`,
+      'Content-Type': 'application/json',
+    }),
+    bodyTemplate: (messages: any[]) => ({
+      model: 'gpt-4o',
+      messages,
+      max_tokens: 2000,
+      temperature: 0.7,
+    }),
+  },
+  gemini: {
+    provider: 'google',
+    apiKey: googleApiKey,
+    endpoint: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${googleApiKey}`,
+    model: 'gemini-2.0-flash-exp',
+    headers: () => ({
+      'Content-Type': 'application/json',
+    }),
+    bodyTemplate: (messages: any[]) => ({
+      contents: messages.map((msg: any) => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: typeof msg.content === 'string' 
+          ? [{ text: msg.content }]
+          : msg.content
+      }))
+    }),
+    responseTransform: (data: any) => data.candidates[0]?.content?.parts[0]?.text || 'No response',
+  },
+  perplexity: {
+    provider: 'perplexity',
+    apiKey: perplexityApiKey,
+    endpoint: 'https://api.perplexity.ai/chat/completions',
+    model: 'llama-3.1-sonar-large-128k-online',
+    headers: () => ({
+      'Authorization': `Bearer ${perplexityApiKey}`,
+      'Content-Type': 'application/json',
+    }),
+    bodyTemplate: (messages: any[]) => ({
+      model: 'llama-3.1-sonar-large-128k-online',
+      messages,
+    }),
+  },
+  claude: {
+    provider: 'openrouter',
+    apiKey: openRouterApiKey,
+    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+    model: 'anthropic/claude-3.5-sonnet',
+    headers: () => ({
+      'Authorization': `Bearer ${openRouterApiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://pqdgpxetysqcdcjwormb.supabase.co',
+      'X-Title': 'MagVerse AI Chat',
+    }),
+    bodyTemplate: (messages: any[]) => ({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages,
+      temperature: 0.7,
+      max_tokens: 2000,
+    }),
+  },
+  llama: {
+    provider: 'openrouter',
+    apiKey: openRouterApiKey,
+    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+    model: 'meta-llama/llama-3.3-70b-instruct',
+    headers: () => ({
+      'Authorization': `Bearer ${openRouterApiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://pqdgpxetysqcdcjwormb.supabase.co',
+      'X-Title': 'MagVerse AI Chat',
+    }),
+    bodyTemplate: (messages: any[]) => ({
+      model: 'meta-llama/llama-3.3-70b-instruct',
+      messages,
+      temperature: 0.7,
+      max_tokens: 2000,
+    }),
+  },
+  grok: {
+    provider: 'openrouter',
+    apiKey: openRouterApiKey,
+    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+    model: 'x-ai/grok-2-vision-1212',
+    headers: () => ({
+      'Authorization': `Bearer ${openRouterApiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://pqdgpxetysqcdcjwormb.supabase.co',
+      'X-Title': 'MagVerse AI Chat',
+    }),
+    bodyTemplate: (messages: any[]) => ({
+      model: 'x-ai/grok-2-vision-1212',
+      messages,
+      temperature: 0.7,
+      max_tokens: 2000,
+    }),
+  },
 };
 
 // Validation schema
@@ -228,16 +328,20 @@ serve(async (req) => {
     const responses = [];
 
     for (const modelId of selectedModels) {
-      const modelName = modelMapping[modelId] || modelMapping.chatgpt;
+      const config = providerConfig[modelId];
+      
+      if (!config || !config.apiKey) {
+        console.error(`Missing configuration or API key for ${modelId}`);
+        continue;
+      }
 
       // Check if model supports vision
-      const visionModels = ['chatgpt', 'claude', 'gemini'];
+      const visionModels = ['chatgpt', 'claude', 'grok', 'gemini'];
       const supportsVision = visionModels.includes(modelId);
       
       // Use appropriate messages based on vision support
       let finalMessages = processedMessages;
       if (!supportsVision && attachmentUrl?.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
-        // For non-vision models with images, convert to text message
         const lastMsg = messages[messages.length - 1];
         finalMessages = [
           ...messages.slice(0, -1),
@@ -249,35 +353,36 @@ serve(async (req) => {
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), OPENROUTER_TIMEOUT_MS);
+      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
       try {
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        const requestBody = config.bodyTemplate(finalMessages);
+        
+        const response = await fetch(config.endpoint, {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openRouterApiKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://pqdgpxetysqcdcjwormb.supabase.co',
-            'X-Title': 'MagVerse AI Chat',
-          },
-          body: JSON.stringify({
-            model: modelName,
-            messages: finalMessages,
-            temperature: 0.7,
-            max_tokens: 2000,
-          }),
+          headers: config.headers(),
+          body: JSON.stringify(requestBody),
           signal: controller.signal,
         });
 
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-          console.error(`Error from ${modelId}:`, await response.text());
+          const errorText = await response.text();
+          console.error(`Error from ${modelId} (${config.provider}):`, response.status, errorText);
           continue;
         }
 
         const data = await response.json();
-        const content = data.choices[0]?.message?.content || 'No response';
+        
+        // Transform response based on provider
+        let content: string;
+        if (config.responseTransform) {
+          content = config.responseTransform(data);
+        } else {
+          // Default OpenAI-compatible response format
+          content = data.choices[0]?.message?.content || 'No response';
+        }
 
         // Save AI response
         await supabase.from('chat_messages').insert({
@@ -292,14 +397,16 @@ serve(async (req) => {
           model: modelId,
           content: content,
         });
+        
+        console.log(`✅ Success: ${modelId} responded in time`);
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
         if (fetchError.name === 'AbortError') {
-          console.error(`Timeout for model ${modelId} after ${OPENROUTER_TIMEOUT_MS}ms`);
-          // Continue to next model instead of failing entirely
-          continue;
+          console.error(`⏱️ Timeout: ${modelId} exceeded ${API_TIMEOUT_MS}ms`);
+        } else {
+          console.error(`❌ Error: ${modelId} failed:`, fetchError.message);
         }
-        console.error(`Fetch error for ${modelId}:`, fetchError);
+        // Continue to next model instead of failing entirely
         continue;
       }
     }
