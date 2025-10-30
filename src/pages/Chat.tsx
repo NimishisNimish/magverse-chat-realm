@@ -225,8 +225,10 @@ const Chat = () => {
     setMessages(prev => [...prev, userMessage]);
     setInput("");
 
+    // Use longer timeout to match backend: 120 seconds for regular, 240 seconds for Deep Research
+    const timeoutMs = deepResearchMode ? 240000 : 120000; // 2 minutes regular, 4 minutes Deep Research
     const timeout = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Request timeout - AI took too long to respond')), 35000);
+      setTimeout(() => reject(new Error('Request timeout - AI took too long to respond')), timeoutMs);
     });
 
     try {
@@ -301,7 +303,9 @@ const Chat = () => {
       let errorMessage = "Failed to get AI response. Please try again.";
       
       if (error.message?.includes('timeout')) {
-        errorMessage = "Request timed out. The AI took too long to respond. Please try again.";
+        errorMessage = deepResearchMode 
+          ? "Deep Research timed out after 4 minutes. Try a simpler query or disable Deep Research mode."
+          : "Request timed out after 2 minutes. Try enabling Deep Research mode for complex queries.";
       } else if (error.message?.includes('No AI responses')) {
         errorMessage = "All selected AI models failed to respond. Please check your model selection or try different models.";
       } else if (error.message) {
