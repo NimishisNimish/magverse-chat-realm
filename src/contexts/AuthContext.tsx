@@ -99,11 +99,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const resetPassword = async (email: string, method: 'link' | 'otp') => {
     try {
-      const { data, error } = await supabase.functions.invoke('send-reset-email', {
-        body: { email, method }
-      });
-
-      if (error) throw error;
+      if (method === 'link') {
+        // Use Supabase's built-in password reset email
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password-confirm`,
+        });
+        if (error) throw error;
+      } else {
+        // OTP method - use edge function to generate and send OTP
+        const { error } = await supabase.functions.invoke('send-otp-email', {
+          body: { email }
+        });
+        if (error) throw error;
+      }
       return { error: null };
     } catch (error: any) {
       return { error };

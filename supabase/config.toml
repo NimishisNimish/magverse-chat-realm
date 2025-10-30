@@ -9,5 +9,5 @@ verify_jwt = true
 [functions.verify-payment]
 verify_jwt = true
 
-[functions.send-reset-email]
+[functions.send-otp-email]
 verify_jwt = false
