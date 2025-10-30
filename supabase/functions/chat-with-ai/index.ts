@@ -61,7 +61,16 @@ const providerConfig: Record<string, any> = {
         role: msg.role === 'assistant' ? 'model' : 'user',
         parts: typeof msg.content === 'string' 
           ? [{ text: msg.content }]
-          : msg.content
+          : Array.isArray(msg.content)
+            ? msg.content.map((part: any) => {
+                if (part.type === 'text') {
+                  return { text: part.text };
+                } else if (part.type === 'image_url') {
+                  return { text: `[Image: ${part.image_url.url}]` };
+                }
+                return { text: JSON.stringify(part) };
+              })
+            : [{ text: JSON.stringify(msg.content) }]
       }))
     }),
     responseTransform: (data: any) => data.candidates[0]?.content?.parts[0]?.text || 'No response',
@@ -70,13 +79,13 @@ const providerConfig: Record<string, any> = {
     provider: 'perplexity',
     apiKey: perplexityApiKey,
     endpoint: 'https://api.perplexity.ai/chat/completions',
-    model: 'llama-3.1-sonar-large-128k-online',
+    model: 'sonar-pro',
     headers: () => ({
       'Authorization': `Bearer ${perplexityApiKey}`,
       'Content-Type': 'application/json',
     }),
     bodyTemplate: (messages: any[]) => ({
-      model: 'llama-3.1-sonar-large-128k-online',
+      model: 'sonar-pro',
       messages,
     }),
   },
@@ -120,7 +129,7 @@ const providerConfig: Record<string, any> = {
     provider: 'openrouter',
     apiKey: openRouterApiKey,
     endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-    model: 'x-ai/grok-2-vision-1212',
+    model: 'x-ai/grok-2-1212',
     headers: () => ({
       'Authorization': `Bearer ${openRouterApiKey}`,
       'Content-Type': 'application/json',
@@ -128,7 +137,7 @@ const providerConfig: Record<string, any> = {
       'X-Title': 'MagVerse AI Chat',
     }),
     bodyTemplate: (messages: any[]) => ({
-      model: 'x-ai/grok-2-vision-1212',
+      model: 'x-ai/grok-2-1212',
       messages,
       temperature: 0.7,
       max_tokens: 2000,
@@ -336,7 +345,7 @@ serve(async (req) => {
       }
 
       // Check if model supports vision
-      const visionModels = ['chatgpt', 'claude', 'grok', 'gemini'];
+      const visionModels = ['chatgpt', 'claude', 'gemini'];
       const supportsVision = visionModels.includes(modelId);
       
       // Use appropriate messages based on vision support
@@ -369,7 +378,13 @@ serve(async (req) => {
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error(`Error from ${modelId} (${config.provider}):`, response.status, errorText);
+          console.error(`❌ Error from ${modelId} (${config.provider}):`, {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText,
+            endpoint: config.endpoint,
+            model: config.model,
+          });
           continue;
         }
 
