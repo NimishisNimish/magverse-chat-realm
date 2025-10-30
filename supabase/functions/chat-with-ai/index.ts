@@ -15,7 +15,7 @@ const ERROR_MESSAGES = {
 };
 
 const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
-const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+const deepseekApiKey = Deno.env.get('DEEPSEEK_API_KEY');
 const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
 const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -33,17 +33,19 @@ const API_TIMEOUT_MS = 60000; // 60 seconds
 // Provider configuration with direct API endpoints
 const providerConfig: Record<string, any> = {
   chatgpt: {
-    provider: 'lovable',
-    apiKey: lovableApiKey,
-    endpoint: 'https://ai.gateway.lovable.dev/v1/chat/completions',
-    model: 'google/gemini-2.5-flash',
+    provider: 'deepseek',
+    apiKey: deepseekApiKey,
+    endpoint: 'https://api.deepseek.com/chat/completions',
+    model: 'deepseek-chat',
     headers: () => ({
-      'Authorization': `Bearer ${lovableApiKey}`,
+      'Authorization': `Bearer ${deepseekApiKey}`,
       'Content-Type': 'application/json',
     }),
     bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
-      model: 'google/gemini-2.5-flash',
+      model: 'deepseek-chat',
       messages,
+      max_tokens: 4000,
+      temperature: 0.7,
       stream: false,
     }),
   },
@@ -402,7 +404,7 @@ serve(async (req) => {
       if (!config.apiKey) {
         console.error(`❌ Missing API key for ${modelId} (provider: ${config.provider})`);
         console.error(`   Required secret: ${
-          modelId === 'chatgpt' ? 'LOVABLE_API_KEY' :
+          modelId === 'chatgpt' ? 'DEEPSEEK_API_KEY' :
           modelId === 'gemini' ? 'GOOGLE_AI_API_KEY' :
           modelId === 'perplexity' ? 'PERPLEXITY_API_KEY' :
           'OPENROUTER_API_KEY'
