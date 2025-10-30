@@ -260,10 +260,17 @@ serve(async (req) => {
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    
+    // Create client with user's token for auth
+    const userSupabase = createClient(supabaseUrl, supabaseServiceKey, {
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+    });
+
+    const { data: { user }, error: userError } = await userSupabase.auth.getUser();
+
     if (userError || !user) {
       console.error('Auth error:', userError);
       return new Response(
@@ -272,21 +279,8 @@ serve(async (req) => {
       );
     }
 
-    // Rate limiting check
-    const rateLimitStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
-    const { count } = await supabase
-      .from('chat_messages')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .gte('created_at', rateLimitStart);
-
-    if (count && count >= RATE_LIMIT_REQUESTS) {
-      console.log(`Rate limit exceeded for user ${user.id}: ${count} requests`);
-      return new Response(
-        JSON.stringify({ error: 'Too many requests. Please try again later.' }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Use service role client for database operations
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Process attachment if present with size validation
     let processedMessages = [...messages];
@@ -353,19 +347,15 @@ serve(async (req) => {
       }
     }
 
-    // Check credits
+    // Get profile for analytics (no credit enforcement)
     const { data: profile } = await supabase
       .from('profiles')
       .select('is_pro, credits_remaining')
       .eq('id', user.id)
       .single();
 
-    if (!profile?.is_pro && (!profile?.credits_remaining || profile.credits_remaining <= 0)) {
-      return new Response(
-        JSON.stringify({ error: 'Insufficient credits. Please upgrade to continue.' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Log usage for analytics but don't block
+    console.log(`User ${user.id} chat request. Pro: ${profile?.is_pro}, Credits: ${profile?.credits_remaining || 0}`);
 
     // Create or get chat
     let currentChatId = chatId;
@@ -571,17 +561,6 @@ serve(async (req) => {
       }
     })();
 
-    // Deduct credit for free users (also in background)
-    if (!profile?.is_pro) {
-      (async () => {
-        try {
-          await supabase.rpc('check_and_deduct_credit', { p_user_id: user.id });
-          console.log('Credit deducted');
-        } catch (err) {
-          console.error('Background credit deduction error:', err);
-        }
-      })();
-    }
 
     return new Response(
       JSON.stringify(responseToSend),

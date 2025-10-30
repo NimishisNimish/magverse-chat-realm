@@ -174,15 +174,6 @@ const Chat = () => {
 
   const handleSend = async () => {
     if (!input.trim() || !user || loading) return;
-    
-    if (!profile?.is_pro && (!profile?.credits_remaining || profile.credits_remaining <= 0)) {
-      toast({
-        title: "Daily limit reached",
-        description: "Upgrade to Pro for unlimited access.",
-        variant: "destructive",
-      });
-      return;
-    }
 
     setLoading(true);
     const userMessage: Message = {
