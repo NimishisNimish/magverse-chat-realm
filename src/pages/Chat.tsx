@@ -218,6 +218,11 @@ const Chat = () => {
 
       if (error) throw error;
 
+      // Validate we got responses
+      if (!data.responses || data.responses.length === 0) {
+        throw new Error('No AI responses received. Please check your API keys or try different models.');
+      }
+
       if (data.chatId && !currentChatId) {
         setCurrentChatId(data.chatId);
       }
@@ -231,6 +236,13 @@ const Chat = () => {
       }));
 
       setMessages(prev => [...prev, ...aiMessages]);
+      
+      // Show success toast with model info
+      toast({
+        title: `${aiMessages.length} AI${aiMessages.length > 1 ? 's' : ''} responded`,
+        description: `Successfully received responses from: ${aiMessages.map(m => m.model).join(', ')}`,
+      });
+
       await refreshProfile();
     } catch (error: any) {
       console.error('Chat error:', error);

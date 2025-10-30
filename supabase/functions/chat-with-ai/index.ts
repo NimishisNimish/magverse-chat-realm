@@ -36,13 +36,13 @@ const providerConfig: Record<string, any> = {
     provider: 'openai',
     apiKey: openaiApiKey,
     endpoint: 'https://api.openai.com/v1/chat/completions',
-    model: 'gpt-4o',
+    model: 'gpt-4o-mini',
     headers: () => ({
       'Authorization': `Bearer ${openaiApiKey}`,
       'Content-Type': 'application/json',
     }),
     bodyTemplate: (messages: any[]) => ({
-      model: 'gpt-4o',
+      model: 'gpt-4o-mini',
       messages,
       max_tokens: 2000,
       temperature: 0.7,
@@ -339,8 +339,19 @@ serve(async (req) => {
     for (const modelId of selectedModels) {
       const config = providerConfig[modelId];
       
-      if (!config || !config.apiKey) {
-        console.error(`Missing configuration or API key for ${modelId}`);
+      if (!config) {
+        console.error(`❌ No configuration found for model: ${modelId}`);
+        continue;
+      }
+
+      if (!config.apiKey) {
+        console.error(`❌ Missing API key for ${modelId} (provider: ${config.provider})`);
+        console.error(`   Required secret: ${
+          modelId === 'chatgpt' ? 'OPENAI_API_KEY' :
+          modelId === 'gemini' ? 'GOOGLE_AI_API_KEY' :
+          modelId === 'perplexity' ? 'PERPLEXITY_API_KEY' :
+          'OPENROUTER_API_KEY'
+        }`);
         continue;
       }
 
@@ -367,6 +378,14 @@ serve(async (req) => {
       try {
         const requestBody = config.bodyTemplate(finalMessages);
         
+        // Add debug logging
+        console.log(`📤 Calling ${modelId} (${config.provider}):`, {
+          model: config.model,
+          endpoint: config.endpoint,
+          messageCount: finalMessages.length,
+          hasApiKey: !!config.apiKey,
+        });
+        
         const response = await fetch(config.endpoint, {
           method: 'POST',
           headers: config.headers(),
@@ -378,13 +397,30 @@ serve(async (req) => {
 
         if (!response.ok) {
           const errorText = await response.text();
+          let errorDetails;
+          try {
+            errorDetails = JSON.parse(errorText);
+          } catch {
+            errorDetails = errorText;
+          }
+          
           console.error(`❌ Error from ${modelId} (${config.provider}):`, {
             status: response.status,
             statusText: response.statusText,
-            error: errorText,
+            error: errorDetails,
             endpoint: config.endpoint,
             model: config.model,
           });
+          
+          // Log specific error messages for common issues
+          if (response.status === 429) {
+            console.error(`   ⚠️ Rate limit/quota exceeded for ${modelId}`);
+          } else if (response.status === 401) {
+            console.error(`   ⚠️ Invalid API key for ${modelId}`);
+          } else if (response.status === 404) {
+            console.error(`   ⚠️ Model not found: ${config.model}`);
+          }
+          
           continue;
         }
 
@@ -424,6 +460,18 @@ serve(async (req) => {
         // Continue to next model instead of failing entirely
         continue;
       }
+    }
+
+    // Check if we got any responses
+    if (responses.length === 0) {
+      console.error('⚠️ All models failed to respond');
+      return new Response(
+        JSON.stringify({ 
+          error: 'All AI models failed to respond. Please check your API keys and try again.',
+          failedModels: selectedModels 
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Deduct credit for free users
