@@ -577,23 +577,18 @@ const Chat = () => {
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                   placeholder="Type your message..."
                   className="glass-card border-accent/30 focus:border-accent"
-                  disabled={loading || (!profile?.is_pro && (!profile?.credits_remaining || profile.credits_remaining <= 0))}
+                  disabled={loading}
                 />
                 <Button 
                   variant="hero" 
                   size="icon" 
                   className="shrink-0"
                   onClick={handleSend}
-                  disabled={!input.trim() || loading || (!profile?.is_pro && (!profile?.credits_remaining || profile.credits_remaining <= 0))}
+                  disabled={!input.trim() || loading}
                 >
                   <Send className="w-5 h-5" />
                 </Button>
               </div>
-              {!profile?.is_pro && (!profile?.credits_remaining || profile.credits_remaining <= 0) && (
-                <p className="text-sm text-destructive mt-2 text-center">
-                  Daily limit reached. Upgrade to Pro for unlimited access.
-                </p>
-              )}
             </div>
           </div>
         </main>

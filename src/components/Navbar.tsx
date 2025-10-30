@@ -41,13 +41,6 @@ const Navbar = () => {
                   Chat
                 </Button>
               </Link>
-              {!profile?.is_pro && (
-                <Link to="/upgrade">
-                  <Button variant="glass" className="hidden sm:flex">
-                    Upgrade to Pro
-                  </Button>
-                </Link>
-              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="border-accent/30">
@@ -56,11 +49,6 @@ const Navbar = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="glass-card">
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem disabled>
-                    <Zap className="w-4 h-4 mr-2" />
-                    {profile?.is_pro ? 'Pro (Unlimited)' : `${profile?.credits_remaining || 0} Credits`}
-                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={signOut}>
                     <LogOut className="w-4 h-4 mr-2" />
