@@ -20,7 +20,7 @@ const a4fApiKey = Deno.env.get('A4F_API_KEY');
 const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
 const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
 const VALID_MODELS = ['chatgpt', 'gemini', 'perplexity', 'claude', 'llama', 'grok'] as const;
 const STORAGE_BUCKET_URL = 'https://pqdgpxetysqcdcjwormb.supabase.co/storage/';
@@ -261,7 +261,7 @@ serve(async (req) => {
     }
 
     // Create client with user's token for auth
-    const userSupabase = createClient(supabaseUrl, supabaseServiceKey, {
+    const userSupabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: {
           Authorization: authHeader,
@@ -279,8 +279,14 @@ serve(async (req) => {
       );
     }
 
-    // Use service role client for database operations
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Use authenticated client with user's JWT token to enforce RLS policies
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+    });
 
     // Process attachment if present with size validation
     let processedMessages = [...messages];
@@ -367,7 +373,7 @@ serve(async (req) => {
       
       const { data: newChat } = await supabase
         .from('chat_history')
-        .insert({ user_id: user.id, title: title || 'New Chat' })
+        .insert({ title: title || 'New Chat' })
         .select()
         .single();
       currentChatId = newChat?.id;
@@ -381,7 +387,6 @@ serve(async (req) => {
     
     await supabase.from('chat_messages').insert({
       chat_id: currentChatId,
-      user_id: user.id,
       role: 'user',
       content: messageContent,
       attachment_url: attachmentUrl || null,
@@ -549,7 +554,6 @@ serve(async (req) => {
           responses.map(r => 
             supabase.from('chat_messages').insert({
               chat_id: currentChatId,
-              user_id: user.id,
               model: r.model,
               role: 'assistant',
               content: r.content,
