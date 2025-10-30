@@ -14,7 +14,7 @@ const ERROR_MESSAGES = {
   SERVER_ERROR: 'An error occurred processing your request',
 };
 
-const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
+const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -25,15 +25,15 @@ const MAX_MESSAGE_LENGTH = 10000;
 const MAX_MODELS_PER_REQUEST = 3;
 const RATE_LIMIT_REQUESTS = 10;
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
-const PERPLEXITY_TIMEOUT_MS = 30000; // 30 seconds
+const OPENROUTER_TIMEOUT_MS = 60000; // 60 seconds
 
 const modelMapping: Record<string, string> = {
-  chatgpt: 'sonar-pro',           // Advanced search with complex queries
-  gemini: 'sonar',                // Lightweight, fast search
-  claude: 'sonar-reasoning-pro',  // Precise reasoning with CoT
-  llama: 'sonar-reasoning',       // Fast reasoning model
-  mistral: 'sonar',               // Lightweight search
-  grok: 'sonar-deep-research',    // Expert-level comprehensive research
+  chatgpt: 'openai/gpt-4o',                    // OpenAI GPT-4o
+  gemini: 'google/gemini-2.0-flash-exp:free',  // Google Gemini 2.0 (free)
+  claude: 'anthropic/claude-3.5-sonnet',       // Anthropic Claude 3.5 Sonnet
+  llama: 'meta-llama/llama-3.3-70b-instruct',  // Meta Llama 3.3 70B
+  mistral: 'mistralai/mistral-7b-instruct',    // Mistral 7B Instruct
+  grok: 'x-ai/grok-2-vision-1212',             // xAI Grok 2 Vision
 };
 
 // Validation schema
@@ -249,23 +249,22 @@ serve(async (req) => {
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), PERPLEXITY_TIMEOUT_MS);
+      const timeoutId = setTimeout(() => controller.abort(), OPENROUTER_TIMEOUT_MS);
 
       try {
-        const response = await fetch('https://api.perplexity.ai/chat/completions', {
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${perplexityApiKey}`,
+            'Authorization': `Bearer ${openRouterApiKey}`,
             'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://pqdgpxetysqcdcjwormb.supabase.co',
+            'X-Title': 'MagVerse AI Chat',
           },
           body: JSON.stringify({
             model: modelName,
             messages: finalMessages,
-            temperature: 0.2,
-            top_p: 0.9,
+            temperature: 0.7,
             max_tokens: 2000,
-            return_images: false,
-            return_related_questions: false,
           }),
           signal: controller.signal,
         });
@@ -296,7 +295,7 @@ serve(async (req) => {
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
         if (fetchError.name === 'AbortError') {
-          console.error(`Timeout for model ${modelId} after ${PERPLEXITY_TIMEOUT_MS}ms`);
+          console.error(`Timeout for model ${modelId} after ${OPENROUTER_TIMEOUT_MS}ms`);
           // Continue to next model instead of failing entirely
           continue;
         }
