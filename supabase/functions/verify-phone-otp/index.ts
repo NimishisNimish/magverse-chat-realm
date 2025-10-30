@@ -12,6 +12,16 @@ interface VerifyOTPRequest {
   newPassword: string;
 }
 
+// Standard error response with timing masking to prevent user enumeration
+async function safeErrorResponse(message: string = "Invalid verification code. Please check and try again."): Promise<Response> {
+  // Add random delay (100-300ms) to mask timing differences
+  await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
+  return new Response(
+    JSON.stringify({ error: message }),
+    { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -51,18 +61,12 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     if (!verification) {
-      return new Response(
-        JSON.stringify({ error: "Invalid or expired OTP. Please request a new one." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return await safeErrorResponse();
     }
 
     // Check attempts limit
     if (verification.attempts >= 3) {
-      return new Response(
-        JSON.stringify({ error: "Too many failed attempts. Please request a new OTP." }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return await safeErrorResponse();
     }
 
     // Mark as verified
@@ -88,10 +92,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (profileError || !profile) {
       console.error("Profile not found:", profileError);
-      return new Response(
-        JSON.stringify({ error: "User not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return await safeErrorResponse();
     }
 
     // Update user password using admin API

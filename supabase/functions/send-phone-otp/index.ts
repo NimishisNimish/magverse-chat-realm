@@ -20,6 +20,15 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const msg91ApiKey = Deno.env.get("MSG91_API_KEY")!;
+    const msg91TemplateId = Deno.env.get("MSG91_TEMPLATE_ID");
+
+    if (!msg91TemplateId) {
+      console.error("MSG91_TEMPLATE_ID not configured");
+      return new Response(
+        JSON.stringify({ error: "SMS service not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -71,9 +80,11 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     if (!profile) {
+      // Don't reveal if phone exists or not - prevent user enumeration
+      await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
       return new Response(
-        JSON.stringify({ error: "No account found with this phone number. Please link your phone number first." }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: true, message: "If this phone number is registered, an OTP has been sent." }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -107,15 +118,19 @@ const handler = async (req: Request): Promise<Response> => {
       method: "phone_otp",
     });
 
-    // Send OTP via MSG91
-    const msg91Url = `https://control.msg91.com/api/v5/otp?template_id=your_template_id&mobile=91${phoneNumber}&authkey=${msg91ApiKey}&otp=${otp}`;
-    
+    // Send OTP via MSG91 using POST with body (more secure than URL params)
     try {
-      const smsResponse = await fetch(msg91Url, {
+      const smsResponse = await fetch("https://control.msg91.com/api/v5/otp", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "authkey": msg91ApiKey,
         },
+        body: JSON.stringify({
+          template_id: msg91TemplateId,
+          mobile: `91${phoneNumber}`,
+          otp: otp,
+        }),
       });
 
       const smsResult = await smsResponse.json();
