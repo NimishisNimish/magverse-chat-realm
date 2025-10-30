@@ -28,12 +28,12 @@ const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
 const PERPLEXITY_TIMEOUT_MS = 30000; // 30 seconds
 
 const modelMapping: Record<string, string> = {
-  chatgpt: 'llama-3.1-sonar-large-128k-online',
-  gemini: 'llama-3.1-sonar-small-128k-online',
-  claude: 'llama-3.1-sonar-large-128k-online',
-  llama: 'llama-3.1-sonar-small-128k-online',
-  mistral: 'llama-3.1-sonar-small-128k-online',
-  grok: 'llama-3.1-sonar-huge-128k-online',
+  chatgpt: 'sonar-pro',           // Advanced search with complex queries
+  gemini: 'sonar',                // Lightweight, fast search
+  claude: 'sonar-reasoning-pro',  // Precise reasoning with CoT
+  llama: 'sonar-reasoning',       // Fast reasoning model
+  mistral: 'sonar',               // Lightweight search
+  grok: 'sonar-deep-research',    // Expert-level comprehensive research
 };
 
 // Validation schema
