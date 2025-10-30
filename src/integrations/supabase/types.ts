@@ -86,6 +86,7 @@ export type Database = {
           id: string
           ip_address: string | null
           method: string
+          phone_number: string | null
         }
         Insert: {
           created_at?: string | null
@@ -93,6 +94,7 @@ export type Database = {
           id?: string
           ip_address?: string | null
           method: string
+          phone_number?: string | null
         }
         Update: {
           created_at?: string | null
@@ -100,8 +102,53 @@ export type Database = {
           id?: string
           ip_address?: string | null
           method?: string
+          phone_number?: string | null
         }
         Relationships: []
+      }
+      phone_verification_codes: {
+        Row: {
+          attempts: number | null
+          code: string
+          created_at: string | null
+          expires_at: string
+          id: string
+          phone_number: string
+          purpose: string
+          user_id: string | null
+          verified: boolean | null
+        }
+        Insert: {
+          attempts?: number | null
+          code: string
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          phone_number: string
+          purpose?: string
+          user_id?: string | null
+          verified?: boolean | null
+        }
+        Update: {
+          attempts?: number | null
+          code?: string
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          phone_number?: string
+          purpose?: string
+          user_id?: string | null
+          verified?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "phone_verification_codes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -110,6 +157,9 @@ export type Database = {
           id: string
           is_pro: boolean | null
           last_credit_reset: string | null
+          phone_number: string | null
+          phone_verified: boolean | null
+          phone_verified_at: string | null
         }
         Insert: {
           created_at?: string | null
@@ -117,6 +167,9 @@ export type Database = {
           id: string
           is_pro?: boolean | null
           last_credit_reset?: string | null
+          phone_number?: string | null
+          phone_verified?: boolean | null
+          phone_verified_at?: string | null
         }
         Update: {
           created_at?: string | null
@@ -124,6 +177,9 @@ export type Database = {
           id?: string
           is_pro?: boolean | null
           last_credit_reset?: string | null
+          phone_number?: string | null
+          phone_verified?: boolean | null
+          phone_verified_at?: string | null
         }
         Relationships: []
       }
@@ -214,7 +270,12 @@ export type Database = {
     }
     Functions: {
       check_and_deduct_credit: { Args: { p_user_id: string }; Returns: boolean }
+      check_phone_reset_rate_limit: {
+        Args: { p_phone: string }
+        Returns: boolean
+      }
       check_reset_rate_limit: { Args: { p_email: string }; Returns: boolean }
+      cleanup_expired_phone_codes: { Args: never; Returns: undefined }
       generate_verification_code: {
         Args: { p_user_id: string }
         Returns: string
