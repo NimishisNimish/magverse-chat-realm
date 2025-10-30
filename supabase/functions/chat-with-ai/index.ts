@@ -15,12 +15,14 @@ const ERROR_MESSAGES = {
 };
 
 const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
+const openRouterChatGptKey = Deno.env.get('OPENROUTER_CHATGPT_KEY');
 const deepseekApiKey = Deno.env.get('DEEPSEEK_API_KEY');
 const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
 const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
 
 // Debug: Log API key availability (not the actual keys)
 console.log('🔑 API Keys loaded:', {
+  chatgpt_openrouter: !!openRouterChatGptKey,
   deepseek: !!deepseekApiKey,
   google: !!googleApiKey,
   perplexity: !!perplexityApiKey,
@@ -41,20 +43,21 @@ const API_TIMEOUT_MS = 60000; // 60 seconds
 // Provider configuration with direct API endpoints
 const providerConfig: Record<string, any> = {
   chatgpt: {
-    provider: 'deepseek',
-    apiKey: deepseekApiKey,
-    endpoint: 'https://api.deepseek.com/chat/completions',
-    model: 'deepseek-chat',
+    provider: 'openrouter',
+    apiKey: openRouterChatGptKey,
+    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+    model: 'openai/gpt-4o',
     headers: () => ({
-      'Authorization': `Bearer ${deepseekApiKey}`,
+      'Authorization': `Bearer ${openRouterChatGptKey}`,
       'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://pqdgpxetysqcdcjwormb.supabase.co',
+      'X-Title': 'MagVerse AI Chat',
     }),
     bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
-      model: 'deepseek-chat',
+      model: 'openai/gpt-4o',
       messages,
-      max_tokens: 4000,
       temperature: 0.7,
-      stream: false,
+      max_tokens: 2000,
     }),
   },
   gemini: {
@@ -412,7 +415,7 @@ serve(async (req) => {
       if (!config.apiKey) {
         console.error(`❌ Missing API key for ${modelId} (provider: ${config.provider})`);
         console.error(`   Required secret: ${
-          modelId === 'chatgpt' ? 'DEEPSEEK_API_KEY' :
+          modelId === 'chatgpt' ? 'OPENROUTER_CHATGPT_KEY' :
           modelId === 'gemini' ? 'GOOGLE_AI_API_KEY' :
           modelId === 'perplexity' ? 'PERPLEXITY_API_KEY' :
           'OPENROUTER_API_KEY'
