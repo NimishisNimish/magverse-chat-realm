@@ -164,13 +164,12 @@ const Chat = () => {
       setUploadStatus('success');
       
       // Special message for PDFs
-      const fileExt = file.name.split('.').pop()?.toLowerCase();
       const isPdf = fileExt === 'pdf';
       
       toast({
         title: "File uploaded successfully",
         description: isPdf 
-          ? "PDF uploaded - content will be extracted and analyzed automatically." 
+          ? "PDF uploaded - AI will guide you to share relevant sections for analysis." 
           : "Your file is ready to send.",
       });
     } catch (error: any) {
