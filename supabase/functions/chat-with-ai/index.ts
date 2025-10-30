@@ -38,7 +38,8 @@ const MAX_MESSAGE_LENGTH = 10000;
 const MAX_MODELS_PER_REQUEST = 3;
 const RATE_LIMIT_REQUESTS = 10;
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
-const API_TIMEOUT_MS = 60000; // 60 seconds
+const API_TIMEOUT_MS = 60000; // 60 seconds for regular queries
+const DEEP_RESEARCH_TIMEOUT_MS = 180000; // 3 minutes for deep research mode
 
 // Provider configuration with direct API endpoints
 const providerConfig: Record<string, any> = {
@@ -452,8 +453,10 @@ serve(async (req) => {
         finalMessages = [deepResearchPrompt, ...finalMessages];
       }
 
+      // Use longer timeout for Deep Research mode (3 minutes vs 60 seconds)
+      const timeoutDuration = deepResearchMode ? DEEP_RESEARCH_TIMEOUT_MS : API_TIMEOUT_MS;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+      const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
 
       try {
         const requestBody = config.bodyTemplate(finalMessages, webSearchEnabled, searchMode);
@@ -534,7 +537,8 @@ serve(async (req) => {
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
         if (fetchError.name === 'AbortError') {
-          console.error(`⏱️ Timeout: ${modelId} exceeded ${API_TIMEOUT_MS}ms`);
+          const timeoutDuration = deepResearchMode ? DEEP_RESEARCH_TIMEOUT_MS : API_TIMEOUT_MS;
+          console.error(`⏱️ Timeout: ${modelId} exceeded ${timeoutDuration}ms (${deepResearchMode ? 'Deep Research' : 'Regular'} mode)`);
           return { success: false, model: modelId, error: 'Timeout' };
         } else {
           console.error(`❌ Error: ${modelId} failed:`, fetchError.message);
