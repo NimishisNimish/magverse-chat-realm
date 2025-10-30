@@ -199,7 +199,7 @@ const Chat = () => {
     setInput("");
 
     const timeout = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Request timeout - AI took too long to respond')), 45000);
+      setTimeout(() => reject(new Error('Request timeout - AI took too long to respond')), 35000);
     });
 
     try {
@@ -231,7 +231,7 @@ const Chat = () => {
 
       // Validate we got responses
       if (!data.responses || data.responses.length === 0) {
-        throw new Error('No AI responses received. Please check your API keys or try different models.');
+        throw new Error('All AI models failed to respond. Please check your API keys or try different models.');
       }
 
       if (data.chatId && !currentChatId) {
@@ -248,11 +248,22 @@ const Chat = () => {
 
       setMessages(prev => [...prev, ...aiMessages]);
       
-      // Show success toast with model info
-      toast({
-        title: `${aiMessages.length} AI${aiMessages.length > 1 ? 's' : ''} responded`,
-        description: `Successfully received responses from: ${aiMessages.map(m => m.model).join(', ')}`,
-      });
+      // Show appropriate toast based on success
+      if (data.partialSuccess && aiMessages.length < selectedModels.length) {
+        // Partial success - some models failed
+        const failedCount = selectedModels.length - aiMessages.length;
+        toast({
+          title: "Partial Response",
+          description: `${aiMessages.length} of ${selectedModels.length} AI models responded successfully. ${failedCount} model${failedCount > 1 ? 's' : ''} failed.`,
+          variant: "default",
+        });
+      } else {
+        // Full success - all models responded
+        toast({
+          title: `${aiMessages.length} AI${aiMessages.length > 1 ? 's' : ''} responded`,
+          description: `Successfully received responses from: ${aiMessages.map(m => m.model).join(', ')}`,
+        });
+      }
 
       await refreshProfile();
     } catch (error: any) {

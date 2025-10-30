@@ -29,7 +29,7 @@ const MAX_MESSAGE_LENGTH = 10000;
 const MAX_MODELS_PER_REQUEST = 3;
 const RATE_LIMIT_REQUESTS = 10;
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
-const API_TIMEOUT_MS = 30000; // 30 seconds
+const API_TIMEOUT_MS = 20000; // 20 seconds
 
 // Provider configuration with direct API endpoints
 const providerConfig: Record<string, any> = {
@@ -397,14 +397,13 @@ serve(async (req) => {
       attachment_url: attachmentUrl || null,
     });
 
-    const responses = [];
-
-    for (const modelId of selectedModels) {
+    // Process all models in parallel for better performance
+    const modelPromises = selectedModels.map(async (modelId) => {
       const config = providerConfig[modelId];
       
       if (!config) {
         console.error(`❌ No configuration found for model: ${modelId}`);
-        continue;
+        return { success: false, model: modelId, error: 'No configuration found' };
       }
 
       if (!config.apiKey) {
@@ -415,7 +414,7 @@ serve(async (req) => {
           modelId === 'perplexity' ? 'PERPLEXITY_API_KEY' :
           'OPENROUTER_API_KEY'
         }`);
-        continue;
+        return { success: false, model: modelId, error: 'Missing API key' };
       }
 
       // Check if model supports vision
@@ -453,7 +452,11 @@ serve(async (req) => {
         
         const response = await fetch(config.endpoint, {
           method: 'POST',
-          headers: config.headers(),
+          headers: {
+            ...config.headers(),
+            'Connection': 'keep-alive',
+            'Keep-Alive': 'timeout=5, max=100'
+          },
           body: JSON.stringify(requestBody),
           signal: controller.signal,
         });
@@ -486,7 +489,7 @@ serve(async (req) => {
             console.error(`   ⚠️ Model not found: ${config.model}`);
           }
           
-          continue;
+          return { success: false, model: modelId, error: `API error: ${response.status}` };
         }
 
         const data = await response.json();
@@ -500,32 +503,35 @@ serve(async (req) => {
           content = data.choices[0]?.message?.content || 'No response';
         }
 
-        // Save AI response
-        await supabase.from('chat_messages').insert({
-          chat_id: currentChatId,
-          user_id: user.id,
-          model: modelId,
-          role: 'assistant',
-          content: content,
-        });
-
-        responses.push({
-          model: modelId,
-          content: content,
-        });
-        
         console.log(`✅ Success: ${modelId} responded in time`);
+        
+        return {
+          success: true,
+          model: modelId,
+          content: content,
+        };
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
         if (fetchError.name === 'AbortError') {
           console.error(`⏱️ Timeout: ${modelId} exceeded ${API_TIMEOUT_MS}ms`);
+          return { success: false, model: modelId, error: 'Timeout' };
         } else {
           console.error(`❌ Error: ${modelId} failed:`, fetchError.message);
+          return { success: false, model: modelId, error: fetchError.message };
         }
-        // Continue to next model instead of failing entirely
-        continue;
       }
-    }
+    });
+
+    // Wait for all models to complete in parallel
+    const results = await Promise.allSettled(modelPromises);
+    
+    // Extract successful responses
+    const responses = results
+      .filter(r => r.status === 'fulfilled' && r.value.success)
+      .map(r => ({
+        model: (r as PromiseFulfilledResult<any>).value.model,
+        content: (r as PromiseFulfilledResult<any>).value.content,
+      }));
 
     // Check if we got any responses
     if (responses.length === 0) {
@@ -539,13 +545,46 @@ serve(async (req) => {
       );
     }
 
-    // Deduct credit for free users
+    // Return response immediately to user
+    const responseToSend = {
+      responses,
+      chatId: currentChatId,
+      partialSuccess: responses.length < selectedModels.length
+    };
+
+    // Save AI responses to database in background (non-blocking)
+    (async () => {
+      try {
+        await Promise.all(
+          responses.map(r => 
+            supabase.from('chat_messages').insert({
+              chat_id: currentChatId,
+              user_id: user.id,
+              model: r.model,
+              role: 'assistant',
+              content: r.content,
+            })
+          )
+        );
+      } catch (err) {
+        console.error('Background DB save error:', err);
+      }
+    })();
+
+    // Deduct credit for free users (also in background)
     if (!profile?.is_pro) {
-      await supabase.rpc('check_and_deduct_credit', { p_user_id: user.id });
+      (async () => {
+        try {
+          await supabase.rpc('check_and_deduct_credit', { p_user_id: user.id });
+          console.log('Credit deducted');
+        } catch (err) {
+          console.error('Background credit deduction error:', err);
+        }
+      })();
     }
 
     return new Response(
-      JSON.stringify({ responses, chatId: currentChatId }),
+      JSON.stringify(responseToSend),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error: any) {
