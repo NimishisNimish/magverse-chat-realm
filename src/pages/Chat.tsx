@@ -30,6 +30,7 @@ const aiModels = [
   { id: "chatgpt", name: "ChatGPT", icon: Bot, color: "text-primary" },
   { id: "gemini", name: "Gemini", icon: Brain, color: "text-secondary" },
   { id: "perplexity", name: "Perplexity", icon: Cpu, color: "text-secondary" },
+  { id: "deepseek", name: "Deepseek", icon: Sparkles, color: "text-purple-500" },
   { id: "claude", name: "Claude", icon: Sparkles, color: "text-accent" },
   { id: "llama", name: "Llama", icon: Zap, color: "text-primary" },
   { id: "grok", name: "Grok", icon: Star, color: "text-accent" },

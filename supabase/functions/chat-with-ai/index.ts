@@ -19,6 +19,7 @@ const deepseekApiKey = Deno.env.get('DEEPSEEK_API_KEY');
 const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
 const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
 const nvidiaApiKey = Deno.env.get('NVIDIA_NIM_API_KEY');
+const deepseekNvidiaApiKey = Deno.env.get('DEEPSEEK_NVIDIA_NIM_API_KEY');
 
 // Debug: Log API key availability (not the actual keys)
 console.log('🔑 API Keys loaded:', {
@@ -26,12 +27,13 @@ console.log('🔑 API Keys loaded:', {
   deepseek: !!deepseekApiKey,
   google: !!googleApiKey,
   perplexity: !!perplexityApiKey,
-  nvidiaNim: !!nvidiaApiKey // NVIDIA NIM for ChatGPT
+  nvidiaNim: !!nvidiaApiKey, // NVIDIA NIM for ChatGPT
+  deepseekNvidia: !!deepseekNvidiaApiKey // NVIDIA NIM for Deepseek
 });
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-const VALID_MODELS = ['chatgpt', 'gemini', 'perplexity', 'claude', 'llama', 'grok'] as const;
+const VALID_MODELS = ['chatgpt', 'gemini', 'perplexity', 'deepseek', 'claude', 'llama', 'grok'] as const;
 const STORAGE_BUCKET_URL = 'https://pqdgpxetysqcdcjwormb.supabase.co/storage/';
 const MAX_FILE_SIZE = 10_000_000; // 10MB
 const MAX_MESSAGE_LENGTH = 10000;
@@ -179,6 +181,26 @@ const providerConfig: Record<string, any> = {
       temperature: 0.7,
       max_tokens: 2000,
     }),
+  },
+  deepseek: {
+    provider: 'nvidia-nim',
+    apiKey: deepseekNvidiaApiKey,
+    endpoint: 'https://integrate.api.nvidia.com/v1/chat/completions',
+    model: 'deepseek-ai/deepseek-r1',
+    headers: () => ({
+      'Authorization': `Bearer ${deepseekNvidiaApiKey}`,
+      'Content-Type': 'application/json',
+    }),
+    bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
+      model: 'deepseek-ai/deepseek-r1',
+      messages,
+      temperature: 0.7,
+      max_tokens: 2000,
+      stream: false,
+    }),
+    responseTransform: (data: any) => {
+      return data.choices[0]?.message?.content || 'No response';
+    },
   },
 };
 
@@ -423,6 +445,7 @@ serve(async (req) => {
         console.error(`❌ Missing API key for ${modelId} (provider: ${config.provider})`);
         console.error(`   Required secret: ${
           modelId === 'chatgpt' ? 'NVIDIA_NIM_API_KEY' :
+          modelId === 'deepseek' ? 'DEEPSEEK_NVIDIA_NIM_API_KEY' :
           modelId === 'gemini' ? 'GOOGLE_AI_API_KEY' :
           modelId === 'perplexity' ? 'PERPLEXITY_API_KEY' :
           'OPENROUTER_API_KEY'
