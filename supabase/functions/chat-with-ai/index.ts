@@ -18,13 +18,15 @@ const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY'); // Single key for a
 const deepseekApiKey = Deno.env.get('DEEPSEEK_API_KEY');
 const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
 const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
+const nvidiaApiKey = Deno.env.get('NVIDIA_NIM_API_KEY');
 
 // Debug: Log API key availability (not the actual keys)
 console.log('🔑 API Keys loaded:', {
-  openrouter: !!openRouterApiKey, // Single key for ChatGPT, Claude, Llama, Grok
+  openrouter: !!openRouterApiKey, // Single key for Claude, Llama, Grok
   deepseek: !!deepseekApiKey,
   google: !!googleApiKey,
-  perplexity: !!perplexityApiKey
+  perplexity: !!perplexityApiKey,
+  nvidiaNim: !!nvidiaApiKey // NVIDIA NIM for ChatGPT
 });
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -42,22 +44,24 @@ const DEEP_RESEARCH_TIMEOUT_MS = 480000; // 480 seconds (8 minutes) for deep res
 // Provider configuration with direct API endpoints
 const providerConfig: Record<string, any> = {
   chatgpt: {
-    provider: 'openrouter',
-    apiKey: openRouterApiKey,
-    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-    model: 'openai/gpt-4o',
+    provider: 'nvidia-nim',
+    apiKey: nvidiaApiKey,
+    endpoint: 'https://integrate.api.nvidia.com/v1/chat/completions',
+    model: 'meta/llama-3.1-405b-instruct',
     headers: () => ({
-      'Authorization': `Bearer ${openRouterApiKey}`,
+      'Authorization': `Bearer ${nvidiaApiKey}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://pqdgpxetysqcdcjwormb.supabase.co',
-      'X-Title': 'MagVerse AI Chat',
     }),
     bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
-      model: 'openai/gpt-4o',
+      model: 'meta/llama-3.1-405b-instruct',
       messages,
       temperature: 0.7,
       max_tokens: 2000,
+      stream: false,
     }),
+    responseTransform: (data: any) => {
+      return data.choices[0]?.message?.content || 'No response';
+    },
   },
   gemini: {
     provider: 'google',
@@ -418,7 +422,7 @@ serve(async (req) => {
       if (!config.apiKey) {
         console.error(`❌ Missing API key for ${modelId} (provider: ${config.provider})`);
         console.error(`   Required secret: ${
-          modelId === 'chatgpt' ? 'OPENROUTER_CHATGPT_KEY' :
+          modelId === 'chatgpt' ? 'NVIDIA_NIM_API_KEY' :
           modelId === 'gemini' ? 'GOOGLE_AI_API_KEY' :
           modelId === 'perplexity' ? 'PERPLEXITY_API_KEY' :
           'OPENROUTER_API_KEY'
