@@ -43,7 +43,8 @@ const App = () => (
             <Route path="/link-phone" element={<ProtectedRoute><LinkPhone /></ProtectedRoute>} />
             <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
             <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
-            <Route path="/upgrade" element={<ProtectedRoute><Upgrade /></ProtectedRoute>} />
+            {/* Upgrade route temporarily disabled - everyone has Pro access */}
+            {/* <Route path="/upgrade" element={<ProtectedRoute><Upgrade /></ProtectedRoute>} /> */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

@@ -42,8 +42,8 @@ const MAX_MESSAGE_LENGTH = 10000;
 const MAX_MODELS_PER_REQUEST = 3;
 const RATE_LIMIT_REQUESTS = 10;
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
-const API_TIMEOUT_MS = 240000; // 240 seconds (4 minutes) for regular queries
-const DEEP_RESEARCH_TIMEOUT_MS = 480000; // 480 seconds (8 minutes) for deep research mode
+const API_TIMEOUT_MS = 480000; // 8 minutes for regular queries
+const DEEP_RESEARCH_TIMEOUT_MS = 600000; // 10 minutes for deep research mode
 
 // Provider configuration with direct API endpoints
 const providerConfig: Record<string, any> = {

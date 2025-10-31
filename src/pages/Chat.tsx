@@ -228,11 +228,11 @@ const Chat = () => {
     setInput("");
 
     // Frontend must wait LONGER than backend to avoid premature cancellation
-    const timeoutMs = deepResearchMode ? 540000 : 300000; // 9 min for Deep Research, 5 min for regular
+    const timeoutMs = deepResearchMode ? 660000 : 540000; // 11 min for Deep Research, 9 min for regular
     const timeout = new Promise((_, reject) => {
       const timeoutMessage = deepResearchMode 
-        ? 'Deep Research timed out after 9 minutes. Try breaking your query into smaller parts or selecting fewer AI models.'
-        : 'Request timed out after 5 minutes. For complex queries requiring extensive analysis, try enabling Deep Research mode.';
+        ? 'Deep Research timed out after 11 minutes. Try breaking your query into smaller parts or selecting fewer AI models.'
+        : 'Request timed out after 9 minutes. For complex queries requiring extensive analysis, try enabling Deep Research mode.';
       setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
     });
 
@@ -529,22 +529,6 @@ const Chat = () => {
                 </p>
               )}
             </div>
-            
-            <div className="glass-card p-4 rounded-lg space-y-2 border-accent/30">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Credits</span>
-                <span className={`text-lg font-bold ${profile?.is_pro ? 'text-accent' : 'text-primary'}`}>
-                  {profile?.is_pro ? '∞' : profile?.credits_remaining || 0}
-                </span>
-              </div>
-              {!profile?.is_pro && (
-                <p className="text-xs text-muted-foreground">
-                  {(profile?.credits_remaining || 0) > 0 
-                    ? `${profile?.credits_remaining} chats remaining today` 
-                    : 'No credits left today'}
-                </p>
-              )}
-            </div>
 
             <Link to="/history">
               <Button variant="glass" className="w-full justify-start gap-3">
@@ -614,8 +598,8 @@ const Chat = () => {
                       <div className="w-2 h-2 bg-accent rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
                       <p className="text-muted-foreground ml-2">
                         {deepResearchMode 
-                          ? "Deep Research with web search in progress... This may take up to 8 minutes for thorough analysis."
-                          : "AI is analyzing your request... This may take up to 4 minutes depending on complexity."}
+                          ? `Processing with Deep Research mode (${selectedModels.length} model${selectedModels.length > 1 ? 's' : ''})... This may take up to 10 minutes for thorough analysis.`
+                          : `Processing with ${selectedModels.length} AI model${selectedModels.length > 1 ? 's' : ''}... This may take up to 8 minutes for complex queries.`}
                       </p>
                     </div>
                   </div>

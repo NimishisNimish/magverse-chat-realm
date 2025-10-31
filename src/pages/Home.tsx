@@ -38,12 +38,12 @@ const Home = () => {
             <br />
             <span className="text-foreground">Access 6 AI Models</span>
             <br />
-            <span className="text-foreground">for Just </span>
-            <span className="text-primary">₹199</span>
+            <span className="text-foreground">Completely </span>
+            <span className="text-primary">Free</span>
           </h1>
           
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Unlock lifetime access to ChatGPT, Gemini, Claude, and more. 
+            Unlimited access to ChatGPT, Gemini, Claude, and more. 
             All in one sleek, futuristic interface.
           </p>
           
@@ -54,14 +54,6 @@ const Home = () => {
                 Start Chatting
               </Button>
             </Link>
-            {(!user || !profile?.is_pro) && (
-              <Link to="/upgrade">
-                <Button variant="glass" size="lg" className="w-full sm:w-auto text-lg px-8">
-                  <Infinity className="w-5 h-5" />
-                  Upgrade to Pro
-                </Button>
-              </Link>
-            )}
           </div>
         </div>
       </section>
@@ -83,9 +75,9 @@ const Home = () => {
             <div className="w-12 h-12 rounded-full bg-secondary/20 flex items-center justify-center">
               <Shield className="w-6 h-6 text-secondary" />
             </div>
-            <h3 className="text-xl font-semibold">Free Plan</h3>
+            <h3 className="text-xl font-semibold">Unlimited Access</h3>
             <p className="text-muted-foreground">
-              Get 10 credits daily. Perfect for trying out the platform.
+              All AI models, unlimited chats, completely free. No credit limits!
             </p>
           </div>
           
@@ -93,9 +85,9 @@ const Home = () => {
             <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center">
               <Infinity className="w-6 h-6 text-accent" />
             </div>
-            <h3 className="text-xl font-semibold">Lifetime Pro</h3>
+            <h3 className="text-xl font-semibold">No Limits</h3>
             <p className="text-muted-foreground">
-              One-time payment of ₹199 for unlimited access forever.
+              Unlimited chats with all models. No restrictions, no hidden costs.
             </p>
           </div>
         </div>
@@ -156,11 +148,11 @@ const Home = () => {
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-primary">✓</span>
-                    <span>Lifetime access for a one-time payment</span>
+                    <span>Completely free unlimited access</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-primary">✓</span>
-                    <span>Free daily credits to try before you buy</span>
+                    <span>No credit limits or hidden costs</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-primary">✓</span>
