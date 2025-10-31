@@ -20,15 +20,17 @@ const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
 const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
 const nvidiaApiKey = Deno.env.get('NVIDIA_NIM_API_KEY');
 const deepseekNvidiaApiKey = Deno.env.get('DEEPSEEK_NVIDIA_NIM_API_KEY');
+const llamaNvidiaApiKey = Deno.env.get('LLAMA_NVIDIA_NIM_API_KEY');
 
 // Debug: Log API key availability (not the actual keys)
 console.log('🔑 API Keys loaded:', {
-  openrouter: !!openRouterApiKey, // Single key for Claude, Llama, Grok
+  openrouter: !!openRouterApiKey, // Single key for Claude, Grok
   deepseek: !!deepseekApiKey,
   google: !!googleApiKey,
   perplexity: !!perplexityApiKey,
   nvidiaNim: !!nvidiaApiKey, // NVIDIA NIM for ChatGPT
-  deepseekNvidia: !!deepseekNvidiaApiKey // NVIDIA NIM for Deepseek
+  deepseekNvidia: !!deepseekNvidiaApiKey, // NVIDIA NIM for Deepseek
+  llamaNvidia: !!llamaNvidiaApiKey // NVIDIA NIM for Llama
 });
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -147,22 +149,24 @@ const providerConfig: Record<string, any> = {
     }),
   },
   llama: {
-    provider: 'openrouter',
-    apiKey: openRouterApiKey,
-    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-    model: 'meta-llama/llama-3.3-70b-instruct',
+    provider: 'nvidia-nim',
+    apiKey: llamaNvidiaApiKey,
+    endpoint: 'https://integrate.api.nvidia.com/v1/chat/completions',
+    model: 'meta/llama-3.3-70b-instruct',
     headers: () => ({
-      'Authorization': `Bearer ${openRouterApiKey}`,
+      'Authorization': `Bearer ${llamaNvidiaApiKey}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://pqdgpxetysqcdcjwormb.supabase.co',
-      'X-Title': 'MagVerse AI Chat',
     }),
     bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
-      model: 'meta-llama/llama-3.3-70b-instruct',
+      model: 'meta/llama-3.3-70b-instruct',
       messages,
       temperature: 0.7,
       max_tokens: 2000,
+      stream: false,
     }),
+    responseTransform: (data: any) => {
+      return data.choices[0]?.message?.content || 'No response';
+    },
   },
   grok: {
     provider: 'openrouter',
@@ -446,6 +450,7 @@ serve(async (req) => {
         console.error(`   Required secret: ${
           modelId === 'chatgpt' ? 'NVIDIA_NIM_API_KEY' :
           modelId === 'deepseek' ? 'DEEPSEEK_NVIDIA_NIM_API_KEY' :
+          modelId === 'llama' ? 'LLAMA_NVIDIA_NIM_API_KEY' :
           modelId === 'gemini' ? 'GOOGLE_AI_API_KEY' :
           modelId === 'perplexity' ? 'PERPLEXITY_API_KEY' :
           'OPENROUTER_API_KEY'
