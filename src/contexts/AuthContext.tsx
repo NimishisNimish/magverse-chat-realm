@@ -10,6 +10,10 @@ interface Profile {
   phone_number?: string;
   phone_verified?: boolean;
   phone_verified_at?: string;
+  subscription_type?: 'free' | 'monthly' | 'lifetime';
+  subscription_expires_at?: string;
+  monthly_credits?: number;
+  monthly_credits_used?: number;
 }
 
 interface AuthContextType {
@@ -48,7 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .single();
     
     if (data) {
-      setProfile(data);
+      setProfile(data as Profile);
     }
   };
 

@@ -106,21 +106,48 @@ serve(async (req) => {
         throw new Error('Failed to update transaction');
       }
 
-      // Grant Pro access
-      const { error: updateProfileError } = await supabase
-        .from('profiles')
-        .update({
-          is_pro: true,
-          credits_remaining: -1, // Unlimited credits for Pro users
-        })
-        .eq('id', transaction.user_id);
+      // Determine plan type and grant appropriate access
+      const planType = transaction.plan_type || 'lifetime';
+      
+      if (planType === 'monthly') {
+        // Grant monthly subscription (50 credits/month)
+        const subscriptionEnd = new Date();
+        subscriptionEnd.setDate(subscriptionEnd.getDate() + 30);
+        
+        const { error: updateProfileError } = await supabase
+          .from('profiles')
+          .update({
+            subscription_type: 'monthly',
+            subscription_expires_at: subscriptionEnd.toISOString(),
+            monthly_credits: 50,
+            monthly_credits_used: 0,
+          })
+          .eq('id', transaction.user_id);
 
-      if (updateProfileError) {
-        console.error('❌ Failed to grant Pro access:', updateProfileError);
-        throw new Error('Failed to grant Pro access');
+        if (updateProfileError) {
+          console.error('❌ Failed to grant monthly subscription:', updateProfileError);
+          throw new Error('Failed to grant monthly subscription');
+        }
+
+        console.log('✅ Monthly subscription granted to user:', transaction.user_id);
+      } else {
+        // Grant lifetime Pro access
+        const { error: updateProfileError } = await supabase
+          .from('profiles')
+          .update({
+            is_pro: true,
+            subscription_type: 'lifetime',
+            credits_remaining: -1, // Unlimited credits for Pro users
+          })
+          .eq('id', transaction.user_id);
+
+        if (updateProfileError) {
+          console.error('❌ Failed to grant Pro access:', updateProfileError);
+          throw new Error('Failed to grant Pro access');
+        }
+
+        console.log('✅ Lifetime Pro access granted to user:', transaction.user_id);
       }
-
-      console.log('✅ Pro access granted to user:', transaction.user_id);
 
       return new Response(
         JSON.stringify({

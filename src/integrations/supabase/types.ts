@@ -157,9 +157,13 @@ export type Database = {
           id: string
           is_pro: boolean | null
           last_credit_reset: string | null
+          monthly_credits: number | null
+          monthly_credits_used: number | null
           phone_number: string | null
           phone_verified: boolean | null
           phone_verified_at: string | null
+          subscription_expires_at: string | null
+          subscription_type: string | null
         }
         Insert: {
           created_at?: string | null
@@ -167,9 +171,13 @@ export type Database = {
           id: string
           is_pro?: boolean | null
           last_credit_reset?: string | null
+          monthly_credits?: number | null
+          monthly_credits_used?: number | null
           phone_number?: string | null
           phone_verified?: boolean | null
           phone_verified_at?: string | null
+          subscription_expires_at?: string | null
+          subscription_type?: string | null
         }
         Update: {
           created_at?: string | null
@@ -177,9 +185,13 @@ export type Database = {
           id?: string
           is_pro?: boolean | null
           last_credit_reset?: string | null
+          monthly_credits?: number | null
+          monthly_credits_used?: number | null
           phone_number?: string | null
           phone_verified?: boolean | null
           phone_verified_at?: string | null
+          subscription_expires_at?: string | null
+          subscription_type?: string | null
         }
         Relationships: []
       }
@@ -192,7 +204,10 @@ export type Database = {
           payment_id: string | null
           payment_method: string | null
           payment_reference: string | null
+          plan_type: string | null
           status: string
+          subscription_period_end: string | null
+          subscription_period_start: string | null
           user_id: string
           verification_status: string | null
           verified_at: string | null
@@ -206,7 +221,10 @@ export type Database = {
           payment_id?: string | null
           payment_method?: string | null
           payment_reference?: string | null
+          plan_type?: string | null
           status: string
+          subscription_period_end?: string | null
+          subscription_period_start?: string | null
           user_id: string
           verification_status?: string | null
           verified_at?: string | null
@@ -220,7 +238,10 @@ export type Database = {
           payment_id?: string | null
           payment_method?: string | null
           payment_reference?: string | null
+          plan_type?: string | null
           status?: string
+          subscription_period_end?: string | null
+          subscription_period_start?: string | null
           user_id?: string
           verification_status?: string | null
           verified_at?: string | null
@@ -291,6 +312,7 @@ export type Database = {
       }
       check_reset_rate_limit: { Args: { p_email: string }; Returns: boolean }
       cleanup_expired_phone_codes: { Args: never; Returns: undefined }
+      expire_monthly_subscriptions: { Args: never; Returns: undefined }
       generate_verification_code: {
         Args: { p_user_id: string }
         Returns: string

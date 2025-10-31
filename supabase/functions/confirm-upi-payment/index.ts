@@ -6,7 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const PRO_SUBSCRIPTION_PRICE = 199; // ₹199 for Pro subscription
+const LIFETIME_PRICE = 199; // ₹199 for lifetime Pro subscription
+const MONTHLY_PRICE = 1; // ₹1 for monthly subscription
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -63,21 +64,33 @@ serve(async (req) => {
       );
     }
 
-    // Parse request body for optional payment reference
-    const { paymentReference } = await req.json().catch(() => ({}));
+    // Parse request body for payment reference and plan type
+    const { paymentReference, planType } = await req.json().catch(() => ({}));
+    
+    // Validate plan type
+    const selectedPlanType = planType === 'monthly' ? 'monthly' : 'lifetime';
+    const amount = selectedPlanType === 'monthly' ? MONTHLY_PRICE : LIFETIME_PRICE;
+    
+    console.log('💳 Creating UPI transaction record for', selectedPlanType, 'plan');
 
-    console.log('💳 Creating UPI transaction record');
+    // Calculate subscription period for monthly plans
+    const now = new Date();
+    const subscriptionEnd = new Date(now);
+    subscriptionEnd.setDate(subscriptionEnd.getDate() + 30);
 
     // Create transaction record
     const { data: transaction, error: txError } = await supabase
       .from('transactions')
       .insert({
         user_id: user.id,
-        amount: PRO_SUBSCRIPTION_PRICE,
+        amount: amount,
         status: 'pending',
         payment_method: 'upi',
         verification_status: 'pending_verification',
         payment_reference: paymentReference || null,
+        plan_type: selectedPlanType,
+        subscription_period_start: selectedPlanType === 'monthly' ? now.toISOString() : null,
+        subscription_period_end: selectedPlanType === 'monthly' ? subscriptionEnd.toISOString() : null,
       })
       .select()
       .single();
