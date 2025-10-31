@@ -7,10 +7,14 @@ import magverseLogo from "@/assets/magverse-logo.png";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-
 const Home = () => {
-  const { user, profile } = useAuth();
-  const { toast } = useToast();
+  const {
+    user,
+    profile
+  } = useAuth();
+  const {
+    toast
+  } = useToast();
   const [contactForm, setContactForm] = useState({
     name: "",
     email: "",
@@ -18,9 +22,7 @@ const Home = () => {
     message: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       <Navbar />
       
       {/* Hero Section */}
@@ -36,7 +38,7 @@ const Home = () => {
           <h1 className="text-5xl md:text-7xl font-bold leading-tight">
             <span className="gradient-text">Magverse AI</span>
             <br />
-            <span className="text-foreground">Access 6 AI Models</span>
+            <span className="text-foreground">Access 7 AI Models</span>
             <br />
             <span className="text-foreground">Completely </span>
             <span className="text-primary">Free</span>
@@ -71,7 +73,9 @@ const Home = () => {
             </p>
           </div>
           
-          <div className="glass-card-hover p-8 rounded-2xl space-y-4 animate-slide-up" style={{ animationDelay: "0.1s" }}>
+          <div className="glass-card-hover p-8 rounded-2xl space-y-4 animate-slide-up" style={{
+          animationDelay: "0.1s"
+        }}>
             <div className="w-12 h-12 rounded-full bg-secondary/20 flex items-center justify-center">
               <Shield className="w-6 h-6 text-secondary" />
             </div>
@@ -81,7 +85,9 @@ const Home = () => {
             </p>
           </div>
           
-          <div className="glass-card-hover p-8 rounded-2xl space-y-4 animate-slide-up" style={{ animationDelay: "0.2s" }}>
+          <div className="glass-card-hover p-8 rounded-2xl space-y-4 animate-slide-up" style={{
+          animationDelay: "0.2s"
+        }}>
             <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center">
               <Infinity className="w-6 h-6 text-accent" />
             </div>
@@ -97,11 +103,7 @@ const Home = () => {
       <section id="about" className="container mx-auto px-4 py-20 bg-gradient-to-b from-background to-background/50">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16 animate-fade-in">
-            <img 
-              src={magverseLogo} 
-              alt="Magverse AI Logo" 
-              className="w-32 h-32 mx-auto mb-6 animate-glow-pulse"
-            />
+            <img src={magverseLogo} alt="Magverse AI Logo" className="w-32 h-32 mx-auto mb-6 animate-glow-pulse" />
             <h2 className="text-4xl md:text-5xl font-bold gradient-text mb-4">About Magverse AI</h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
               Empowering everyone with access to the world's most advanced AI models
@@ -184,10 +186,7 @@ const Home = () => {
           </div>
 
           <div className="grid md:grid-cols-3 gap-6 mb-12">
-            <a 
-              href="mailto:magverse4@gmail.com" 
-              className="glass-card-hover p-6 rounded-xl text-center space-y-3 group"
-            >
+            <a href="mailto:magverse4@gmail.com" className="glass-card-hover p-6 rounded-xl text-center space-y-3 group">
               <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
                 <Mail className="w-6 h-6 text-primary" />
               </div>
@@ -195,10 +194,7 @@ const Home = () => {
               <p className="text-sm text-muted-foreground">magverse4@gmail.com</p>
             </a>
 
-            <a 
-              href="tel:+919872021777" 
-              className="glass-card-hover p-6 rounded-xl text-center space-y-3 group"
-            >
+            <a href="tel:+919872021777" className="glass-card-hover p-6 rounded-xl text-center space-y-3 group">
               <div className="w-12 h-12 rounded-full bg-secondary/20 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
                 <Phone className="w-6 h-6 text-secondary" />
               </div>
@@ -217,88 +213,72 @@ const Home = () => {
 
           <div className="glass-card p-8 rounded-2xl">
             <h3 className="text-2xl font-semibold mb-6 text-center">Send Us a Message</h3>
-            <form className="space-y-4" onSubmit={async (e) => {
-              e.preventDefault();
-              setIsSubmitting(true);
-
-              try {
-                const { data, error } = await supabase.functions.invoke('send-contact-email', {
-                  body: contactForm
-                });
-
-                if (error) throw error;
-
-                if (data.success) {
-                  toast({
-                    title: "Message Sent!",
-                    description: "Thank you for contacting us. We'll get back to you soon!",
-                  });
-                  // Clear form
-                  setContactForm({
-                    name: "",
-                    email: "",
-                    subject: "",
-                    message: ""
-                  });
-                } else {
-                  throw new Error(data.error || "Failed to send message");
-                }
-              } catch (error: any) {
-                console.error("Error sending message:", error);
+            <form className="space-y-4" onSubmit={async e => {
+            e.preventDefault();
+            setIsSubmitting(true);
+            try {
+              const {
+                data,
+                error
+              } = await supabase.functions.invoke('send-contact-email', {
+                body: contactForm
+              });
+              if (error) throw error;
+              if (data.success) {
                 toast({
-                  title: "Error",
-                  description: error.message || "Failed to send message. Please try again.",
-                  variant: "destructive",
+                  title: "Message Sent!",
+                  description: "Thank you for contacting us. We'll get back to you soon!"
                 });
-              } finally {
-                setIsSubmitting(false);
+                // Clear form
+                setContactForm({
+                  name: "",
+                  email: "",
+                  subject: "",
+                  message: ""
+                });
+              } else {
+                throw new Error(data.error || "Failed to send message");
               }
-            }}>
+            } catch (error: any) {
+              console.error("Error sending message:", error);
+              toast({
+                title: "Error",
+                description: error.message || "Failed to send message. Please try again.",
+                variant: "destructive"
+              });
+            } finally {
+              setIsSubmitting(false);
+            }
+          }}>
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm text-muted-foreground mb-2 block">Name</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={contactForm.name}
-                    onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg bg-background/50 border border-glass-border focus:border-primary focus:outline-none"
-                    placeholder="Your name"
-                  />
+                  <input type="text" required value={contactForm.name} onChange={e => setContactForm({
+                  ...contactForm,
+                  name: e.target.value
+                })} className="w-full px-4 py-2 rounded-lg bg-background/50 border border-glass-border focus:border-primary focus:outline-none" placeholder="Your name" />
                 </div>
                 <div>
                   <label className="text-sm text-muted-foreground mb-2 block">Email</label>
-                  <input 
-                    type="email" 
-                    required
-                    value={contactForm.email}
-                    onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg bg-background/50 border border-glass-border focus:border-primary focus:outline-none"
-                    placeholder="your@email.com"
-                  />
+                  <input type="email" required value={contactForm.email} onChange={e => setContactForm({
+                  ...contactForm,
+                  email: e.target.value
+                })} className="w-full px-4 py-2 rounded-lg bg-background/50 border border-glass-border focus:border-primary focus:outline-none" placeholder="your@email.com" />
                 </div>
               </div>
               <div>
                 <label className="text-sm text-muted-foreground mb-2 block">Subject</label>
-                <input 
-                  type="text" 
-                  required
-                  value={contactForm.subject}
-                  onChange={(e) => setContactForm({ ...contactForm, subject: e.target.value })}
-                  className="w-full px-4 py-2 rounded-lg bg-background/50 border border-glass-border focus:border-primary focus:outline-none"
-                  placeholder="How can we help?"
-                />
+                <input type="text" required value={contactForm.subject} onChange={e => setContactForm({
+                ...contactForm,
+                subject: e.target.value
+              })} className="w-full px-4 py-2 rounded-lg bg-background/50 border border-glass-border focus:border-primary focus:outline-none" placeholder="How can we help?" />
               </div>
               <div>
                 <label className="text-sm text-muted-foreground mb-2 block">Message</label>
-                <textarea 
-                  required
-                  rows={5}
-                  value={contactForm.message}
-                  onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
-                  className="w-full px-4 py-2 rounded-lg bg-background/50 border border-glass-border focus:border-primary focus:outline-none resize-none"
-                  placeholder="Tell us more..."
-                />
+                <textarea required rows={5} value={contactForm.message} onChange={e => setContactForm({
+                ...contactForm,
+                message: e.target.value
+              })} className="w-full px-4 py-2 rounded-lg bg-background/50 border border-glass-border focus:border-primary focus:outline-none resize-none" placeholder="Tell us more..." />
               </div>
               <Button type="submit" variant="hero" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? "Sending..." : "Send Message"}
@@ -322,8 +302,6 @@ const Home = () => {
           </div>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 };
-
 export default Home;
