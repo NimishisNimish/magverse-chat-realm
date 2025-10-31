@@ -226,8 +226,8 @@ const Chat = () => {
     setMessages(prev => [...prev, userMessage]);
     setInput("");
 
-    // Frontend should wait longer than backend to avoid premature cancellation
-    const timeoutMs = deepResearchMode ? 330000 : 180000; // 5.5 min for Deep Research, 3 min for regular
+    // Frontend must wait LONGER than backend to avoid premature cancellation
+    const timeoutMs = deepResearchMode ? 540000 : 300000; // 9 min for Deep Research, 5 min for regular
     const timeout = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Request timeout - AI took too long to respond')), timeoutMs);
     });
@@ -254,6 +254,15 @@ const Chat = () => {
             ...(currentChatId && { chatId: currentChatId }),
             ...(attachmentUrl && { attachmentUrl: attachmentUrl }),
           },
+        }).then(result => {
+          // Handle specific error codes
+          if (result.error?.status === 429) {
+            throw new Error('Rate limit reached. Please wait and try again.');
+          }
+          if (result.error?.status === 504) {
+            throw new Error('Backend timeout. AI took too long to respond.');
+          }
+          return result;
         }),
         timeout
       ]) as any;
@@ -328,10 +337,14 @@ const Chat = () => {
       
       if (error.message?.includes('timeout')) {
         errorMessage = deepResearchMode 
-          ? "Deep Research timed out after 5.5 minutes. This query may be too complex. Try breaking it into smaller questions."
-          : "Request timed out after 3 minutes. For complex queries requiring web research, try enabling Deep Research mode.";
+          ? "Deep Research timed out after 9 minutes. This is very unusual. Please try:\n• Breaking your question into smaller parts\n• Selecting fewer AI models\n• Disabling web search temporarily"
+          : "Request timed out after 5 minutes. For complex queries requiring web research, try enabling Deep Research mode.";
+      } else if (error.status === 429) {
+        errorMessage = "Rate limit reached. OpenRouter is receiving too many requests. Please wait 30 seconds and try again.";
+      } else if (error.status === 504) {
+        errorMessage = "Backend timeout. The AI models took too long to respond. Try:\n• Selecting only 1-2 models instead of 3+\n• Simplifying your question\n• Trying again in a moment";
       } else if (error.message?.includes('No AI responses')) {
-        errorMessage = "All selected AI models failed to respond. Please check your model selection or try different models.";
+        errorMessage = "All selected AI models failed to respond. This may be due to:\n• OpenRouter API issues\n• Rate limiting\n• Network connectivity\n\nTry selecting different models or wait a moment before retrying.";
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -597,8 +610,8 @@ const Chat = () => {
                       <div className="w-2 h-2 bg-accent rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
                       <p className="text-muted-foreground ml-2">
                         {deepResearchMode 
-                          ? "Deep Research in progress with web search... (may take up to 5 minutes)"
-                          : "AI is analyzing your request... (may take up to 2.5 minutes)"}
+                          ? "Deep Research with web search in progress... This may take up to 8 minutes for thorough analysis."
+                          : "AI is analyzing your request... This may take up to 4 minutes depending on complexity."}
                       </p>
                     </div>
                   </div>

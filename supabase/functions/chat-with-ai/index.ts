@@ -36,8 +36,8 @@ const MAX_MESSAGE_LENGTH = 10000;
 const MAX_MODELS_PER_REQUEST = 3;
 const RATE_LIMIT_REQUESTS = 10;
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
-const API_TIMEOUT_MS = 150000; // 150 seconds (2.5 minutes) for regular queries
-const DEEP_RESEARCH_TIMEOUT_MS = 300000; // 300 seconds (5 minutes) for deep research mode
+const API_TIMEOUT_MS = 240000; // 240 seconds (4 minutes) for regular queries
+const DEEP_RESEARCH_TIMEOUT_MS = 480000; // 480 seconds (8 minutes) for deep research mode
 
 // Provider configuration with direct API endpoints
 const providerConfig: Record<string, any> = {
@@ -461,98 +461,126 @@ Make complex topics accessible and engaging. Break down concepts clearly for bet
         finalMessages = [deepResearchPrompt, ...finalMessages];
       }
 
-      // Use longer timeout for Deep Research mode (3 minutes vs 60 seconds)
+      // Use longer timeout for Deep Research mode (8 minutes vs 4 minutes)
       const timeoutDuration = deepResearchMode ? DEEP_RESEARCH_TIMEOUT_MS : API_TIMEOUT_MS;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
 
-      try {
-        const requestBody = config.bodyTemplate(finalMessages, effectiveWebSearchEnabled, searchMode);
-        
-        // Add debug logging
-        console.log(`📤 Calling ${modelId} (${config.provider}):`, {
-          model: config.model,
-          endpoint: config.endpoint,
-          messageCount: finalMessages.length,
-          hasApiKey: !!config.apiKey,
-          webSearchEnabled: effectiveWebSearchEnabled,
-          searchMode,
-          deepResearchMode,
-        });
-        
-        const response = await fetch(config.endpoint, {
-          method: 'POST',
-          headers: {
-            ...config.headers(),
-            'Connection': 'keep-alive',
-            'Keep-Alive': 'timeout=300, max=100'
-          },
-          body: JSON.stringify(requestBody),
-          signal: controller.signal,
-        });
+      // Retry logic for transient failures
+      const maxRetries = 2;
+      let lastError;
 
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          let errorDetails;
-          try {
-            errorDetails = JSON.parse(errorText);
-          } catch {
-            errorDetails = errorText;
-          }
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const requestBody = config.bodyTemplate(finalMessages, effectiveWebSearchEnabled, searchMode);
           
-          console.error(`❌ Error from ${modelId} (${config.provider}):`, {
-            status: response.status,
-            statusText: response.statusText,
-            error: errorDetails,
-            endpoint: config.endpoint,
+          console.log(`📤 Calling ${modelId} (${config.provider}), attempt ${attempt + 1}/${maxRetries + 1}:`, {
             model: config.model,
+            endpoint: config.endpoint,
+            messageCount: finalMessages.length,
+            hasApiKey: !!config.apiKey,
+            webSearchEnabled: effectiveWebSearchEnabled,
+            searchMode,
+            deepResearchMode,
           });
           
-          // Log specific error messages for common issues
-          if (response.status === 429) {
-            console.error(`   ⚠️ Rate limit/quota exceeded for ${modelId}`);
-          } else if (response.status === 402) {
-            console.error(`   ⚠️ Payment required - credits exhausted for ${modelId}`);
-          } else if (response.status === 401) {
-            console.error(`   ⚠️ Invalid API key for ${modelId}`);
-          } else if (response.status === 404) {
-            console.error(`   ⚠️ Model not found: ${config.model}`);
+          const response = await fetch(config.endpoint, {
+            method: 'POST',
+            headers: {
+              ...config.headers(),
+              'Connection': 'keep-alive',
+              'Keep-Alive': 'timeout=600, max=100' // Increase keep-alive to 10 minutes
+            },
+            body: JSON.stringify(requestBody),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            let errorDetails;
+            try {
+              errorDetails = JSON.parse(errorText);
+            } catch {
+              errorDetails = errorText;
+            }
+            
+            // Handle rate limiting with retry
+            if (response.status === 429 && attempt < maxRetries) {
+              const retryAfter = response.headers.get('Retry-After');
+              const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : (attempt + 1) * 2000;
+              console.log(`⚠️ Rate limited for ${modelId}, retrying after ${waitTime}ms`);
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+              continue; // Retry
+            }
+            
+            // Handle other errors
+            console.error(`❌ Error from ${modelId} (${config.provider}):`, {
+              status: response.status,
+              statusText: response.statusText,
+              error: errorDetails,
+              endpoint: config.endpoint,
+              model: config.model,
+            });
+            
+            if (response.status === 429) {
+              console.error(`   ⚠️ Rate limit/quota exceeded for ${modelId}`);
+            } else if (response.status === 402) {
+              console.error(`   ⚠️ Payment required - credits exhausted for ${modelId}`);
+            } else if (response.status === 401) {
+              console.error(`   ⚠️ Invalid API key for ${modelId}`);
+            } else if (response.status === 404) {
+              console.error(`   ⚠️ Model not found: ${config.model}`);
+            }
+            
+            lastError = new Error(`API error: ${response.status}`);
+            break; // Don't retry non-rate-limit errors
           }
+
+          const data = await response.json();
           
-          return { success: false, model: modelId, error: `API error: ${response.status}` };
-        }
+          // Transform response based on provider
+          let content: string;
+          if (config.responseTransform) {
+            content = config.responseTransform(data);
+          } else {
+            content = data.choices[0]?.message?.content || 'No response';
+          }
 
-        const data = await response.json();
-        
-        // Transform response based on provider
-        let content: string;
-        if (config.responseTransform) {
-          content = config.responseTransform(data);
-        } else {
-          // Default OpenAI-compatible response format
-          content = data.choices[0]?.message?.content || 'No response';
-        }
-
-        console.log(`✅ Success: ${modelId} responded in time`);
-        
-        return {
-          success: true,
-          model: modelId,
-          content: content,
-        };
-      } catch (fetchError: any) {
-        clearTimeout(timeoutId);
-        if (fetchError.name === 'AbortError') {
-          const timeoutDuration = deepResearchMode ? DEEP_RESEARCH_TIMEOUT_MS : API_TIMEOUT_MS;
-          console.error(`⏱️ Timeout: ${modelId} exceeded ${timeoutDuration}ms (${deepResearchMode ? 'Deep Research' : 'Regular'} mode)`);
-          return { success: false, model: modelId, error: 'Timeout' };
-        } else {
-          console.error(`❌ Error: ${modelId} failed:`, fetchError.message);
-          return { success: false, model: modelId, error: fetchError.message };
+          console.log(`✅ Success: ${modelId} responded in time`);
+          
+          return {
+            success: true,
+            model: modelId,
+            content: content,
+          };
+        } catch (fetchError: any) {
+          clearTimeout(timeoutId);
+          if (fetchError.name === 'AbortError') {
+            const timeoutDuration = deepResearchMode ? DEEP_RESEARCH_TIMEOUT_MS : API_TIMEOUT_MS;
+            console.error(`⏱️ Timeout: ${modelId} exceeded ${timeoutDuration}ms (${deepResearchMode ? 'Deep Research' : 'Regular'} mode)`);
+            lastError = fetchError;
+            break; // Don't retry timeout errors
+          } else if (attempt < maxRetries) {
+            console.log(`⚠️ Network error for ${modelId}, retrying...`, fetchError.message);
+            await new Promise(resolve => setTimeout(resolve, (attempt + 1) * 1000));
+            lastError = fetchError;
+            continue; // Retry network errors
+          } else {
+            console.error(`❌ Error: ${modelId} failed after ${maxRetries + 1} attempts:`, fetchError.message);
+            lastError = fetchError;
+            break;
+          }
         }
       }
+
+      // All retries exhausted
+      return { 
+        success: false, 
+        model: modelId, 
+        error: lastError?.message || 'Unknown error' 
+      };
     });
 
     // Wait for all models to complete in parallel
@@ -569,9 +597,28 @@ Make complex topics accessible and engaging. Break down concepts clearly for bet
     // Check if we got any responses
     if (responses.length === 0) {
       console.error('⚠️ All models failed to respond');
+      
+      // Provide specific guidance based on failure type
+      const timeoutFailures = results.filter(r => 
+        r.status === 'fulfilled' && r.value.error?.includes('Timeout')
+      );
+      
+      if (timeoutFailures.length > 0) {
+        return new Response(
+          JSON.stringify({ 
+            error: deepResearchMode 
+              ? 'Deep Research timed out after 8 minutes. Try breaking your query into smaller parts or disabling web search.'
+              : 'Request timed out after 4 minutes. For complex queries, enable Deep Research mode.',
+            failedModels: selectedModels,
+            suggestion: 'Try selecting fewer AI models or simplifying your question.'
+          }),
+          { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       return new Response(
         JSON.stringify({ 
-          error: 'All AI models failed to respond. Please check your API keys and try again.',
+          error: 'All AI models failed to respond. This may be due to rate limits or API issues. Please try again in a few moments.',
           failedModels: selectedModels 
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
