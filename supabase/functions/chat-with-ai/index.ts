@@ -18,6 +18,7 @@ const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY'); // Single key for a
 const deepseekApiKey = Deno.env.get('DEEPSEEK_API_KEY');
 const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
 const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
+const qwenApiKey = Deno.env.get('QWEN_API_KEY');
 const nvidiaApiKey = Deno.env.get('NVIDIA_NIM_API_KEY');
 const deepseekNvidiaApiKey = Deno.env.get('DEEPSEEK_NVIDIA_NIM_API_KEY');
 const llamaNvidiaApiKey = Deno.env.get('LLAMA_NVIDIA_NIM_API_KEY');
@@ -28,7 +29,8 @@ console.log('🔑 API Keys loaded:', {
   deepseek: !!deepseekApiKey,
   google: !!googleApiKey,
   perplexity: !!perplexityApiKey,
-  nvidiaNim: !!nvidiaApiKey, // NVIDIA NIM for ChatGPT
+  qwen: !!qwenApiKey, // Qwen AI for ChatGPT
+  nvidiaNim: !!nvidiaApiKey,
   deepseekNvidia: !!deepseekNvidiaApiKey, // NVIDIA NIM for Deepseek
   llamaNvidia: !!llamaNvidiaApiKey // NVIDIA NIM for Llama
 });
@@ -48,16 +50,16 @@ const DEEP_RESEARCH_TIMEOUT_MS = 600000; // 10 minutes for deep research mode
 // Provider configuration with direct API endpoints
 const providerConfig: Record<string, any> = {
   chatgpt: {
-    provider: 'nvidia-nim',
-    apiKey: nvidiaApiKey,
-    endpoint: 'https://integrate.api.nvidia.com/v1/chat/completions',
-    model: 'meta/llama-3.1-405b-instruct',
+    provider: 'qwen',
+    apiKey: qwenApiKey,
+    endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+    model: 'qwen-plus',
     headers: () => ({
-      'Authorization': `Bearer ${nvidiaApiKey}`,
+      'Authorization': `Bearer ${qwenApiKey}`,
       'Content-Type': 'application/json',
     }),
     bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
-      model: 'meta/llama-3.1-405b-instruct',
+      model: 'qwen-plus',
       messages,
       temperature: 0.7,
       max_tokens: 2000,
@@ -448,7 +450,7 @@ serve(async (req) => {
       if (!config.apiKey) {
         console.error(`❌ Missing API key for ${modelId} (provider: ${config.provider})`);
         console.error(`   Required secret: ${
-          modelId === 'chatgpt' ? 'NVIDIA_NIM_API_KEY' :
+          modelId === 'chatgpt' ? 'QWEN_API_KEY' :
           modelId === 'deepseek' ? 'DEEPSEEK_NVIDIA_NIM_API_KEY' :
           modelId === 'llama' ? 'LLAMA_NVIDIA_NIM_API_KEY' :
           modelId === 'gemini' ? 'GOOGLE_AI_API_KEY' :
