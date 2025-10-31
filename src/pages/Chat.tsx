@@ -43,6 +43,7 @@ interface Message {
   role: 'user' | 'assistant';
   webSearchEnabled?: boolean;
   searchMode?: string;
+  fullContent?: string; // For streaming support
 }
 
 const Chat = () => {
@@ -225,8 +226,8 @@ const Chat = () => {
     setMessages(prev => [...prev, userMessage]);
     setInput("");
 
-    // Use longer timeout to match backend: 120 seconds for regular, 240 seconds for Deep Research
-    const timeoutMs = deepResearchMode ? 240000 : 120000; // 2 minutes regular, 4 minutes Deep Research
+    // Frontend should wait longer than backend to avoid premature cancellation
+    const timeoutMs = deepResearchMode ? 330000 : 180000; // 5.5 min for Deep Research, 3 min for regular
     const timeout = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Request timeout - AI took too long to respond')), timeoutMs);
     });
@@ -268,15 +269,38 @@ const Chat = () => {
         setCurrentChatId(data.chatId);
       }
 
+      // Create empty assistant messages first for streaming effect
       const aiMessages: Message[] = data.responses.map((response: any) => ({
-        id: `${Date.now()}-${response.model}`,
+        id: `${Date.now()}-${response.model}-${Math.random()}`,
         model: aiModels.find(m => m.id === response.model)?.name || response.model,
-        content: response.content,
+        content: '', // Start empty for streaming
         timestamp: new Date(),
         role: 'assistant' as const,
+        fullContent: response.content, // Store full content for streaming
       }));
 
       setMessages(prev => [...prev, ...aiMessages]);
+      
+      // Stream each response word by word
+      aiMessages.forEach((message, index) => {
+        const fullContent = data.responses[index].content;
+        const words = fullContent.split(' ');
+        let currentIndex = 0;
+        
+        const streamInterval = setInterval(() => {
+          if (currentIndex < words.length) {
+            const nextWord = words[currentIndex];
+            setMessages(prev => prev.map(m => 
+              m.id === message.id 
+                ? { ...m, content: m.content + (m.content ? ' ' : '') + nextWord }
+                : m
+            ));
+            currentIndex++;
+          } else {
+            clearInterval(streamInterval);
+          }
+        }, 50); // 50ms delay between words for smooth streaming effect
+      });
       
       // Show appropriate toast based on success
       if (data.partialSuccess && aiMessages.length < selectedModels.length) {
@@ -304,8 +328,8 @@ const Chat = () => {
       
       if (error.message?.includes('timeout')) {
         errorMessage = deepResearchMode 
-          ? "Deep Research timed out after 4 minutes. Try a simpler query or disable Deep Research mode."
-          : "Request timed out after 2 minutes. Try enabling Deep Research mode for complex queries.";
+          ? "Deep Research timed out after 5.5 minutes. This query may be too complex. Try breaking it into smaller questions."
+          : "Request timed out after 3 minutes. For complex queries requiring web research, try enabling Deep Research mode.";
       } else if (error.message?.includes('No AI responses')) {
         errorMessage = "All selected AI models failed to respond. Please check your model selection or try different models.";
       } else if (error.message) {
@@ -572,7 +596,9 @@ const Chat = () => {
                       <div className="w-2 h-2 bg-accent rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
                       <div className="w-2 h-2 bg-accent rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
                       <p className="text-muted-foreground ml-2">
-                        AI is thinking... (this may take up to 30 seconds)
+                        {deepResearchMode 
+                          ? "Deep Research in progress with web search... (may take up to 5 minutes)"
+                          : "AI is analyzing your request... (may take up to 2.5 minutes)"}
                       </p>
                     </div>
                   </div>

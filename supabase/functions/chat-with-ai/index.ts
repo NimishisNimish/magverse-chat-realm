@@ -38,8 +38,8 @@ const MAX_MESSAGE_LENGTH = 10000;
 const MAX_MODELS_PER_REQUEST = 3;
 const RATE_LIMIT_REQUESTS = 10;
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
-const API_TIMEOUT_MS = 90000; // 90 seconds (1.5 minutes) for regular queries
-const DEEP_RESEARCH_TIMEOUT_MS = 180000; // 3 minutes for deep research mode
+const API_TIMEOUT_MS = 150000; // 150 seconds (2.5 minutes) for regular queries
+const DEEP_RESEARCH_TIMEOUT_MS = 300000; // 300 seconds (5 minutes) for deep research mode
 
 // Provider configuration with direct API endpoints
 const providerConfig: Record<string, any> = {
@@ -265,6 +265,9 @@ serve(async (req) => {
 
     const { messages, selectedModels, chatId, attachmentUrl, webSearchEnabled = false, searchMode = 'general', deepResearchMode = false } = validationResult.data;
     
+    // Auto-enable web search for Deep Research mode
+    const effectiveWebSearchEnabled = deepResearchMode ? true : webSearchEnabled;
+    
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
       return new Response(
@@ -446,7 +449,14 @@ serve(async (req) => {
       if (deepResearchMode && finalMessages.length > 0) {
         const deepResearchPrompt = {
           role: 'system' as const,
-          content: `You are in Deep Research mode. Provide comprehensive, detailed explanations in natural, humanized language. Avoid robotic or overly technical tone unless specifically requested. Include examples, multiple perspectives, step-by-step reasoning, and real-world context. Make complex topics accessible and engaging. Break down concepts clearly and provide practical applications where relevant.`
+          content: `You are in Deep Research mode with web search enabled. Provide comprehensive, detailed explanations using current information from the web. Search for and cite recent data, statistics, and sources when available. Present information in natural, humanized language - avoid robotic tone. Include:
+- Multiple perspectives and expert opinions
+- Real-world examples and case studies  
+- Step-by-step reasoning with clear explanations
+- Practical applications and actionable insights
+- Citations to web sources when referencing data
+
+Make complex topics accessible and engaging. Break down concepts clearly for better understanding.`
         };
         
         // Insert system message at the beginning
@@ -459,7 +469,7 @@ serve(async (req) => {
       const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
 
       try {
-        const requestBody = config.bodyTemplate(finalMessages, webSearchEnabled, searchMode);
+        const requestBody = config.bodyTemplate(finalMessages, effectiveWebSearchEnabled, searchMode);
         
         // Add debug logging
         console.log(`📤 Calling ${modelId} (${config.provider}):`, {
@@ -467,7 +477,7 @@ serve(async (req) => {
           endpoint: config.endpoint,
           messageCount: finalMessages.length,
           hasApiKey: !!config.apiKey,
-          webSearchEnabled,
+          webSearchEnabled: effectiveWebSearchEnabled,
           searchMode,
           deepResearchMode,
         });
@@ -477,7 +487,7 @@ serve(async (req) => {
           headers: {
             ...config.headers(),
             'Connection': 'keep-alive',
-            'Keep-Alive': 'timeout=5, max=100'
+            'Keep-Alive': 'timeout=300, max=100'
           },
           body: JSON.stringify(requestBody),
           signal: controller.signal,
