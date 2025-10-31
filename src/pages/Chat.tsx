@@ -229,7 +229,10 @@ const Chat = () => {
     // Frontend must wait LONGER than backend to avoid premature cancellation
     const timeoutMs = deepResearchMode ? 540000 : 300000; // 9 min for Deep Research, 5 min for regular
     const timeout = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Request timeout - AI took too long to respond')), timeoutMs);
+      const timeoutMessage = deepResearchMode 
+        ? 'Deep Research timed out after 9 minutes. Try breaking your query into smaller parts or selecting fewer AI models.'
+        : 'Request timed out after 5 minutes. For complex queries requiring extensive analysis, try enabling Deep Research mode.';
+      setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
     });
 
     try {
