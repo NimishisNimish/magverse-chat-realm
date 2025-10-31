@@ -190,8 +190,13 @@ export type Database = {
           id: string
           order_id: string | null
           payment_id: string | null
+          payment_method: string | null
+          payment_reference: string | null
           status: string
           user_id: string
+          verification_status: string | null
+          verified_at: string | null
+          verified_by: string | null
         }
         Insert: {
           amount: number
@@ -199,8 +204,13 @@ export type Database = {
           id?: string
           order_id?: string | null
           payment_id?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
           status: string
           user_id: string
+          verification_status?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Update: {
           amount?: number
@@ -208,8 +218,13 @@ export type Database = {
           id?: string
           order_id?: string | null
           payment_id?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
           status?: string
           user_id?: string
+          verification_status?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
         }
         Relationships: []
       }

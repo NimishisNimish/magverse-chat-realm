@@ -1,99 +1,98 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Check, Sparkles, Zap, Infinity, Crown } from "lucide-react";
+import { Check, Sparkles, Zap, Infinity, Crown, Copy, CheckCircle2, XCircle } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import upiQrCode from "@/assets/upi-qr-code.jpg";
 
 const Upgrade = () => {
   const [loading, setLoading] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const handleUpgrade = async () => {
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied!",
+      description: `${label} copied to clipboard`,
+    });
+  };
+
+  const handleOpenPaymentDialog = () => {
     if (!user) {
       toast({
-        title: "Error",
-        description: "Please login to upgrade",
+        title: "Authentication Required",
+        description: "Please sign in to upgrade to Pro",
         variant: "destructive",
       });
+      navigate("/auth");
       return;
     }
 
     if (profile?.is_pro) {
       toast({
-        title: "Already Pro",
-        description: "You already have a Pro subscription!",
+        title: "Already a Pro Member",
+        description: "You already have an active Pro subscription",
       });
       return;
     }
 
-    setLoading(true);
+    setShowPaymentDialog(true);
+    setPaymentStatus('idle');
+    setPaymentReference("");
+  };
 
+  const handleConfirmPayment = async () => {
     try {
-      // Amount is now hardcoded server-side for security
-      const { data: orderData, error: orderError } = await supabase.functions.invoke('create-payment-order', {
-        body: {},
+      setLoading(true);
+      setPaymentStatus('pending');
+
+      const { data, error } = await supabase.functions.invoke('confirm-upi-payment', {
+        body: { paymentReference },
       });
 
-      if (orderError) throw orderError;
+      if (error) throw error;
 
-      const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_dummy",
-        amount: orderData.amount,
-        currency: orderData.currency,
-        name: "Magverse AI",
-        description: "Lifetime Pro Access",
-        order_id: orderData.id,
-        handler: async (response: any) => {
-          try {
-            const { error: verifyError } = await supabase.functions.invoke('verify-payment', {
-              body: {
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              },
-            });
-
-            if (verifyError) throw verifyError;
-
-            await refreshProfile();
-            toast({
-              title: "Success!",
-              description: "You are now a Pro member with unlimited access!",
-            });
-            navigate("/chat");
-          } catch (error: any) {
-            toast({
-              title: "Payment verification failed",
-              description: error.message,
-              variant: "destructive",
-            });
-          }
-        },
-        prefill: {
-          email: user.email,
-        },
-        theme: {
-          color: "#3b82f6",
-        },
-      };
-
-      const razorpay = new window.Razorpay(options);
-      razorpay.open();
+      if (data.success) {
+        setPaymentStatus('success');
+        toast({
+          title: "Payment Confirmation Received",
+          description: "Your payment is being verified. You'll receive Pro access once verified.",
+        });
+        
+        // Refresh profile to get updated transaction status
+        await refreshProfile();
+        
+        // Close dialog after 3 seconds
+        setTimeout(() => {
+          setShowPaymentDialog(false);
+          navigate("/chat");
+        }, 3000);
+      } else {
+        throw new Error(data.message || "Failed to confirm payment");
+      }
     } catch (error: any) {
+      console.error("Payment confirmation error:", error);
+      setPaymentStatus('error');
       toast({
-        title: "Error",
-        description: error.message,
+        title: "Confirmation Failed",
+        description: error.message || "Failed to confirm payment. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -212,11 +211,11 @@ const Upgrade = () => {
                 variant="hero" 
                 size="lg" 
                 className="w-full text-lg"
-                onClick={handleUpgrade}
+                onClick={handleOpenPaymentDialog}
                 disabled={loading || profile?.is_pro}
               >
                 <Infinity className="w-5 h-5" />
-                {loading ? "Processing..." : profile?.is_pro ? "Already Pro" : "Upgrade Now"}
+                {loading ? "Processing..." : profile?.is_pro ? "Already Pro" : "Pay with UPI"}
               </Button>
             </div>
           </div>
@@ -252,6 +251,106 @@ const Upgrade = () => {
           </div>
         </div>
       </div>
+
+      {/* UPI Payment Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Pay with UPI</DialogTitle>
+            <DialogDescription>
+              Complete your payment of ₹199 to upgrade to Pro
+            </DialogDescription>
+          </DialogHeader>
+
+          {paymentStatus === 'idle' && (
+            <div className="space-y-6">
+              {/* QR Code */}
+              <div className="flex flex-col items-center space-y-4">
+                <img
+                  src={upiQrCode}
+                  alt="UPI QR Code"
+                  className="w-64 h-64 object-contain border-2 border-border rounded-lg"
+                />
+                <p className="text-sm text-muted-foreground text-center">
+                  Scan this QR code with any UPI app
+                </p>
+              </div>
+
+              {/* UPI ID */}
+              <div className="space-y-2">
+                <Label>Or pay directly to this UPI ID:</Label>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    value="987202177@fam"
+                    readOnly
+                    className="font-mono"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => copyToClipboard("987202177@fam", "UPI ID")}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Payment Reference (Optional) */}
+              <div className="space-y-2">
+                <Label htmlFor="reference">
+                  Transaction ID / UTR (Optional)
+                </Label>
+                <Input
+                  id="reference"
+                  placeholder="Enter UTR number if available"
+                  value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  This helps us verify your payment faster
+                </p>
+              </div>
+
+              {/* Confirm Button */}
+              <Button
+                onClick={handleConfirmPayment}
+                disabled={loading}
+                className="w-full"
+                size="lg"
+              >
+                {loading ? "Confirming..." : "I've Completed Payment"}
+              </Button>
+
+              <p className="text-xs text-muted-foreground text-center">
+                After confirmation, your payment will be verified by our team within 24 hours
+              </p>
+            </div>
+          )}
+
+          {paymentStatus === 'success' && (
+            <div className="flex flex-col items-center space-y-4 py-8">
+              <CheckCircle2 className="h-16 w-16 text-green-500" />
+              <h3 className="text-xl font-semibold">Payment Confirmation Received!</h3>
+              <p className="text-center text-muted-foreground">
+                Your payment is being verified. You'll receive Pro access once our team confirms the payment.
+              </p>
+            </div>
+          )}
+
+          {paymentStatus === 'error' && (
+            <div className="flex flex-col items-center space-y-4 py-8">
+              <XCircle className="h-16 w-16 text-destructive" />
+              <h3 className="text-xl font-semibold">Confirmation Failed</h3>
+              <p className="text-center text-muted-foreground">
+                There was an error confirming your payment. Please try again or contact support.
+              </p>
+              <Button onClick={() => setPaymentStatus('idle')} variant="outline">
+                Try Again
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
