@@ -198,7 +198,11 @@ export type Database = {
       transactions: {
         Row: {
           amount: number
+          auto_verified: boolean | null
           created_at: string | null
+          gateway_order_id: string | null
+          gateway_payment_id: string | null
+          gateway_response: Json | null
           id: string
           order_id: string | null
           payment_id: string | null
@@ -215,7 +219,11 @@ export type Database = {
         }
         Insert: {
           amount: number
+          auto_verified?: boolean | null
           created_at?: string | null
+          gateway_order_id?: string | null
+          gateway_payment_id?: string | null
+          gateway_response?: Json | null
           id?: string
           order_id?: string | null
           payment_id?: string | null
@@ -232,7 +240,11 @@ export type Database = {
         }
         Update: {
           amount?: number
+          auto_verified?: boolean | null
           created_at?: string | null
+          gateway_order_id?: string | null
+          gateway_payment_id?: string | null
+          gateway_response?: Json | null
           id?: string
           order_id?: string | null
           payment_id?: string | null
@@ -312,6 +324,7 @@ export type Database = {
       }
       check_reset_rate_limit: { Args: { p_email: string }; Returns: boolean }
       cleanup_expired_phone_codes: { Args: never; Returns: undefined }
+      cleanup_old_pending_transactions: { Args: never; Returns: undefined }
       expire_monthly_subscriptions: { Args: never; Returns: undefined }
       generate_verification_code: {
         Args: { p_user_id: string }

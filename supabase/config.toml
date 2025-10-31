@@ -23,3 +23,15 @@ verify_jwt = false
 
 [functions.verify-phone-otp]
 verify_jwt = false
+
+[functions.create-upi-payment]
+verify_jwt = true
+
+[functions.verify-upi-payment]
+verify_jwt = true
+
+[functions.upi-gateway-webhook]
+verify_jwt = false
+
+[functions.send-contact-email]
+verify_jwt = false

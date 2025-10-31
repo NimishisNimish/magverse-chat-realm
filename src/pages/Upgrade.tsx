@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Check, Sparkles, Zap, Infinity, Crown, Copy, CheckCircle2, XCircle } from "lucide-react";
+import { Check, Sparkles, Zap, Infinity, Crown, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,29 +13,32 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import upiQrCode from "@/assets/upi-qr-code.jpg";
+import { usePaymentStatus } from "@/hooks/usePaymentStatus";
 
 const Upgrade = () => {
   const [loading, setLoading] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-  const [paymentReference, setPaymentReference] = useState("");
-  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'lifetime'>('lifetime');
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [paymentLink, setPaymentLink] = useState<string | null>(null);
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
+  // Use payment status polling hook
+  const paymentStatus = usePaymentStatus(orderId, async () => {
     toast({
-      title: "Copied!",
-      description: `${label} copied to clipboard`,
+      title: "Payment Verified!",
+      description: `Your ${selectedPlan === 'monthly' ? 'monthly subscription' : 'lifetime Pro access'} has been activated.`,
     });
-  };
+    await refreshProfile();
+    setTimeout(() => {
+      setShowPaymentDialog(false);
+      navigate("/chat");
+    }, 2000);
+  });
 
-  const handleOpenPaymentDialog = (planType: 'monthly' | 'lifetime') => {
+  const handleOpenPaymentDialog = async (planType: 'monthly' | 'lifetime') => {
     if (!user) {
       toast({
         title: "Authentication Required",
@@ -64,52 +67,45 @@ const Upgrade = () => {
 
     setSelectedPlan(planType);
     setShowPaymentDialog(true);
-    setPaymentStatus('idle');
-    setPaymentReference("");
-  };
-
-  const handleConfirmPayment = async () => {
+    setOrderId(null);
+    setPaymentLink(null);
+    
+    // Create payment order
     try {
       setLoading(true);
-      setPaymentStatus('pending');
-
-      const { data, error } = await supabase.functions.invoke('confirm-upi-payment', {
-        body: { 
-          paymentReference,
-          planType: selectedPlan 
-        },
+      const { data, error } = await supabase.functions.invoke('create-upi-payment', {
+        body: { planType },
       });
 
       if (error) throw error;
 
       if (data.success) {
-        setPaymentStatus('success');
+        setOrderId(data.orderId);
+        setPaymentLink(data.paymentLink);
         toast({
-          title: "Payment Confirmation Received",
-          description: "Your payment is being verified. You'll receive Pro access once verified.",
+          title: "Payment Ready",
+          description: "Click the button below to pay with UPI",
         });
-        
-        // Refresh profile to get updated transaction status
-        await refreshProfile();
-        
-        // Close dialog after 3 seconds
-        setTimeout(() => {
-          setShowPaymentDialog(false);
-          navigate("/chat");
-        }, 3000);
       } else {
-        throw new Error(data.message || "Failed to confirm payment");
+        throw new Error(data.error || "Failed to create payment");
       }
     } catch (error: any) {
-      console.error("Payment confirmation error:", error);
-      setPaymentStatus('error');
+      console.error("Error creating payment:", error);
       toast({
-        title: "Confirmation Failed",
-        description: error.message || "Failed to confirm payment. Please try again.",
+        title: "Error",
+        description: error.message || "Failed to create payment. Please try again.",
         variant: "destructive",
       });
+      setShowPaymentDialog(false);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePayWithUPI = () => {
+    if (paymentLink) {
+      // Open UPI link in new tab (will open UPI app on mobile)
+      window.open(paymentLink, '_blank');
     }
   };
 
@@ -328,97 +324,67 @@ const Upgrade = () => {
             <DialogTitle>Pay with UPI</DialogTitle>
             <DialogDescription>
               {selectedPlan === 'monthly' 
-                ? "Complete your payment of ₹1 for monthly subscription"
-                : "Complete your payment of ₹199 for lifetime Pro access"
+                ? "Pay ₹1 for monthly subscription (50 credits)"
+                : "Pay ₹199 for lifetime Pro access (unlimited credits)"
               }
             </DialogDescription>
           </DialogHeader>
 
-          {paymentStatus === 'idle' && (
+          {loading && (
+            <div className="flex flex-col items-center space-y-4 py-8">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+              <p className="text-center text-muted-foreground">
+                Creating payment order...
+              </p>
+            </div>
+          )}
+
+          {!loading && paymentLink && paymentStatus.status === 'pending' && (
             <div className="space-y-6">
-              {/* QR Code */}
               <div className="flex flex-col items-center space-y-4">
-                <img
-                  src={upiQrCode}
-                  alt="UPI QR Code"
-                  className="w-64 h-64 object-contain border-2 border-border rounded-lg"
-                />
-                <p className="text-sm text-muted-foreground text-center">
-                  Scan this QR code with any UPI app
-                </p>
-              </div>
-
-              {/* UPI ID */}
-              <div className="space-y-2">
-                <Label>Or pay directly to this UPI ID:</Label>
-                <div className="flex items-center space-x-2">
-                  <Input
-                    value="987202177@fam"
-                    readOnly
-                    className="font-mono"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => copyToClipboard("987202177@fam", "UPI ID")}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
-              </div>
-
-              {/* Payment Reference (Optional) */}
-              <div className="space-y-2">
-                <Label htmlFor="reference">
-                  Transaction ID / UTR (Optional)
-                </Label>
-                <Input
-                  id="reference"
-                  placeholder="Enter UTR number if available"
-                  value={paymentReference}
-                  onChange={(e) => setPaymentReference(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  This helps us verify your payment faster
+                <h3 className="text-lg font-semibold">Waiting for Payment</h3>
+                <p className="text-center text-sm text-muted-foreground">
+                  Complete the payment in your UPI app
                 </p>
               </div>
 
-              {/* Confirm Button */}
               <Button
-                onClick={handleConfirmPayment}
-                disabled={loading}
+                onClick={handlePayWithUPI}
                 className="w-full"
                 size="lg"
+                variant="hero"
               >
-                {loading ? "Confirming..." : "I've Completed Payment"}
+                Pay ₹{selectedPlan === 'monthly' ? '1' : '199'} with UPI
               </Button>
 
               <p className="text-xs text-muted-foreground text-center">
-                After confirmation, your payment will be verified by our team within 24 hours.
-                {selectedPlan === 'monthly' && " Your subscription will renew automatically every 30 days."}
+                After paying, we'll automatically verify your payment and activate your {selectedPlan === 'monthly' ? 'subscription' : 'Pro access'}.
               </p>
             </div>
           )}
 
-          {paymentStatus === 'success' && (
+          {paymentStatus.status === 'completed' && (
             <div className="flex flex-col items-center space-y-4 py-8">
               <CheckCircle2 className="h-16 w-16 text-green-500" />
-              <h3 className="text-xl font-semibold">Payment Confirmation Received!</h3>
+              <h3 className="text-xl font-semibold">Payment Successful!</h3>
               <p className="text-center text-muted-foreground">
-                Your payment is being verified. You'll receive {selectedPlan === 'monthly' ? '50 credits for your monthly subscription' : 'unlimited Pro access'} once our team confirms the payment.
+                Your {selectedPlan === 'monthly' ? 'monthly subscription with 50 credits' : 'lifetime Pro access with unlimited credits'} has been activated.
               </p>
             </div>
           )}
 
-          {paymentStatus === 'error' && (
+          {paymentStatus.status === 'error' && (
             <div className="flex flex-col items-center space-y-4 py-8">
               <XCircle className="h-16 w-16 text-destructive" />
-              <h3 className="text-xl font-semibold">Confirmation Failed</h3>
+              <h3 className="text-xl font-semibold">Payment Failed</h3>
               <p className="text-center text-muted-foreground">
-                There was an error confirming your payment. Please try again or contact support.
+                {paymentStatus.error || "There was an error processing your payment. Please try again or contact support."}
               </p>
-              <Button onClick={() => setPaymentStatus('idle')} variant="outline">
-                Try Again
+              <Button onClick={() => setShowPaymentDialog(false)} variant="outline">
+                Close
               </Button>
             </div>
           )}

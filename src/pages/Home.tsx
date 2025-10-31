@@ -4,9 +4,20 @@ import { Sparkles, Zap, Shield, Infinity, Mail, MapPin, Phone, Users, Target, Ro
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
 import magverseLogo from "@/assets/magverse-logo.png";
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const Home = () => {
   const { user, profile } = useAuth();
+  const { toast } = useToast();
+  const [contactForm, setContactForm] = useState({
+    name: "",
+    email: "",
+    subject: "",
+    message: ""
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   return (
     <div className="min-h-screen bg-background">
@@ -214,9 +225,42 @@ const Home = () => {
 
           <div className="glass-card p-8 rounded-2xl">
             <h3 className="text-2xl font-semibold mb-6 text-center">Send Us a Message</h3>
-            <form className="space-y-4" onSubmit={(e) => {
+            <form className="space-y-4" onSubmit={async (e) => {
               e.preventDefault();
-              alert("Thank you for your message! We will get back to you soon.");
+              setIsSubmitting(true);
+
+              try {
+                const { data, error } = await supabase.functions.invoke('send-contact-email', {
+                  body: contactForm
+                });
+
+                if (error) throw error;
+
+                if (data.success) {
+                  toast({
+                    title: "Message Sent!",
+                    description: "Thank you for contacting us. We'll get back to you soon!",
+                  });
+                  // Clear form
+                  setContactForm({
+                    name: "",
+                    email: "",
+                    subject: "",
+                    message: ""
+                  });
+                } else {
+                  throw new Error(data.error || "Failed to send message");
+                }
+              } catch (error: any) {
+                console.error("Error sending message:", error);
+                toast({
+                  title: "Error",
+                  description: error.message || "Failed to send message. Please try again.",
+                  variant: "destructive",
+                });
+              } finally {
+                setIsSubmitting(false);
+              }
             }}>
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
@@ -224,6 +268,8 @@ const Home = () => {
                   <input 
                     type="text" 
                     required
+                    value={contactForm.name}
+                    onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg bg-background/50 border border-glass-border focus:border-primary focus:outline-none"
                     placeholder="Your name"
                   />
@@ -233,6 +279,8 @@ const Home = () => {
                   <input 
                     type="email" 
                     required
+                    value={contactForm.email}
+                    onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg bg-background/50 border border-glass-border focus:border-primary focus:outline-none"
                     placeholder="your@email.com"
                   />
@@ -243,6 +291,8 @@ const Home = () => {
                 <input 
                   type="text" 
                   required
+                  value={contactForm.subject}
+                  onChange={(e) => setContactForm({ ...contactForm, subject: e.target.value })}
                   className="w-full px-4 py-2 rounded-lg bg-background/50 border border-glass-border focus:border-primary focus:outline-none"
                   placeholder="How can we help?"
                 />
@@ -252,12 +302,14 @@ const Home = () => {
                 <textarea 
                   required
                   rows={5}
+                  value={contactForm.message}
+                  onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
                   className="w-full px-4 py-2 rounded-lg bg-background/50 border border-glass-border focus:border-primary focus:outline-none resize-none"
                   placeholder="Tell us more..."
                 />
               </div>
-              <Button type="submit" variant="hero" className="w-full">
-                Send Message
+              <Button type="submit" variant="hero" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? "Sending..." : "Send Message"}
               </Button>
             </form>
           </div>
