@@ -14,19 +14,17 @@ const ERROR_MESSAGES = {
   SERVER_ERROR: 'An error occurred processing your request',
 };
 
-const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
-const openRouterChatGptKey = Deno.env.get('OPENROUTER_CHATGPT_KEY');
+const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY'); // Single key for all OpenRouter models
 const deepseekApiKey = Deno.env.get('DEEPSEEK_API_KEY');
 const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
 const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
 
 // Debug: Log API key availability (not the actual keys)
 console.log('🔑 API Keys loaded:', {
-  chatgpt_openrouter: !!openRouterChatGptKey,
+  openrouter: !!openRouterApiKey, // Single key for ChatGPT, Claude, Llama, Grok
   deepseek: !!deepseekApiKey,
   google: !!googleApiKey,
-  perplexity: !!perplexityApiKey,
-  openrouter: !!openRouterApiKey
+  perplexity: !!perplexityApiKey
 });
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -45,11 +43,11 @@ const DEEP_RESEARCH_TIMEOUT_MS = 300000; // 300 seconds (5 minutes) for deep res
 const providerConfig: Record<string, any> = {
   chatgpt: {
     provider: 'openrouter',
-    apiKey: openRouterChatGptKey,
+    apiKey: openRouterApiKey,
     endpoint: 'https://openrouter.ai/api/v1/chat/completions',
     model: 'openai/gpt-4o',
     headers: () => ({
-      'Authorization': `Bearer ${openRouterChatGptKey}`,
+      'Authorization': `Bearer ${openRouterApiKey}`,
       'Content-Type': 'application/json',
       'HTTP-Referer': 'https://pqdgpxetysqcdcjwormb.supabase.co',
       'X-Title': 'MagVerse AI Chat',
