@@ -19,6 +19,7 @@ const deepseekApiKey = Deno.env.get('DEEPSEEK_API_KEY');
 const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
 const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
 const qwenApiKey = Deno.env.get('QWEN_API_KEY');
+const chutesApiKey = Deno.env.get('CHUTES_AI_API_KEY');
 const nvidiaApiKey = Deno.env.get('NVIDIA_NIM_API_KEY');
 const deepseekNvidiaApiKey = Deno.env.get('DEEPSEEK_NVIDIA_NIM_API_KEY');
 const llamaNvidiaApiKey = Deno.env.get('LLAMA_NVIDIA_NIM_API_KEY');
@@ -30,6 +31,7 @@ console.log('🔑 API Keys loaded:', {
   google: !!googleApiKey,
   perplexity: !!perplexityApiKey,
   qwen: !!qwenApiKey, // Qwen AI for ChatGPT
+  chutes: !!chutesApiKey, // Chutes AI
   nvidiaNim: !!nvidiaApiKey,
   deepseekNvidia: !!deepseekNvidiaApiKey, // NVIDIA NIM for Deepseek
   llamaNvidia: !!llamaNvidiaApiKey // NVIDIA NIM for Llama
@@ -37,7 +39,7 @@ console.log('🔑 API Keys loaded:', {
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-const VALID_MODELS = ['chatgpt', 'gemini', 'perplexity', 'deepseek', 'claude', 'llama', 'grok'] as const;
+const VALID_MODELS = ['chatgpt', 'gemini', 'perplexity', 'deepseek', 'claude', 'llama', 'grok', 'chutes'] as const;
 const STORAGE_BUCKET_URL = 'https://pqdgpxetysqcdcjwormb.supabase.co/storage/';
 const MAX_FILE_SIZE = 10_000_000; // 10MB
 const MAX_MESSAGE_LENGTH = 10000;
@@ -199,6 +201,26 @@ const providerConfig: Record<string, any> = {
     }),
     bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
       model: 'deepseek-ai/deepseek-r1',
+      messages,
+      temperature: 0.7,
+      max_tokens: 2000,
+      stream: false,
+    }),
+    responseTransform: (data: any) => {
+      return data.choices[0]?.message?.content || 'No response';
+    },
+  },
+  chutes: {
+    provider: 'chutes',
+    apiKey: chutesApiKey,
+    endpoint: 'https://api.chutes.ai/v1/chat/completions',
+    model: 'chutes-gpt-4',
+    headers: () => ({
+      'Authorization': `Bearer ${chutesApiKey}`,
+      'Content-Type': 'application/json',
+    }),
+    bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
+      model: 'chutes-gpt-4',
       messages,
       temperature: 0.7,
       max_tokens: 2000,
@@ -455,6 +477,7 @@ serve(async (req) => {
           modelId === 'llama' ? 'LLAMA_NVIDIA_NIM_API_KEY' :
           modelId === 'gemini' ? 'GOOGLE_AI_API_KEY' :
           modelId === 'perplexity' ? 'PERPLEXITY_API_KEY' :
+          modelId === 'chutes' ? 'CHUTES_AI_API_KEY' :
           'OPENROUTER_API_KEY'
         }`);
         return { success: false, model: modelId, error: 'Missing API key' };

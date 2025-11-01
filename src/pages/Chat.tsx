@@ -18,13 +18,22 @@ import {
   History as HistoryIcon,
   Globe,
   TrendingUp,
-  GraduationCap
+  GraduationCap,
+  Menu,
+  Rocket
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Link, useSearchParams } from "react-router-dom";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 const aiModels = [
   { id: "chatgpt", name: "ChatGPT", icon: Bot, color: "text-primary" },
@@ -34,6 +43,7 @@ const aiModels = [
   { id: "claude", name: "Claude", icon: Sparkles, color: "text-accent" },
   { id: "llama", name: "Llama", icon: Zap, color: "text-primary" },
   { id: "grok", name: "Grok", icon: Star, color: "text-accent" },
+  { id: "chutes", name: "Chutes AI", icon: Rocket, color: "text-blue-500" },
 ];
 
 interface Message {
@@ -59,6 +69,7 @@ const Chat = () => {
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [searchMode, setSearchMode] = useState<'general' | 'finance' | 'academic'>('general');
   const [deepResearchMode, setDeepResearchMode] = useState(false);
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user, profile, refreshProfile } = useAuth();
@@ -369,175 +380,193 @@ const Chat = () => {
     }
   };
 
+  // Sidebar content component to reuse in both desktop and mobile
+  const SidebarContent = () => (
+    <>
+      <Button 
+        variant="hero" 
+        className="w-full justify-start"
+        onClick={() => {
+          setMessages([]);
+          setCurrentChatId(null);
+          setMobileSheetOpen(false);
+        }}
+      >
+        <MessageSquarePlus className="w-5 h-5" />
+        New Chat
+      </Button>
+      
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            AI Models ({selectedModels.length}/3)
+          </h3>
+          <div className="space-y-2">
+            {aiModels.map(model => {
+              const Icon = model.icon;
+              const isSelected = selectedModels.includes(model.id);
+              return (
+                <button
+                  key={model.id}
+                  onClick={() => toggleModel(model.id)}
+                  className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
+                    isSelected 
+                      ? 'glass-card border-accent/50 shadow-lg shadow-accent/20' 
+                      : 'hover:bg-muted/20'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-lg ${isSelected ? 'bg-accent/20' : 'bg-muted/20'} flex items-center justify-center`}>
+                    <Icon className={`w-4 h-4 ${isSelected ? model.color : 'text-muted-foreground'}`} />
+                  </div>
+                  <span className={`font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    {model.name}
+                  </span>
+                  {isSelected && <Circle className="w-2 h-2 ml-auto fill-primary text-primary" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        
+        {/* Deep Research Mode */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            Research Settings
+          </h3>
+          
+          {/* Deep Research Toggle */}
+          <button
+            onClick={() => setDeepResearchMode(!deepResearchMode)}
+            className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
+              deepResearchMode 
+                ? 'glass-card border-accent/50 shadow-lg shadow-accent/20' 
+                : 'hover:bg-muted/20'
+            }`}
+          >
+            <div className={`w-8 h-8 rounded-lg ${deepResearchMode ? 'bg-accent/20' : 'bg-muted/20'} flex items-center justify-center`}>
+              <Brain className={`w-4 h-4 ${deepResearchMode ? 'text-accent' : 'text-muted-foreground'}`} />
+            </div>
+            <span className={`font-medium ${deepResearchMode ? 'text-foreground' : 'text-muted-foreground'}`}>
+              Deep Research Mode
+            </span>
+            {deepResearchMode && <Circle className="w-2 h-2 ml-auto fill-accent text-accent" />}
+          </button>
+          
+          {deepResearchMode && (
+            <p className="text-xs text-muted-foreground pl-2 animate-fade-in">
+              Get comprehensive, humanized explanations with examples and real-world context
+            </p>
+          )}
+        </div>
+        
+        {/* Web Search Settings */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            Web Search
+          </h3>
+          
+          {/* Toggle Web Search */}
+          <button
+            onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+            className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
+              webSearchEnabled 
+                ? 'glass-card border-accent/50 shadow-lg shadow-accent/20' 
+                : 'hover:bg-muted/20'
+            }`}
+          >
+            <div className={`w-8 h-8 rounded-lg ${webSearchEnabled ? 'bg-accent/20' : 'bg-muted/20'} flex items-center justify-center`}>
+              <Globe className={`w-4 h-4 ${webSearchEnabled ? 'text-accent' : 'text-muted-foreground'}`} />
+            </div>
+            <span className={`font-medium ${webSearchEnabled ? 'text-foreground' : 'text-muted-foreground'}`}>
+              Enable Web Search
+            </span>
+            {webSearchEnabled && <Circle className="w-2 h-2 ml-auto fill-accent text-accent" />}
+          </button>
+          
+          {webSearchEnabled && (
+            <div className="space-y-2 animate-fade-in">
+              <p className="text-xs text-muted-foreground pl-2">
+                Search Mode
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => setSearchMode('general')}
+                  className={`p-2 rounded-lg text-xs transition-all ${
+                    searchMode === 'general'
+                      ? 'glass-card border-accent/50'
+                      : 'hover:bg-muted/20'
+                  }`}
+                >
+                  <Globe className="w-4 h-4 mx-auto mb-1" />
+                  General
+                </button>
+                <button
+                  onClick={() => setSearchMode('finance')}
+                  className={`p-2 rounded-lg text-xs transition-all ${
+                    searchMode === 'finance'
+                      ? 'glass-card border-accent/50'
+                      : 'hover:bg-muted/20'
+                  }`}
+                >
+                  <TrendingUp className="w-4 h-4 mx-auto mb-1" />
+                  Finance
+                </button>
+                <button
+                  onClick={() => setSearchMode('academic')}
+                  className={`p-2 rounded-lg text-xs transition-all ${
+                    searchMode === 'academic'
+                      ? 'glass-card border-accent/50'
+                      : 'hover:bg-muted/20'
+                  }`}
+                >
+                  <GraduationCap className="w-4 h-4 mx-auto mb-1" />
+                  Academic
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        <Link to="/history">
+          <Button variant="outline" className="w-full justify-start">
+            <HistoryIcon className="w-5 h-5" />
+            Chat History
+          </Button>
+        </Link>
+      </div>
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
       
       <div className="flex-1 flex pt-16">
-        {/* Sidebar */}
+        {/* Desktop Sidebar */}
         <aside className="w-80 glass-card border-r border-glass-border p-6 space-y-6 hidden lg:block">
-          <Button 
-            variant="hero" 
-            className="w-full justify-start"
-            onClick={() => {
-              setMessages([]);
-              setCurrentChatId(null);
-            }}
-          >
-            <MessageSquarePlus className="w-5 h-5" />
-            New Chat
-          </Button>
-          
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                AI Models ({selectedModels.length}/3)
-              </h3>
-              <div className="space-y-2">
-                {aiModels.map(model => {
-                  const Icon = model.icon;
-                  const isSelected = selectedModels.includes(model.id);
-                  return (
-                    <button
-                      key={model.id}
-                      onClick={() => toggleModel(model.id)}
-                      className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
-                        isSelected 
-                          ? 'glass-card border-accent/50 shadow-lg shadow-accent/20' 
-                          : 'hover:bg-muted/20'
-                      }`}
-                    >
-                      <div className={`w-8 h-8 rounded-lg ${isSelected ? 'bg-accent/20' : 'bg-muted/20'} flex items-center justify-center`}>
-                        <Icon className={`w-4 h-4 ${isSelected ? model.color : 'text-muted-foreground'}`} />
-                      </div>
-                      <span className={`font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
-                        {model.name}
-                      </span>
-                      {isSelected && <Circle className="w-2 h-2 ml-auto fill-primary text-primary" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            
-            {/* Deep Research Mode */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                Research Settings
-              </h3>
-              
-              {/* Deep Research Toggle */}
-              <button
-                onClick={() => setDeepResearchMode(!deepResearchMode)}
-                className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
-                  deepResearchMode 
-                    ? 'glass-card border-accent/50 shadow-lg shadow-accent/20' 
-                    : 'hover:bg-muted/20'
-                }`}
-              >
-                <div className={`w-8 h-8 rounded-lg ${deepResearchMode ? 'bg-accent/20' : 'bg-muted/20'} flex items-center justify-center`}>
-                  <Brain className={`w-4 h-4 ${deepResearchMode ? 'text-accent' : 'text-muted-foreground'}`} />
-                </div>
-                <span className={`font-medium ${deepResearchMode ? 'text-foreground' : 'text-muted-foreground'}`}>
-                  Deep Research Mode
-                </span>
-                {deepResearchMode && <Circle className="w-2 h-2 ml-auto fill-accent text-accent" />}
-              </button>
-              
-              {deepResearchMode && (
-                <p className="text-xs text-muted-foreground pl-2 animate-fade-in">
-                  Get comprehensive, humanized explanations with examples and real-world context
-                </p>
-              )}
-            </div>
-            
-            {/* Web Search Settings */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                Web Search
-              </h3>
-              
-              {/* Toggle Web Search */}
-              <button
-                onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-                className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
-                  webSearchEnabled 
-                    ? 'glass-card border-accent/50 shadow-lg shadow-accent/20' 
-                    : 'hover:bg-muted/20'
-                }`}
-              >
-                <div className={`w-8 h-8 rounded-lg ${webSearchEnabled ? 'bg-accent/20' : 'bg-muted/20'} flex items-center justify-center`}>
-                  <Globe className={`w-4 h-4 ${webSearchEnabled ? 'text-accent' : 'text-muted-foreground'}`} />
-                </div>
-                <span className={`font-medium ${webSearchEnabled ? 'text-foreground' : 'text-muted-foreground'}`}>
-                  Enable Web Search
-                </span>
-                {webSearchEnabled && <Circle className="w-2 h-2 ml-auto fill-accent text-accent" />}
-              </button>
-              
-              {/* Search Mode Selector */}
-              {webSearchEnabled && (
-                <div className="space-y-2 animate-fade-in pl-2">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Search Mode</p>
-                  
-                  <button
-                    onClick={() => setSearchMode('general')}
-                    className={`w-full flex items-center gap-2 p-2 rounded-lg text-sm transition-all ${
-                      searchMode === 'general' 
-                        ? 'bg-accent/20 text-accent' 
-                        : 'hover:bg-muted/10 text-muted-foreground'
-                    }`}
-                  >
-                    <Globe className="w-3.5 h-3.5" />
-                    <span>General</span>
-                    {searchMode === 'general' && <Circle className="w-1.5 h-1.5 ml-auto fill-accent" />}
-                  </button>
-                  
-                  <button
-                    onClick={() => setSearchMode('finance')}
-                    className={`w-full flex items-center gap-2 p-2 rounded-lg text-sm transition-all ${
-                      searchMode === 'finance' 
-                        ? 'bg-accent/20 text-accent' 
-                        : 'hover:bg-muted/10 text-muted-foreground'
-                    }`}
-                  >
-                    <TrendingUp className="w-3.5 h-3.5" />
-                    <span>Finance & Markets</span>
-                    {searchMode === 'finance' && <Circle className="w-1.5 h-1.5 ml-auto fill-accent" />}
-                  </button>
-                  
-                  <button
-                    onClick={() => setSearchMode('academic')}
-                    className={`w-full flex items-center gap-2 p-2 rounded-lg text-sm transition-all ${
-                      searchMode === 'academic' 
-                        ? 'bg-accent/20 text-accent' 
-                        : 'hover:bg-muted/10 text-muted-foreground'
-                    }`}
-                  >
-                    <GraduationCap className="w-3.5 h-3.5" />
-                    <span>Academic & Research</span>
-                    {searchMode === 'academic' && <Circle className="w-1.5 h-1.5 ml-auto fill-accent" />}
-                  </button>
-                </div>
-              )}
-              
-              {webSearchEnabled && (
-                <p className="text-xs text-muted-foreground pl-2">
-                  {searchMode === 'general' && 'Search the web for real-time information'}
-                  {searchMode === 'finance' && 'Focus on markets, prices, and financial news'}
-                  {searchMode === 'academic' && 'Search scholarly articles and research papers'}
-                </p>
-              )}
-            </div>
-
-            <Link to="/history">
-              <Button variant="glass" className="w-full justify-start gap-3">
-                <HistoryIcon className="w-5 h-5" />
-                Chat History
-              </Button>
-            </Link>
-          </div>
+          <SidebarContent />
         </aside>
+        
+        {/* Mobile Sheet */}
+        <Sheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
+          <SheetTrigger asChild>
+            <Button 
+              variant="outline" 
+              size="icon"
+              className="fixed top-20 left-4 z-50 lg:hidden glass-card"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-80 p-6 overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>AI Chat Settings</SheetTitle>
+            </SheetHeader>
+            <div className="mt-6 space-y-6">
+              <SidebarContent />
+            </div>
+          </SheetContent>
+        </Sheet>
         
         {/* Main Chat Area */}
         <main className="flex-1 flex flex-col">
