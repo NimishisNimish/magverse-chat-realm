@@ -52,16 +52,16 @@ const DEEP_RESEARCH_TIMEOUT_MS = 600000; // 10 minutes for deep research mode
 // Provider configuration with direct API endpoints
 const providerConfig: Record<string, any> = {
   chatgpt: {
-    provider: 'qwen',
-    apiKey: qwenApiKey,
-    endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
-    model: 'qwen-plus',
+    provider: 'nvidia-nim',
+    apiKey: nvidiaApiKey,
+    endpoint: 'https://integrate.api.nvidia.com/v1/chat/completions',
+    model: 'meta/llama-3.1-405b-instruct',
     headers: () => ({
-      'Authorization': `Bearer ${qwenApiKey}`,
+      'Authorization': `Bearer ${nvidiaApiKey}`,
       'Content-Type': 'application/json',
     }),
     bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
-      model: 'qwen-plus',
+      model: 'meta/llama-3.1-405b-instruct',
       messages,
       temperature: 0.7,
       max_tokens: 2000,
