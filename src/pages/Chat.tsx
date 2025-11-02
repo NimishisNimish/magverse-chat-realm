@@ -67,7 +67,9 @@ const Chat = () => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
+  const [attachmentType, setAttachmentType] = useState<'pdf' | 'image' | 'other' | null>(null);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+  const [processingFile, setProcessingFile] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [searchMode, setSearchMode] = useState<'general' | 'finance' | 'academic'>('general');
   const [deepResearchMode, setDeepResearchMode] = useState(false);
@@ -180,7 +182,7 @@ const Chat = () => {
 
       const signedUrlPromise = supabase.storage
         .from('chat-attachments')
-        .createSignedUrl(filePath, 3600);
+        .createSignedUrl(filePath, 7200); // 2 hours to prevent expiration during chat
 
       const { data: signedUrlData, error: signedUrlError } = await Promise.race([
         signedUrlPromise,
@@ -190,25 +192,40 @@ const Chat = () => {
       if (signedUrlError) throw signedUrlError;
 
       setAttachmentUrl(signedUrlData.signedUrl);
-      setUploadStatus('success');
       
-      // Special message for PDFs
+      // Detect file type
       const isPdf = fileExt === 'pdf';
+      const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt?.toLowerCase() || '');
+      
+      setAttachmentType(isPdf ? 'pdf' : isImage ? 'image' : 'other');
+      setUploadStatus('success');
       
       toast({
         title: "File uploaded successfully",
         description: isPdf 
-          ? "PDF uploaded - AI will guide you to share relevant sections for analysis." 
-          : "Your file is ready to send.",
+          ? "PDF ready - AI will extract and analyze the text content when you send your message." 
+          : isImage
+          ? "Image ready - AI will analyze the image when you send your message."
+          : "File ready to send.",
       });
     } catch (error: any) {
       setUploadStatus('error');
+      
+      let errorDesc = error.message || "File upload failed. Please try again.";
+      
+      if (error.message?.includes('timeout')) {
+        errorDesc = "Upload timed out - file took too long to upload. Try a smaller file or check your connection.";
+      } else if (error.message?.includes('storage')) {
+        errorDesc = "Storage error - unable to save file. Please try again or contact support.";
+      }
+      
       toast({
         title: "Upload failed",
-        description: error.message || "File upload failed. Please try again.",
+        description: errorDesc,
         variant: "destructive",
       });
       setAttachmentUrl(null);
+      setAttachmentType(null);
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -241,6 +258,23 @@ const Chat = () => {
     }
 
     setLoading(true);
+    
+    // Show processing indicator for files
+    if (attachmentUrl) {
+      setProcessingFile(true);
+      if (attachmentType === 'pdf') {
+        toast({
+          title: "Processing PDF...",
+          description: "Extracting text from your PDF. This may take a moment.",
+        });
+      } else if (attachmentType === 'image') {
+        toast({
+          title: "Processing image...",
+          description: "Preparing image for AI analysis.",
+        });
+      }
+    }
+    
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       model: 'user',
@@ -264,12 +298,8 @@ const Chat = () => {
     });
 
     try {
-      const messageContent = attachmentUrl 
-        ? `${input}\n\n[Attached file: ${attachmentUrl}]`
-        : input;
-
-      // Context window management: keep only last 10 messages to prevent token overflow
-      const MAX_CONTEXT_MESSAGES = 10;
+      // Context window management: keep only last 6 messages to prevent token overflow
+      const MAX_CONTEXT_MESSAGES = 6;
       const recentMessages = messages.slice(-MAX_CONTEXT_MESSAGES);
       
       console.log(`Sending ${recentMessages.length} recent messages (${messages.length} total in history)`);
@@ -282,7 +312,7 @@ const Chat = () => {
                 role: m.role,
                 content: m.content,
               })),
-              { role: 'user', content: messageContent }
+              { role: 'user', content: input } // Send clean input without attachment URL
             ],
             selectedModels,
             webSearchEnabled,
@@ -306,6 +336,9 @@ const Chat = () => {
 
       if (error) throw error;
 
+      // Clear processing state
+      setProcessingFile(false);
+      
       // Validate we got responses
       if (!data.responses || data.responses.length === 0) {
         throw new Error('All AI models failed to respond. Please check your API keys or try different models.');
@@ -368,6 +401,7 @@ const Chat = () => {
       await refreshProfile();
     } catch (error: any) {
       console.error('Chat error:', error);
+      setProcessingFile(false);
       
       // Detect token limit errors and auto-retry with reduced context
       if (error.message?.includes('token') || error.message?.includes('context') || error.message?.includes('length')) {
@@ -388,7 +422,11 @@ const Chat = () => {
       // Provide more specific error messages
       let errorMessage = "Failed to get AI response. Please try again.";
       
-      if (error.message?.includes('timeout')) {
+      if (error.message?.includes('PDF') || error.message?.includes('extract')) {
+        errorMessage = "Failed to process PDF file. The file may be corrupted, too large, or image-based. Try:\n• Re-uploading the PDF\n• Converting it to a text-based format\n• Describing the content manually";
+      } else if (error.message?.includes('Image') || error.message?.includes('image')) {
+        errorMessage = "Failed to process image. Try:\n• Re-uploading the image\n• Using a different format (JPG, PNG)\n• Ensuring the file is under 10MB";
+      } else if (error.message?.includes('timeout')) {
         errorMessage = deepResearchMode 
           ? "Deep Research timed out after 11 minutes. This is very unusual. Please try:\n• Breaking your question into smaller parts\n• Selecting fewer AI models\n• Disabling web search temporarily"
           : "Request timed out after 10 minutes. For complex queries requiring web research, try enabling Deep Research mode.";
@@ -413,7 +451,9 @@ const Chat = () => {
     } finally {
       // Always clear loading state and attachment
       setLoading(false);
+      setProcessingFile(false);
       setAttachmentUrl(null);
+      setAttachmentType(null);
       setUploadStatus('idle');
     }
   };

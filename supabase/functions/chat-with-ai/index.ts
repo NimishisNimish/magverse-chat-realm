@@ -340,21 +340,26 @@ serve(async (req) => {
     // Process attachment if present with size validation
     let processedMessages = [...messages];
     if (attachmentUrl) {
-      // Validate file size before processing
       try {
+        console.log('📎 Processing attachment:', attachmentUrl);
+        
+        // Validate file size before processing
         const headResponse = await fetch(attachmentUrl, { method: 'HEAD' });
         const fileSize = parseInt(headResponse.headers.get('content-length') || '0');
         
         if (fileSize > MAX_FILE_SIZE) {
+          console.error('❌ File too large:', fileSize, 'bytes');
           return new Response(
-            JSON.stringify({ error: ERROR_MESSAGES.INVALID_REQUEST }),
+            JSON.stringify({ error: 'File too large - maximum size is 10MB' }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
+        
+        console.log('✅ File size validated:', fileSize, 'bytes');
       } catch (error) {
-        console.error('Error checking file size:', error);
+        console.error('❌ Error validating file:', error);
         return new Response(
-          JSON.stringify({ error: ERROR_MESSAGES.INVALID_REQUEST }),
+          JSON.stringify({ error: 'Could not validate file - it may be inaccessible or expired' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -363,39 +368,66 @@ serve(async (req) => {
       const lastMessage = processedMessages[processedMessages.length - 1];
       
       if (fileExtension === 'pdf') {
-        // Extract PDF text content
-        console.log('PDF attachment detected, extracting text...');
+        // Extract PDF text content using the extract-pdf-text function
+        console.log('📄 PDF attachment detected, extracting text...');
         
         try {
-          const extractResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/extract-pdf-text`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': req.headers.get('Authorization') || ''
-            },
-            body: JSON.stringify({ url: attachmentUrl })
+          // Add timeout for PDF extraction
+          const extractTimeout = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('PDF extraction timeout')), 45000); // 45 seconds
           });
-
-          const extractResult = await extractResponse.json();
           
-          if (extractResult.success && extractResult.text) {
-            console.log(`PDF text extracted: ${extractResult.charCount} chars, ${extractResult.wordCount} words`);
+          // Use Supabase client to call the function
+          const extractPromise = userSupabase.functions.invoke('extract-pdf-text', {
+            body: { url: attachmentUrl }
+          });
+          
+          const { data: extractResult, error: extractError } = await Promise.race([
+            extractPromise,
+            extractTimeout
+          ]) as any;
+          
+          if (extractError) {
+            console.error('❌ PDF extraction error:', extractError);
+            throw extractError;
+          }
+          
+          if (extractResult?.success && extractResult?.text) {
+            const charCount = extractResult.charCount || 0;
+            const wordCount = extractResult.wordCount || 0;
+            console.log(`✅ PDF text extracted: ${charCount} chars, ${wordCount} words${extractResult.wasTruncated ? ' (truncated)' : ''}`);
+            
             processedMessages[processedMessages.length - 1] = {
               ...lastMessage,
-              content: `${lastMessage.content}\n\n--- PDF Document Content ---\n${extractResult.text}\n--- End of PDF Document ---`
+              content: `${lastMessage.content}\n\n--- PDF Document Analysis ---\nExtracted ${wordCount} words (${charCount} characters)${extractResult.wasTruncated ? ' - document was truncated for length' : ''}\n\n${extractResult.text}\n\n--- End of PDF Content ---`
+            };
+          } else if (extractResult?.isEmpty) {
+            console.warn('⚠️ PDF is empty or contains only images');
+            processedMessages[processedMessages.length - 1] = {
+              ...lastMessage,
+              content: `${lastMessage.content}\n\n[Note: A PDF was attached but appears to be a scanned document or image-based PDF with no extractable text. Please describe what you see in the PDF or ask specific questions about it.]`
             };
           } else {
-            console.warn('PDF extraction failed:', extractResult.error);
+            console.warn('⚠️ PDF extraction returned no text');
             processedMessages[processedMessages.length - 1] = {
               ...lastMessage,
-              content: `${lastMessage.content}\n\n[Note: A PDF was attached but text extraction failed. This might be a scanned document or image-based PDF.]`
+              content: `${lastMessage.content}\n\n[Note: A PDF was attached but text extraction failed. This might be a scanned document, image-based PDF, or password-protected file.]`
             };
           }
-        } catch (error) {
-          console.error('Error extracting PDF:', error);
+        } catch (error: any) {
+          console.error('❌ Error extracting PDF:', error);
+          
+          let errorNote = '[Note: A PDF was attached but could not be processed.';
+          if (error.message?.includes('timeout')) {
+            errorNote += ' Extraction timed out - the PDF may be too large or complex.';
+          } else if (error.message?.includes('expired')) {
+            errorNote += ' File access expired - please re-upload the PDF.';
+          }
+          errorNote += ']';
+          
           processedMessages[processedMessages.length - 1] = {
             ...lastMessage,
-            content: `${lastMessage.content}\n\n[Note: A PDF was attached but could not be processed.]`
+            content: `${lastMessage.content}\n\n${errorNote}`
           };
         }
       } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension || '')) {
