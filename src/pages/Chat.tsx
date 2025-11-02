@@ -20,7 +20,9 @@ import {
   TrendingUp,
   GraduationCap,
   Menu,
-  Rocket
+  Rocket,
+  Download,
+  Loader2
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
@@ -70,6 +72,7 @@ const Chat = () => {
   const [searchMode, setSearchMode] = useState<'general' | 'finance' | 'academic'>('general');
   const [deepResearchMode, setDeepResearchMode] = useState(false);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user, profile, refreshProfile } = useAuth();
@@ -377,6 +380,61 @@ const Chat = () => {
       setLoading(false);
       setAttachmentUrl(null);
       setUploadStatus('idle');
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    if (messages.length === 0) {
+      toast({
+        title: "No messages to download",
+        description: "Start a conversation first before downloading.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-chat-pdf', {
+        body: {
+          messages: messages.map(m => ({
+            role: m.role,
+            model: m.model,
+            content: m.content,
+            timestamp: m.timestamp.toISOString(),
+          })),
+          chatTitle: `Chat - ${new Date().toLocaleDateString()}`,
+        },
+      });
+
+      if (error) throw error;
+
+      // Create blob from base64 data
+      const blob = await fetch(`data:application/pdf;base64,${data.pdf}`).then(r => r.blob());
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `magverse-chat-${Date.now()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "PDF Downloaded",
+        description: "Your chat has been saved as a PDF file.",
+      });
+    } catch (error: any) {
+      console.error('PDF download error:', error);
+      toast({
+        title: "Download failed",
+        description: error.message || "Failed to generate PDF. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -707,6 +765,20 @@ const Chat = () => {
                   className="glass-card border-accent/30 focus:border-accent"
                   disabled={loading}
                 />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleDownloadPDF}
+                  disabled={isDownloading || messages.length === 0}
+                  className="shrink-0"
+                  title="Download chat as PDF"
+                >
+                  {isDownloading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Download className="w-5 h-5" />
+                  )}
+                </Button>
                 <Button 
                   variant="hero" 
                   size="icon" 
