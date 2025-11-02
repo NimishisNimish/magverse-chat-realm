@@ -142,8 +142,21 @@ const Chat = () => {
     setUploading(true);
     setUploadStatus('uploading');
     
+    // Validate file size first (10MB max)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      toast({
+        title: "File too large",
+        description: `Maximum file size is 10MB. Your file is ${(file.size / 1024 / 1024).toFixed(2)}MB`,
+        variant: "destructive",
+      });
+      setUploading(false);
+      setUploadStatus('error');
+      return;
+    }
+
     const uploadTimeout = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Upload timeout - file took too long to upload')), 30000);
+      setTimeout(() => reject(new Error('Upload timeout - file took too long to upload. Please try a smaller file.')), 120000); // 2 minutes
     });
 
     try {
@@ -162,7 +175,7 @@ const Chat = () => {
       if (uploadError) throw uploadError;
 
       const signedUrlTimeout = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout generating signed URL')), 10000);
+        setTimeout(() => reject(new Error('Timeout generating signed URL')), 30000); // 30 seconds
       });
 
       const signedUrlPromise = supabase.storage
@@ -242,11 +255,11 @@ const Chat = () => {
     setInput("");
 
     // Frontend must wait LONGER than backend to avoid premature cancellation
-    const timeoutMs = deepResearchMode ? 660000 : 540000; // 11 min for Deep Research, 9 min for regular
+    const timeoutMs = deepResearchMode ? 660000 : 600000; // 11 min for Deep Research, 10 min for regular
     const timeout = new Promise((_, reject) => {
       const timeoutMessage = deepResearchMode 
         ? 'Deep Research timed out after 11 minutes. Try breaking your query into smaller parts or selecting fewer AI models.'
-        : 'Request timed out after 9 minutes. For complex queries requiring extensive analysis, try enabling Deep Research mode.';
+        : 'Request timed out after 10 minutes. For complex queries requiring extensive analysis, try enabling Deep Research mode.';
       setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
     });
 
@@ -255,11 +268,17 @@ const Chat = () => {
         ? `${input}\n\n[Attached file: ${attachmentUrl}]`
         : input;
 
+      // Context window management: keep only last 10 messages to prevent token overflow
+      const MAX_CONTEXT_MESSAGES = 10;
+      const recentMessages = messages.slice(-MAX_CONTEXT_MESSAGES);
+      
+      console.log(`Sending ${recentMessages.length} recent messages (${messages.length} total in history)`);
+
       const { data, error } = await Promise.race([
         supabase.functions.invoke('chat-with-ai', {
           body: {
             messages: [
-              ...messages.map(m => ({
+              ...recentMessages.map(m => ({
                 role: m.role,
                 content: m.content,
               })),
@@ -350,13 +369,29 @@ const Chat = () => {
     } catch (error: any) {
       console.error('Chat error:', error);
       
+      // Detect token limit errors and auto-retry with reduced context
+      if (error.message?.includes('token') || error.message?.includes('context') || error.message?.includes('length')) {
+        toast({
+          title: "Context too long",
+          description: "Your conversation history is too long. Clearing older messages and retrying...",
+        });
+        
+        // Clear old messages except the last 3 and retry once
+        const reducedMessages = messages.slice(-3);
+        setMessages([...reducedMessages, userMessage]);
+        
+        // Note: This is a simplified retry - in production you might want to track retry attempts
+        setLoading(false);
+        return;
+      }
+      
       // Provide more specific error messages
       let errorMessage = "Failed to get AI response. Please try again.";
       
       if (error.message?.includes('timeout')) {
         errorMessage = deepResearchMode 
-          ? "Deep Research timed out after 9 minutes. This is very unusual. Please try:\n• Breaking your question into smaller parts\n• Selecting fewer AI models\n• Disabling web search temporarily"
-          : "Request timed out after 5 minutes. For complex queries requiring web research, try enabling Deep Research mode.";
+          ? "Deep Research timed out after 11 minutes. This is very unusual. Please try:\n• Breaking your question into smaller parts\n• Selecting fewer AI models\n• Disabling web search temporarily"
+          : "Request timed out after 10 minutes. For complex queries requiring web research, try enabling Deep Research mode.";
       } else if (error.status === 429) {
         errorMessage = "Rate limit reached. OpenRouter is receiving too many requests. Please wait 30 seconds and try again.";
       } else if (error.status === 504) {

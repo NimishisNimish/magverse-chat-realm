@@ -288,14 +288,19 @@ const Home = () => {
       
       {/* Footer */}
       <footer className="container mx-auto px-4 py-8 border-t border-glass-border">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex flex-col items-center gap-6">
+          {/* Logo and Copyright */}
           <div className="flex items-center gap-2">
             <img src={magverseLogo} alt="Magverse AI" className="w-8 h-8" />
             <span className="text-sm text-muted-foreground">© 2025 Magverse AI. All rights reserved.</span>
           </div>
-          <div className="flex gap-6 text-sm text-muted-foreground">
+          
+          {/* Navigation Links */}
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
             <a href="#about" className="hover:text-primary transition-colors">About</a>
             <a href="#contact" className="hover:text-primary transition-colors">Contact</a>
+            <Link to="/privacy-policy" className="hover:text-primary transition-colors">Privacy Policy</Link>
+            <Link to="/terms-of-service" className="hover:text-primary transition-colors">Terms of Service</Link>
             <Link to="/auth" className="hover:text-primary transition-colors">Login</Link>
           </div>
         </div>

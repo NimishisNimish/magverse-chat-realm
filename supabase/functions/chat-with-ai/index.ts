@@ -65,7 +65,7 @@ const providerConfig: Record<string, any> = {
       messages,
       temperature: 0.7,
       max_tokens: 2000,
-      stream: false,
+      stream: true, // Enable streaming for real-time responses
     }),
     responseTransform: (data: any) => {
       return data.choices[0]?.message?.content || 'No response';
@@ -166,7 +166,7 @@ const providerConfig: Record<string, any> = {
       messages,
       temperature: 0.7,
       max_tokens: 2000,
-      stream: false,
+      stream: true, // Enable streaming for real-time responses
     }),
     responseTransform: (data: any) => {
       return data.choices[0]?.message?.content || 'No response';
@@ -204,7 +204,7 @@ const providerConfig: Record<string, any> = {
       messages,
       temperature: 0.7,
       max_tokens: 2000,
-      stream: false,
+      stream: true, // Enable streaming for real-time responses
     }),
     responseTransform: (data: any) => {
       return data.choices[0]?.message?.content || 'No response';
