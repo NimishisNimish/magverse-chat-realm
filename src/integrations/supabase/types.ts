@@ -152,8 +152,11 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
+          bio: string | null
           created_at: string | null
           credits_remaining: number | null
+          display_name: string | null
           id: string
           is_pro: boolean | null
           last_credit_reset: string | null
@@ -164,10 +167,14 @@ export type Database = {
           phone_verified_at: string | null
           subscription_expires_at: string | null
           subscription_type: string | null
+          username: string | null
         }
         Insert: {
+          avatar_url?: string | null
+          bio?: string | null
           created_at?: string | null
           credits_remaining?: number | null
+          display_name?: string | null
           id: string
           is_pro?: boolean | null
           last_credit_reset?: string | null
@@ -178,10 +185,14 @@ export type Database = {
           phone_verified_at?: string | null
           subscription_expires_at?: string | null
           subscription_type?: string | null
+          username?: string | null
         }
         Update: {
+          avatar_url?: string | null
+          bio?: string | null
           created_at?: string | null
           credits_remaining?: number | null
+          display_name?: string | null
           id?: string
           is_pro?: boolean | null
           last_credit_reset?: string | null
@@ -192,6 +203,7 @@ export type Database = {
           phone_verified_at?: string | null
           subscription_expires_at?: string | null
           subscription_type?: string | null
+          username?: string | null
         }
         Relationships: []
       }

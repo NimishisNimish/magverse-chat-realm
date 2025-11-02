@@ -14,6 +14,10 @@ interface Profile {
   subscription_expires_at?: string;
   monthly_credits?: number;
   monthly_credits_used?: number;
+  username?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  bio?: string | null;
 }
 
 interface AuthContextType {
