@@ -74,7 +74,7 @@ const providerConfig: Record<string, any> = {
   gemini: {
     provider: 'google',
     apiKey: googleApiKey,
-    endpoint: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${googleApiKey}`,
+    endpoint: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:streamGenerateContent?key=${googleApiKey}&alt=sse`,
     model: 'gemini-2.0-flash-exp',
     headers: () => ({
       'Content-Type': 'application/json',
@@ -111,6 +111,7 @@ const providerConfig: Record<string, any> = {
       const baseConfig: any = {
         model: 'sonar-pro',
         messages,
+        stream: true,
       };
       
       // Add web search parameters if enabled
@@ -362,11 +363,41 @@ serve(async (req) => {
       const lastMessage = processedMessages[processedMessages.length - 1];
       
       if (fileExtension === 'pdf') {
-        // For PDFs, provide enhanced instructions to AI
-        processedMessages[processedMessages.length - 1] = {
-          ...lastMessage,
-          content: `${lastMessage.content}\n\n[PDF Document Uploaded]\nI have uploaded a PDF document that I'd like you to help me analyze. While I cannot send you the raw PDF content directly, I can describe specific sections, pages, or content from the document. Please ask me targeted questions about:\n- Specific sections or chapters you'd like me to share\n- Tables, figures, or data you need\n- Key points or summaries I should provide\n- Any specific information you need from the document\n\nPlease guide me on what information from the PDF would be most helpful for your analysis.`
-        };
+        // Extract PDF text content
+        console.log('PDF attachment detected, extracting text...');
+        
+        try {
+          const extractResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/extract-pdf-text`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': req.headers.get('Authorization') || ''
+            },
+            body: JSON.stringify({ url: attachmentUrl })
+          });
+
+          const extractResult = await extractResponse.json();
+          
+          if (extractResult.success && extractResult.text) {
+            console.log(`PDF text extracted: ${extractResult.charCount} chars, ${extractResult.wordCount} words`);
+            processedMessages[processedMessages.length - 1] = {
+              ...lastMessage,
+              content: `${lastMessage.content}\n\n--- PDF Document Content ---\n${extractResult.text}\n--- End of PDF Document ---`
+            };
+          } else {
+            console.warn('PDF extraction failed:', extractResult.error);
+            processedMessages[processedMessages.length - 1] = {
+              ...lastMessage,
+              content: `${lastMessage.content}\n\n[Note: A PDF was attached but text extraction failed. This might be a scanned document or image-based PDF.]`
+            };
+          }
+        } catch (error) {
+          console.error('Error extracting PDF:', error);
+          processedMessages[processedMessages.length - 1] = {
+            ...lastMessage,
+            content: `${lastMessage.content}\n\n[Note: A PDF was attached but could not be processed.]`
+          };
+        }
       } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension || '')) {
         // For images with vision models, use proper format
         processedMessages[processedMessages.length - 1] = {

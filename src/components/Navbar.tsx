@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Sparkles, LogOut, Zap, User } from "lucide-react";
+import { Sparkles, LogOut, Zap, User, History, MessageSquare, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   DropdownMenu,
@@ -71,14 +71,20 @@ const Navbar = () => {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
+                    <Link to="/profile" className="cursor-pointer">
+                      <Settings className="w-4 h-4 mr-2" />
+                      Profile Settings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link to="/chat" className="cursor-pointer">
-                      <User className="w-4 h-4 mr-2" />
+                      <MessageSquare className="w-4 h-4 mr-2" />
                       Chat
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/history" className="cursor-pointer">
-                      <User className="w-4 h-4 mr-2" />
+                      <History className="w-4 h-4 mr-2" />
                       History
                     </Link>
                   </DropdownMenuItem>

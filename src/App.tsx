@@ -15,6 +15,7 @@ import ResetPasswordConfirm from "./pages/ResetPasswordConfirm";
 import LinkPhone from "./pages/LinkPhone";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
+import ProfileSettings from "./pages/ProfileSettings";
 
 const queryClient = new QueryClient();
 
@@ -47,8 +48,7 @@ const App = () => (
             <Route path="/link-phone" element={<ProtectedRoute><LinkPhone /></ProtectedRoute>} />
             <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
             <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
-            {/* Upgrade route temporarily disabled - everyone has Pro access */}
-            {/* <Route path="/upgrade" element={<ProtectedRoute><Upgrade /></ProtectedRoute>} /> */}
+            <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

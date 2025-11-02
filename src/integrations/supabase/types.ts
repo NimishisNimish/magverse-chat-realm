@@ -79,6 +79,36 @@ export type Database = {
           },
         ]
       }
+      email_change_requests: {
+        Row: {
+          created_at: string | null
+          expires_at: string
+          id: string
+          new_email: string
+          user_id: string
+          verification_code: string
+          verified: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          new_email: string
+          user_id: string
+          verification_code: string
+          verified?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          new_email?: string
+          user_id?: string
+          verification_code?: string
+          verified?: boolean | null
+        }
+        Relationships: []
+      }
       password_reset_attempts: {
         Row: {
           created_at: string | null
@@ -160,6 +190,9 @@ export type Database = {
           id: string
           is_pro: boolean | null
           last_credit_reset: string | null
+          last_email_change: string | null
+          last_password_change: string | null
+          last_phone_change: string | null
           monthly_credits: number | null
           monthly_credits_used: number | null
           phone_number: string | null
@@ -178,6 +211,9 @@ export type Database = {
           id: string
           is_pro?: boolean | null
           last_credit_reset?: string | null
+          last_email_change?: string | null
+          last_password_change?: string | null
+          last_phone_change?: string | null
           monthly_credits?: number | null
           monthly_credits_used?: number | null
           phone_number?: string | null
@@ -196,6 +232,9 @@ export type Database = {
           id?: string
           is_pro?: boolean | null
           last_credit_reset?: string | null
+          last_email_change?: string | null
+          last_password_change?: string | null
+          last_phone_change?: string | null
           monthly_credits?: number | null
           monthly_credits_used?: number | null
           phone_number?: string | null
@@ -335,6 +374,7 @@ export type Database = {
         Returns: boolean
       }
       check_reset_rate_limit: { Args: { p_email: string }; Returns: boolean }
+      cleanup_expired_email_requests: { Args: never; Returns: undefined }
       cleanup_expired_phone_codes: { Args: never; Returns: undefined }
       cleanup_old_pending_transactions: { Args: never; Returns: undefined }
       expire_monthly_subscriptions: { Args: never; Returns: undefined }
