@@ -38,7 +38,7 @@ const Home = () => {
           <h1 className="text-5xl md:text-7xl font-bold leading-tight">
             <span className="gradient-text">Magverse AI</span>
             <br />
-            <span className="text-foreground">Access 7 AI Models</span>
+            <span className="text-foreground">Access 6 AI Models</span>
             <br />
             <span className="text-foreground">Completely </span>
             <span className="text-primary">Free</span>
@@ -68,9 +68,7 @@ const Home = () => {
               <Sparkles className="w-6 h-6 text-primary" />
             </div>
             <h3 className="text-xl font-semibold">6 AI Models</h3>
-            <p className="text-muted-foreground">
-              Access ChatGPT, Gemini, Claude, Llama, Mistral, and more in one place.
-            </p>
+            <p className="text-muted-foreground">Access ChatGPT, Gemini, Claude, Llama, Deepseek, and more in one place.</p>
           </div>
           
           <div className="glass-card-hover p-8 rounded-2xl space-y-4 animate-slide-up" style={{
