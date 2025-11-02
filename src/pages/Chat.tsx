@@ -28,6 +28,7 @@ import Navbar from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { generateChatPDF } from "@/utils/pdfGenerator";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Sheet,
@@ -394,41 +395,21 @@ const Chat = () => {
 
     setIsDownloading(true);
     try {
-      console.log('Starting PDF download for', messages.length, 'messages');
+      console.log('Generating PDF for', messages.length, 'messages');
       
-      const { data, error } = await supabase.functions.invoke('generate-chat-pdf', {
-        body: {
-          messages: messages.map(m => ({
-            role: m.role,
-            model: m.model,
-            content: m.content,
-            timestamp: m.timestamp.toISOString(),
-          })),
-          chatTitle: `Chat - ${new Date().toLocaleDateString()}`,
-        },
-      });
-
-      console.log('PDF generation response:', { data, error });
-
-      if (error) {
-        console.error('PDF generation error:', error);
-        throw new Error(error.message || 'Failed to generate PDF');
-      }
-
-      if (!data || !data.pdf) {
-        throw new Error('No PDF data received from server');
-      }
-
-      // Create blob from base64 data
-      const blob = await fetch(`data:application/pdf;base64,${data.pdf}`).then(r => r.blob());
+      // Generate PDF client-side
+      const chatTitle = `Chat - ${new Date().toLocaleDateString()}`;
+      const pdfBlob = generateChatPDF(messages, chatTitle);
       
       // Create download link
-      const url = window.URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `magverse-chat-${Date.now()}.pdf`;
       document.body.appendChild(a);
       a.click();
+      
+      // Cleanup
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
@@ -437,7 +418,7 @@ const Chat = () => {
         description: "Your chat has been saved as a PDF file.",
       });
     } catch (error: any) {
-      console.error('PDF download error:', error);
+      console.error('PDF generation error:', error);
       toast({
         title: "Download failed",
         description: error.message || "Failed to generate PDF. Please try again.",

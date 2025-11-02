@@ -3,9 +3,6 @@ project_id = "pqdgpxetysqcdcjwormb"
 [functions.chat-with-ai]
 verify_jwt = true
 
-[functions.generate-chat-pdf]
-verify_jwt = false
-
 [functions.create-payment-order]
 verify_jwt = true
 
