@@ -41,11 +41,10 @@ const aiModels = [
   { id: "chatgpt", name: "ChatGPT", icon: Bot, color: "text-primary" },
   { id: "gemini", name: "Gemini", icon: Brain, color: "text-secondary" },
   { id: "perplexity", name: "Perplexity", icon: Cpu, color: "text-secondary" },
-  { id: "deepseek", name: "Deepseek", icon: Sparkles, color: "text-purple-500" },
+  { id: "deepseek", name: "Deepseek", icon: Zap, color: "text-purple-500" },
   { id: "claude", name: "Claude", icon: Sparkles, color: "text-accent" },
-  { id: "llama", name: "Llama", icon: Zap, color: "text-primary" },
+  { id: "llama", name: "Llama", icon: Rocket, color: "text-primary" },
   { id: "grok", name: "Grok", icon: Star, color: "text-accent" },
-  { id: "chutes", name: "Chutes AI", icon: Rocket, color: "text-blue-500" },
 ];
 
 interface Message {
@@ -395,6 +394,8 @@ const Chat = () => {
 
     setIsDownloading(true);
     try {
+      console.log('Starting PDF download for', messages.length, 'messages');
+      
       const { data, error } = await supabase.functions.invoke('generate-chat-pdf', {
         body: {
           messages: messages.map(m => ({
@@ -407,7 +408,16 @@ const Chat = () => {
         },
       });
 
-      if (error) throw error;
+      console.log('PDF generation response:', { data, error });
+
+      if (error) {
+        console.error('PDF generation error:', error);
+        throw new Error(error.message || 'Failed to generate PDF');
+      }
+
+      if (!data || !data.pdf) {
+        throw new Error('No PDF data received from server');
+      }
 
       // Create blob from base64 data
       const blob = await fetch(`data:application/pdf;base64,${data.pdf}`).then(r => r.blob());

@@ -35,9 +35,15 @@ serve(async (req) => {
 
     console.log(`📝 Generating PDF for ${messages.length} messages`);
 
-    // Import jsPDF from CDN
-    const jsPDFModule = await import('https://esm.sh/jspdf@2.5.1');
+    // Import jsPDF from CDN with better compatibility
+    console.log('📦 Loading jsPDF library...');
+    const jsPDFModule = await import('https://cdn.skypack.dev/jspdf@2.5.1');
     const jsPDF = jsPDFModule.default || jsPDFModule.jsPDF;
+    
+    if (!jsPDF) {
+      throw new Error('Failed to load PDF library');
+    }
+    console.log('✓ jsPDF loaded successfully');
 
     // Create new PDF document
     const doc = new jsPDF({

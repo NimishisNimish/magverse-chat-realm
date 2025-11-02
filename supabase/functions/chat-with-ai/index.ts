@@ -39,7 +39,7 @@ console.log('🔑 API Keys loaded:', {
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-const VALID_MODELS = ['chatgpt', 'gemini', 'perplexity', 'deepseek', 'claude', 'llama', 'grok', 'chutes'] as const;
+const VALID_MODELS = ['chatgpt', 'gemini', 'perplexity', 'deepseek', 'claude', 'llama', 'grok'] as const;
 const STORAGE_BUCKET_URL = 'https://pqdgpxetysqcdcjwormb.supabase.co/storage/';
 const MAX_FILE_SIZE = 10_000_000; // 10MB
 const MAX_MESSAGE_LENGTH = 10000;
@@ -55,13 +55,13 @@ const providerConfig: Record<string, any> = {
     provider: 'nvidia-nim',
     apiKey: nvidiaApiKey,
     endpoint: 'https://integrate.api.nvidia.com/v1/chat/completions',
-    model: 'meta/llama-3.1-405b-instruct',
+    model: 'meta/llama-3.1-8b-instruct',
     headers: () => ({
       'Authorization': `Bearer ${nvidiaApiKey}`,
       'Content-Type': 'application/json',
     }),
     bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
-      model: 'meta/llama-3.1-405b-instruct',
+      model: 'meta/llama-3.1-8b-instruct',
       messages,
       temperature: 0.7,
       max_tokens: 2000,
@@ -201,26 +201,6 @@ const providerConfig: Record<string, any> = {
     }),
     bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
       model: 'deepseek-ai/deepseek-r1',
-      messages,
-      temperature: 0.7,
-      max_tokens: 2000,
-      stream: false,
-    }),
-    responseTransform: (data: any) => {
-      return data.choices[0]?.message?.content || 'No response';
-    },
-  },
-  chutes: {
-    provider: 'chutes',
-    apiKey: chutesApiKey,
-    endpoint: 'https://api.chutes.ai/v1/chat/completions',
-    model: 'chutes-gpt-4',
-    headers: () => ({
-      'Authorization': `Bearer ${chutesApiKey}`,
-      'Content-Type': 'application/json',
-    }),
-    bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
-      model: 'chutes-gpt-4',
       messages,
       temperature: 0.7,
       max_tokens: 2000,
@@ -441,7 +421,10 @@ serve(async (req) => {
       
       const { data: newChat } = await supabase
         .from('chat_history')
-        .insert({ title: title || 'New Chat' })
+        .insert({ 
+          user_id: user.id,
+          title: title || 'New Chat' 
+        })
         .select()
         .single();
       currentChatId = newChat?.id;
@@ -455,6 +438,7 @@ serve(async (req) => {
     
     await supabase.from('chat_messages').insert({
       chat_id: currentChatId,
+      user_id: user.id,
       role: 'user',
       content: messageContent,
       attachment_url: attachmentUrl || null,
@@ -477,7 +461,6 @@ serve(async (req) => {
           modelId === 'llama' ? 'LLAMA_NVIDIA_NIM_API_KEY' :
           modelId === 'gemini' ? 'GOOGLE_AI_API_KEY' :
           modelId === 'perplexity' ? 'PERPLEXITY_API_KEY' :
-          modelId === 'chutes' ? 'CHUTES_AI_API_KEY' :
           'OPENROUTER_API_KEY'
         }`);
         return { success: false, model: modelId, error: 'Missing API key' };
@@ -696,6 +679,7 @@ Make complex topics accessible and engaging. Break down concepts clearly for bet
           responses.map(r => 
             supabase.from('chat_messages').insert({
               chat_id: currentChatId,
+              user_id: user.id,
               model: r.model,
               role: 'assistant',
               content: r.content,
