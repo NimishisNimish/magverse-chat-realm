@@ -32,12 +32,22 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const { action, phoneNumber, otp } = await req.json();
+    const { action, phoneNumber: rawPhoneNumber, otp } = await req.json();
+
+    // Normalize phone number to E.164 format
+    let phoneNumber = rawPhoneNumber?.replace(/\s+/g, '').replace(/-/g, '') || '';
+    if (phoneNumber && !phoneNumber.startsWith('+')) {
+      if (phoneNumber.length === 10) {
+        phoneNumber = `+91${phoneNumber}`;
+      } else if (!phoneNumber.startsWith('91') && phoneNumber.length === 12) {
+        phoneNumber = `+${phoneNumber}`;
+      }
+    }
 
     if (action === 'send_otp') {
-      // Validate phone number format
-      if (!phoneNumber || !phoneNumber.match(/^\+?[1-9]\d{9,14}$/)) {
-        throw new Error('Invalid phone number format');
+      // Validate phone number format (E.164)
+      if (!phoneNumber || !phoneNumber.match(/^\+[1-9]\d{1,14}$/)) {
+        throw new Error('Invalid phone number format. Use E.164 format (e.g., +919876543210)');
       }
 
       // Check rate limiting
@@ -112,6 +122,7 @@ serve(async (req) => {
         .limit(1);
 
       if (fetchError || !codes || codes.length === 0) {
+        console.error('OTP fetch error:', fetchError);
         throw new Error('Invalid OTP code. Please check and try again.');
       }
 
@@ -122,8 +133,12 @@ serve(async (req) => {
         throw new Error('OTP has expired. Please request a new code.');
       }
 
-      // Check if phone number matches
-      if (verificationCode.phone_number !== phoneNumber) {
+      // Check if phone number matches (normalize both for comparison)
+      const normalizedStoredPhone = verificationCode.phone_number.replace(/\s+/g, '').replace(/-/g, '');
+      const normalizedInputPhone = phoneNumber.replace(/\s+/g, '').replace(/-/g, '');
+      
+      if (normalizedStoredPhone !== normalizedInputPhone) {
+        console.error('Phone mismatch:', { stored: normalizedStoredPhone, input: normalizedInputPhone });
         throw new Error('Phone number does not match OTP. Please try again.');
       }
 

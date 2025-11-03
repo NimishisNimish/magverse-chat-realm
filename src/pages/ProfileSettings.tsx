@@ -210,10 +210,24 @@ export default function ProfileSettings() {
       return;
     }
 
+    // Normalize to E.164 format
+    let normalizedPhone = newPhoneNumber.replace(/\s+/g, '').replace(/-/g, '');
+    if (!normalizedPhone.startsWith('+')) {
+      if (normalizedPhone.length === 10) {
+        normalizedPhone = `+91${normalizedPhone}`;
+      } else if (!normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
+        normalizedPhone = `+${normalizedPhone}`;
+      }
+    }
+
     setLoading(true);
     try {
+      const session = await supabase.auth.getSession();
       const { error } = await supabase.functions.invoke('change-phone', {
-        body: { action: 'send_otp', phoneNumber: newPhoneNumber }
+        body: { action: 'send_otp', phoneNumber: normalizedPhone },
+        headers: {
+          Authorization: `Bearer ${session.data.session?.access_token}`
+        }
       });
 
       if (error) throw error;
@@ -222,7 +236,17 @@ export default function ProfileSettings() {
       toast.success('OTP sent to your phone!');
     } catch (error: any) {
       console.error('Error sending OTP:', error);
-      toast.error(error.message || 'Failed to send OTP');
+      const errorMsg = error.message || 'Failed to send OTP';
+      
+      if (errorMsg.includes('Unauthorized') || errorMsg.includes('authorization')) {
+        toast.error('Session expired. Please refresh and try again.');
+      } else if (errorMsg.includes('24 hours')) {
+        toast.error('You can only change your phone number once per 24 hours.');
+      } else if (errorMsg.includes('Invalid phone')) {
+        toast.error('Invalid phone number. Use format: +91 9876543210');
+      } else {
+        toast.error(errorMsg);
+      }
     } finally {
       setLoading(false);
     }
@@ -234,13 +258,27 @@ export default function ProfileSettings() {
       return;
     }
 
+    // Normalize to E.164 format
+    let normalizedPhone = newPhoneNumber.replace(/\s+/g, '').replace(/-/g, '');
+    if (!normalizedPhone.startsWith('+')) {
+      if (normalizedPhone.length === 10) {
+        normalizedPhone = `+91${normalizedPhone}`;
+      } else if (!normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
+        normalizedPhone = `+${normalizedPhone}`;
+      }
+    }
+
     setLoading(true);
     try {
+      const session = await supabase.auth.getSession();
       const { error } = await supabase.functions.invoke('change-phone', {
         body: { 
           action: 'verify_otp', 
-          phoneNumber: newPhoneNumber,
+          phoneNumber: normalizedPhone,
           otp: phoneOtp 
+        },
+        headers: {
+          Authorization: `Bearer ${session.data.session?.access_token}`
         }
       });
 
@@ -253,7 +291,17 @@ export default function ProfileSettings() {
       setShowPhoneOtp(false);
     } catch (error: any) {
       console.error('Error verifying OTP:', error);
-      toast.error(error.message || 'Invalid OTP');
+      const errorMsg = error.message || 'Invalid OTP';
+      
+      if (errorMsg.includes('expired')) {
+        toast.error('OTP has expired. Please request a new code.');
+      } else if (errorMsg.includes('does not match')) {
+        toast.error('Phone number does not match. Please try again.');
+      } else if (errorMsg.includes('Invalid OTP')) {
+        toast.error('Invalid OTP code. Please check and try again.');
+      } else {
+        toast.error(errorMsg);
+      }
     } finally {
       setLoading(false);
     }
@@ -458,8 +506,11 @@ export default function ProfileSettings() {
                   type="tel"
                   value={newPhoneNumber}
                   onChange={(e) => setNewPhoneNumber(e.target.value)}
-                  placeholder="+1234567890"
+                  placeholder="+91 9876543210"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Enter with country code (e.g., +91 9876543210)
+                </p>
               </div>
 
               {!showPhoneOtp ? (

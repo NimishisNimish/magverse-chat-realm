@@ -9,7 +9,7 @@ import { Smartphone, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { z } from "zod";
 import Navbar from "@/components/Navbar";
 
-const phoneSchema = z.string().regex(/^[6-9]\d{9}$/, "Invalid phone number. Must be 10 digits.");
+const phoneSchema = z.string().regex(/^\+[1-9]\d{1,14}$/, "Invalid phone number format. Use E.164 format (e.g., +919876543210)");
 
 const LinkPhone = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -23,9 +23,17 @@ const LinkPhone = () => {
     setLoading(true);
 
     try {
-      phoneSchema.parse(phoneNumber);
+      // Normalize to E.164 format
+      let normalizedPhone = phoneNumber.replace(/\s+/g, '').replace(/-/g, '');
+      if (!normalizedPhone.startsWith('+')) {
+        if (normalizedPhone.length === 10) {
+          normalizedPhone = `+91${normalizedPhone}`;
+        }
+      }
 
-      const { error } = await linkPhoneNumber(phoneNumber);
+      phoneSchema.parse(normalizedPhone);
+
+      const { error } = await linkPhoneNumber(normalizedPhone);
 
       if (error) {
         toast({
@@ -100,13 +108,12 @@ const LinkPhone = () => {
                     <label className="text-sm font-medium">Update Phone Number</label>
                     <Input
                       type="tel"
-                      placeholder="10-digit mobile number"
+                      placeholder="+91 9876543210"
                       value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      maxLength={10}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Enter a new number to update
+                      Enter new number with country code (e.g., +91 9876543210)
                     </p>
                   </div>
                   <Button type="submit" disabled={loading || !phoneNumber}>
@@ -120,14 +127,13 @@ const LinkPhone = () => {
                   <label className="text-sm font-medium">Phone Number</label>
                   <Input
                     type="tel"
-                    placeholder="10-digit mobile number"
+                    placeholder="+91 9876543210"
                     value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                    maxLength={10}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
                     required
                   />
                   <p className="text-xs text-muted-foreground">
-                    Enter your 10-digit Indian mobile number (without +91)
+                    Enter your mobile number with country code (e.g., +91 9876543210)
                   </p>
                 </div>
                 

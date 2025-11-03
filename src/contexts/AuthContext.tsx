@@ -207,9 +207,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error: { message: 'You must be logged in to link a phone number' } };
       }
 
+      // Normalize to E.164 format
+      let normalizedPhone = phoneNumber.replace(/\s+/g, '').replace(/-/g, '');
+      if (!normalizedPhone.startsWith('+')) {
+        if (normalizedPhone.length === 10) {
+          normalizedPhone = `+91${normalizedPhone}`;
+        } else if (!normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
+          normalizedPhone = `+${normalizedPhone}`;
+        }
+      }
+
+      // Validate E.164 format
+      if (!normalizedPhone.match(/^\+[1-9]\d{1,14}$/)) {
+        return { error: { message: 'Invalid phone number format. Use E.164 format (e.g., +919876543210)' } };
+      }
+
       const { error } = await supabase
         .from('profiles')
-        .update({ phone_number: phoneNumber })
+        .update({ phone_number: normalizedPhone })
         .eq('id', user.id);
 
       if (error) throw error;
