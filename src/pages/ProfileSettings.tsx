@@ -69,18 +69,46 @@ export default function ProfileSettings() {
     
     setLoading(true);
     try {
+      // Validate username format
+      if (username && !/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+        toast.error('Username must be 3-20 characters and contain only letters, numbers, and underscores');
+        setLoading(false);
+        return;
+      }
+
+      // Check username uniqueness if changed
+      if (username && username !== profile?.username) {
+        const { data: existingUser } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('username', username)
+          .neq('id', user.id)
+          .single();
+
+        if (existingUser) {
+          toast.error('This username is already taken. Please choose another.');
+          setLoading(false);
+          return;
+        }
+      }
+
       let avatarUrl = profile?.avatar_url;
 
       // Upload avatar if changed
       if (avatarFile) {
         const fileExt = avatarFile.name.split('.').pop();
-        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+        const fileName = `${user.id}/avatar.${fileExt}`;
         
         const { error: uploadError } = await supabase.storage
           .from('avatars')
           .upload(fileName, avatarFile, { upsert: true });
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error('Avatar upload error:', uploadError);
+          toast.error(uploadError.message || 'Failed to upload avatar. Please try again.');
+          setLoading(false);
+          return;
+        }
 
         const { data: { publicUrl } } = supabase.storage
           .from('avatars')
@@ -100,7 +128,12 @@ export default function ProfileSettings() {
         })
         .eq('id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Profile update error:', error);
+        toast.error(error.message || 'Failed to update profile');
+        setLoading(false);
+        return;
+      }
 
       await refreshProfile();
       toast.success('Profile updated successfully!');

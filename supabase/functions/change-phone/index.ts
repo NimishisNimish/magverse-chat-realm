@@ -101,28 +101,37 @@ serve(async (req) => {
       );
 
     } else if (action === 'verify_otp') {
-      // Verify OTP
+      // Verify OTP with simplified query
       const { data: codes, error: fetchError } = await supabaseClient
         .from('phone_verification_codes')
         .select('*')
         .eq('user_id', user.id)
-        .eq('phone_number', phoneNumber)
         .eq('code', otp)
-        .eq('purpose', 'phone_change')
         .eq('verified', false)
-        .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false })
         .limit(1);
 
       if (fetchError || !codes || codes.length === 0) {
-        throw new Error('Invalid or expired OTP');
+        throw new Error('Invalid OTP code. Please check and try again.');
+      }
+
+      const verificationCode = codes[0];
+
+      // Check if OTP expired
+      if (new Date(verificationCode.expires_at) < new Date()) {
+        throw new Error('OTP has expired. Please request a new code.');
+      }
+
+      // Check if phone number matches
+      if (verificationCode.phone_number !== phoneNumber) {
+        throw new Error('Phone number does not match OTP. Please try again.');
       }
 
       // Mark OTP as verified
       await supabaseClient
         .from('phone_verification_codes')
         .update({ verified: true })
-        .eq('id', codes[0].id);
+        .eq('id', verificationCode.id);
 
       // Update phone number in profile
       await supabaseClient

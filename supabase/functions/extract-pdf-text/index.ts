@@ -96,14 +96,15 @@ serve(async (req) => {
       }
     }
 
-    if (!text || text.length < 10) {
-      console.warn('⚠️ Could not extract meaningful text from PDF');
+    if (!text || text.length < 100) {
+      console.warn('⚠️ Could not extract meaningful text from PDF - likely scanned/image-based');
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Could not extract text from PDF. This might be a scanned document, image-based PDF, or the PDF may be empty. Consider converting it to a text-based format first.',
+          error: 'This PDF appears to be scanned or image-based. I cannot read image-based PDFs yet. Please either:\n1. Convert the PDF to a text-based format\n2. Describe the contents of the PDF in your message\n3. Use a different file format (Word, plain text)',
           text: '',
-          isEmpty: true
+          isEmpty: true,
+          isScanned: true
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

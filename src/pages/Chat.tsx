@@ -182,7 +182,7 @@ const Chat = () => {
 
       const signedUrlPromise = supabase.storage
         .from('chat-attachments')
-        .createSignedUrl(filePath, 7200); // 2 hours to prevent expiration during chat
+        .createSignedUrl(filePath, 86400); // 24 hours to prevent expiration during chat
 
       const { data: signedUrlData, error: signedUrlError } = await Promise.race([
         signedUrlPromise,
@@ -358,28 +358,13 @@ const Chat = () => {
         fullContent: response.content, // Store full content for streaming
       }));
 
-      setMessages(prev => [...prev, ...aiMessages]);
+      // Show responses immediately (no artificial streaming delay)
+      const messagesWithContent = aiMessages.map((msg, index) => ({
+        ...msg,
+        content: data.responses[index].content
+      }));
       
-      // Stream each response word by word
-      aiMessages.forEach((message, index) => {
-        const fullContent = data.responses[index].content;
-        const words = fullContent.split(' ');
-        let currentIndex = 0;
-        
-        const streamInterval = setInterval(() => {
-          if (currentIndex < words.length) {
-            const nextWord = words[currentIndex];
-            setMessages(prev => prev.map(m => 
-              m.id === message.id 
-                ? { ...m, content: m.content + (m.content ? ' ' : '') + nextWord }
-                : m
-            ));
-            currentIndex++;
-          } else {
-            clearInterval(streamInterval);
-          }
-        }, 50); // 50ms delay between words for smooth streaming effect
-      });
+      setMessages(prev => [...prev, ...messagesWithContent]);
       
       // Show appropriate toast based on success
       if (data.partialSuccess && aiMessages.length < selectedModels.length) {
