@@ -340,6 +340,13 @@ serve(async (req) => {
     // Process attachment if present with size validation
     let processedMessages = [...messages];
     if (attachmentUrl) {
+      console.log('📎 Attachment details:', {
+        url: attachmentUrl.substring(0, 100),
+        extension: attachmentUrl.split('.').pop()?.toLowerCase(),
+        selectedModels,
+        timestamp: new Date().toISOString()
+      });
+      
       try {
         console.log('📎 Processing attachment:', attachmentUrl);
         console.log('📎 Current message count:', processedMessages.length);
@@ -432,8 +439,47 @@ serve(async (req) => {
           };
         }
       } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension || '')) {
-        // For images with vision models, use proper format
-          console.log('🖼️ Image attachment detected, formatting for vision models');
+        console.log('🖼️ Image attachment detected');
+        
+        // Different models need different image formats
+        const modelId = selectedModels[0]; // Get the first model to determine format
+        
+        if (modelId === 'gemini') {
+          // Gemini requires inline_data with base64
+          try {
+            console.log('📥 Fetching image for Gemini base64 conversion');
+            const imageResponse = await fetch(attachmentUrl);
+            if (!imageResponse.ok) throw new Error('Failed to fetch image');
+            
+            const imageBuffer = await imageResponse.arrayBuffer();
+            const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+            const mimeType = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
+            
+            console.log('✅ Image converted to base64 for Gemini');
+            processedMessages[processedMessages.length - 1] = {
+              role: 'user',
+              content: [
+                { type: 'text', text: lastMessage.content },
+                { 
+                  type: 'inline_data',
+                  inline_data: {
+                    mime_type: mimeType,
+                    data: base64Image
+                  }
+                }
+              ]
+            };
+          } catch (error) {
+            console.error('❌ Failed to convert image for Gemini:', error);
+            // Fallback to URL note
+            processedMessages[processedMessages.length - 1] = {
+              ...lastMessage,
+              content: `${lastMessage.content}\n\n[Image attached: ${attachmentUrl}]`
+            };
+          }
+        } else if (['chatgpt', 'claude'].includes(modelId)) {
+          // OpenAI/Claude use image_url format
+          console.log('✅ Image formatted for ChatGPT/Claude (image_url)');
           processedMessages[processedMessages.length - 1] = {
             role: 'user',
             content: [
@@ -441,7 +487,15 @@ serve(async (req) => {
               { type: 'image_url', image_url: { url: attachmentUrl } }
             ]
           };
-          console.log('✅ Image formatted successfully');
+        } else {
+          // Other models - add note that image can't be processed
+          console.log(`⚠️ ${modelId} doesn't support vision, adding note`);
+          processedMessages[processedMessages.length - 1] = {
+            ...lastMessage,
+            content: `${lastMessage.content}\n\n[Note: An image was attached but ${modelId} doesn't support image analysis. Please describe the image in your message or select a vision-capable model like ChatGPT, Claude, or Gemini.]`
+          };
+        }
+        console.log('✅ Image attachment processing complete');
       } else if (['txt', 'md', 'json', 'csv'].includes(fileExtension || '')) {
         // For text files, try to fetch content
         try {
@@ -470,6 +524,12 @@ serve(async (req) => {
           content: `${lastMessage.content}\n\n[Note: A file of type .${fileExtension} was attached but this format is not supported for processing.]`
         };
       }
+      
+      console.log('✅ Attachment processing complete:', {
+        processed: true,
+        messageContentLength: processedMessages[processedMessages.length - 1].content.length || processedMessages[processedMessages.length - 1].content[0]?.text?.length,
+        contentType: typeof processedMessages[processedMessages.length - 1].content
+      });
     }
     
     console.log('📨 Final processed messages count:', processedMessages.length);

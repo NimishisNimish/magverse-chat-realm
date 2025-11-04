@@ -75,6 +75,7 @@ const Chat = () => {
   const [deepResearchMode, setDeepResearchMode] = useState(false);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isDeepResearching, setIsDeepResearching] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user, profile, refreshProfile } = useAuth();
@@ -257,6 +258,11 @@ const Chat = () => {
       return;
     }
 
+    // Set Deep Research state if enabled
+    if (deepResearchMode) {
+      setIsDeepResearching(true);
+    }
+
     setLoading(true);
     
     // Show processing indicator for files
@@ -384,9 +390,11 @@ const Chat = () => {
       }
 
       await refreshProfile();
+      setIsDeepResearching(false);
     } catch (error: any) {
       console.error('Chat error:', error);
       setProcessingFile(false);
+      setIsDeepResearching(false);
       
       // Detect token limit errors and auto-retry with reduced context
       if (error.message?.includes('token') || error.message?.includes('context') || error.message?.includes('length')) {
@@ -408,7 +416,7 @@ const Chat = () => {
       let errorMessage = "Failed to get AI response. Please try again.";
       
       if (error.message?.includes('PDF') || error.message?.includes('extract')) {
-        errorMessage = "Failed to process PDF file. The file may be corrupted, too large, or image-based. Try:\n• Re-uploading the PDF\n• Converting it to a text-based format\n• Describing the content manually";
+        errorMessage = error.message || "Failed to process PDF file. The file may be scanned/image-based or corrupted.\n\nTips:\n• Try OCR software to convert scanned PDFs to text\n• Upload as images instead if it's a scanned document\n• Ensure the PDF is text-based and not password-protected";
       } else if (error.message?.includes('Image') || error.message?.includes('image')) {
         errorMessage = "Failed to process image. Try:\n• Re-uploading the image\n• Using a different format (JPG, PNG)\n• Ensuring the file is under 10MB";
       } else if (error.message?.includes('timeout')) {
@@ -437,6 +445,7 @@ const Chat = () => {
       // Always clear loading state and attachment
       setLoading(false);
       setProcessingFile(false);
+      setIsDeepResearching(false);
       setAttachmentUrl(null);
       setAttachmentType(null);
       setUploadStatus('idle');
@@ -744,6 +753,14 @@ const Chat = () => {
                     </div>
                   </div>
                 )}
+                {isDeepResearching && (
+                  <div className="text-center py-4 text-sm text-muted-foreground animate-pulse">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Deep Research in progress... This may take up to 13 minutes.</span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </ScrollArea>
@@ -751,6 +768,33 @@ const Chat = () => {
           {/* Input Area */}
           <div className="border-t border-glass-border glass-card p-6">
             <div className="max-w-4xl mx-auto">
+              {/* Show attached file indicator */}
+              {attachmentUrl && uploadStatus === 'success' && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-secondary/50 rounded-md text-sm border border-border mb-3">
+                  {attachmentType === 'pdf' && (
+                    <>
+                      <Paperclip className="h-4 w-4 text-blue-500" />
+                      <span className="flex-1">PDF ready to analyze</span>
+                    </>
+                  )}
+                  {attachmentType === 'image' && (
+                    <>
+                      <Paperclip className="h-4 w-4 text-green-500" />
+                      <span className="flex-1">Image ready to analyze</span>
+                    </>
+                  )}
+                  <button
+                    onClick={() => {
+                      setAttachmentUrl(null);
+                      setAttachmentType(null);
+                      setUploadStatus('idle');
+                    }}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
               {attachmentUrl && (
                 <div className="glass-card p-3 rounded-lg border border-accent/30 flex items-center gap-3 mb-3 animate-fade-in">
                   {attachmentUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
