@@ -294,12 +294,12 @@ const Chat = () => {
     setMessages(prev => [...prev, userMessage]);
     setInput("");
 
-    // Frontend timeout (backend has longer timeout to complete processing)
-    const timeoutMs = deepResearchMode ? 720000 : 600000; // 12 min for Deep Research, 10 min for regular
+    // Frontend timeout (slightly longer than backend to avoid race conditions)
+    const timeoutMs = deepResearchMode ? 200000 : 100000; // 3.3 min for Deep Research, 1.7 min for regular
     const timeout = new Promise((_, reject) => {
       const timeoutMessage = deepResearchMode 
-        ? 'Deep Research timed out after 12 minutes. Try breaking your query into smaller parts or selecting fewer AI models.'
-        : 'Request timed out after 10 minutes. For complex queries requiring extensive analysis, try enabling Deep Research mode.';
+        ? 'Deep Research timed out after 3 minutes. Some AI models may be slow or unavailable.'
+        : 'Request timed out after 1.7 minutes. Try enabling Deep Research mode for complex queries.';
       setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
     });
 

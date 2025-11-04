@@ -46,8 +46,8 @@ const MAX_MESSAGE_LENGTH = 10000;
 const MAX_MODELS_PER_REQUEST = 3;
 const RATE_LIMIT_REQUESTS = 10;
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
-const API_TIMEOUT_MS = 660000; // 11 minutes for regular queries (longer than frontend 10min timeout)
-const DEEP_RESEARCH_TIMEOUT_MS = 780000; // 13 minutes for deep research mode (longer than frontend 11min timeout)
+const API_TIMEOUT_MS = 90000; // 90 seconds (1.5 minutes) for regular queries
+const DEEP_RESEARCH_TIMEOUT_MS = 180000; // 180 seconds (3 minutes) for deep research mode
 
 // Provider configuration with direct API endpoints
 const providerConfig: Record<string, any> = {
@@ -662,8 +662,6 @@ Make complex topics accessible and engaging. Break down concepts clearly for bet
             method: 'POST',
             headers: {
               ...config.headers(),
-              'Connection': 'keep-alive',
-              'Keep-Alive': 'timeout=600, max=100' // Increase keep-alive to 10 minutes
             },
             body: JSON.stringify(requestBody),
             signal: controller.signal,
@@ -757,28 +755,9 @@ Make complex topics accessible and engaging. Break down concepts clearly for bet
       };
     });
 
-    // Process models in batches of 2 to reduce concurrent load and avoid rate limiting
-    console.log(`🚀 Processing ${selectedModels.length} model(s)...`);
-    let results: PromiseSettledResult<any>[] = [];
-    
-    // Process first 2 models in parallel
-    if (selectedModels.length > 0) {
-      const batch1Models = selectedModels.slice(0, 2);
-      const batch1Promises = batch1Models.map(modelId => modelPromises.find((_, idx) => selectedModels[idx] === modelId));
-      const batch1Results = await Promise.allSettled(batch1Promises.filter(Boolean) as Promise<any>[]);
-      results.push(...batch1Results);
-      
-      // Process remaining models if any
-      if (selectedModels.length > 2) {
-        const batch2Models = selectedModels.slice(2);
-        const batch2Promises = batch2Models.map(modelId => {
-          const idx = selectedModels.indexOf(modelId);
-          return modelPromises[idx];
-        });
-        const batch2Results = await Promise.allSettled(batch2Promises.filter(Boolean) as Promise<any>[]);
-        results.push(...batch2Results);
-      }
-    }
+    // Run all models in parallel for maximum speed
+    console.log(`🚀 Processing ${selectedModels.length} model(s) in parallel...`);
+    const results = await Promise.allSettled(modelPromises);
     
     // Extract successful responses
     const responses = results
