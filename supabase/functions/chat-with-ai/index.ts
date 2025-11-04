@@ -439,63 +439,11 @@ serve(async (req) => {
           };
         }
       } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension || '')) {
-        console.log('🖼️ Image attachment detected');
+        console.log('🖼️ Image attachment detected for multiple models');
         
-        // Different models need different image formats
-        const modelId = selectedModels[0]; // Get the first model to determine format
-        
-        if (modelId === 'gemini') {
-          // Gemini requires inline_data with base64
-          try {
-            console.log('📥 Fetching image for Gemini base64 conversion');
-            const imageResponse = await fetch(attachmentUrl);
-            if (!imageResponse.ok) throw new Error('Failed to fetch image');
-            
-            const imageBuffer = await imageResponse.arrayBuffer();
-            const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
-            const mimeType = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
-            
-            console.log('✅ Image converted to base64 for Gemini');
-            processedMessages[processedMessages.length - 1] = {
-              role: 'user',
-              content: [
-                { type: 'text', text: lastMessage.content },
-                { 
-                  type: 'inline_data',
-                  inline_data: {
-                    mime_type: mimeType,
-                    data: base64Image
-                  }
-                }
-              ]
-            };
-          } catch (error) {
-            console.error('❌ Failed to convert image for Gemini:', error);
-            // Fallback to URL note
-            processedMessages[processedMessages.length - 1] = {
-              ...lastMessage,
-              content: `${lastMessage.content}\n\n[Image attached: ${attachmentUrl}]`
-            };
-          }
-        } else if (['chatgpt', 'claude'].includes(modelId)) {
-          // OpenAI/Claude use image_url format
-          console.log('✅ Image formatted for ChatGPT/Claude (image_url)');
-          processedMessages[processedMessages.length - 1] = {
-            role: 'user',
-            content: [
-              { type: 'text', text: lastMessage.content },
-              { type: 'image_url', image_url: { url: attachmentUrl } }
-            ]
-          };
-        } else {
-          // Other models - add note that image can't be processed
-          console.log(`⚠️ ${modelId} doesn't support vision, adding note`);
-          processedMessages[processedMessages.length - 1] = {
-            ...lastMessage,
-            content: `${lastMessage.content}\n\n[Note: An image was attached but ${modelId} doesn't support image analysis. Please describe the image in your message or select a vision-capable model like ChatGPT, Claude, or Gemini.]`
-          };
-        }
-        console.log('✅ Image attachment processing complete');
+        // Don't modify processedMessages here - we'll handle it per model
+        // Just log that image was detected
+        console.log(`📸 Image will be processed individually for each model: ${selectedModels.join(', ')}`);
       } else if (['txt', 'md', 'json', 'csv'].includes(fileExtension || '')) {
         // For text files, try to fetch content
         try {
@@ -604,31 +552,96 @@ serve(async (req) => {
       const visionModels = ['chatgpt', 'claude', 'gemini'];
       const supportsVision = visionModels.includes(modelId);
       
-      // Use appropriate messages based on vision support
+      // Handle image attachments per model
       let finalMessages = processedMessages;
-      if (!supportsVision && attachmentUrl?.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+      if (attachmentUrl?.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
         const lastMsg = messages[messages.length - 1];
-        finalMessages = [
-          ...messages.slice(0, -1),
-          {
-            role: 'user',
-            content: `${lastMsg.content}\n\n[Image attached: ${attachmentUrl}]\nNote: Please ask me to describe the image as this model cannot view it directly.`
+        const fileExtension = attachmentUrl.split('.').pop()?.toLowerCase();
+        
+        if (supportsVision) {
+          if (modelId === 'gemini') {
+            // Gemini needs base64 inline_data format
+            try {
+              console.log(`📥 Fetching image for Gemini (${modelId}) base64 conversion`);
+              const imageResponse = await fetch(attachmentUrl);
+              const imageBuffer = await imageResponse.arrayBuffer();
+              const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+              const mimeType = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
+              
+              finalMessages = [
+                ...processedMessages.slice(0, -1),
+                {
+                  role: 'user',
+                  content: [
+                    { type: 'text', text: lastMsg.content },
+                    { 
+                      type: 'inline_data',
+                      inline_data: { mime_type: mimeType, data: base64Image }
+                    }
+                  ]
+                }
+              ];
+              console.log(`✅ Image converted to base64 for ${modelId}`);
+            } catch (error) {
+              console.error(`❌ Failed to convert image for ${modelId}:`, error);
+              finalMessages = [
+                ...processedMessages.slice(0, -1),
+                {
+                  role: 'user',
+                  content: `${lastMsg.content}\n\n[Note: Image was attached but conversion failed for ${modelId}]`
+                }
+              ];
+            }
+          } else if (['chatgpt', 'claude'].includes(modelId)) {
+            // OpenAI/Claude use image_url format
+            console.log(`✅ Image formatted for ${modelId} (image_url)`);
+            finalMessages = [
+              ...processedMessages.slice(0, -1),
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: lastMsg.content },
+                  { type: 'image_url', image_url: { url: attachmentUrl } }
+                ]
+              }
+            ];
           }
-        ];
+        } else {
+          // Non-vision model - add helpful note
+          console.log(`⚠️ ${modelId} doesn't support vision`);
+          finalMessages = [
+            ...processedMessages.slice(0, -1),
+            {
+              role: 'user',
+              content: `${lastMsg.content}\n\n[Note: An image was attached but ${modelId} doesn't support image analysis. Please describe the image or select a vision-capable model (ChatGPT, Claude, or Gemini).]`
+            }
+          ];
+        }
       }
       
       // Add Deep Research system prompt if enabled
       if (deepResearchMode && finalMessages.length > 0) {
+        const hasPerplexity = selectedModels.includes('perplexity');
+        
         const deepResearchPrompt = {
           role: 'system' as const,
-          content: `You are in Deep Research mode with web search enabled. Provide comprehensive, detailed explanations using current information from the web. Search for and cite recent data, statistics, and sources when available. Present information in natural, humanized language - avoid robotic tone. Include:
+          content: hasPerplexity 
+            ? `You are in Deep Research mode with real-time web search enabled via Perplexity. Provide comprehensive, detailed explanations using current information. ${effectiveWebSearchEnabled ? 'Search the web for recent data, statistics, and cite sources.' : ''} Include:
 - Multiple perspectives and expert opinions
-- Real-world examples and case studies  
+- Real-world examples and case studies
+- Step-by-step reasoning with clear explanations  
+- Practical applications and actionable insights
+- Citations from web sources when available
+
+Make complex topics accessible and engaging.`
+            : `You are in Deep Research mode. Provide comprehensive, detailed explanations using your extensive training data. Include:
+- Multiple perspectives and approaches
+- Real-world examples and case studies
 - Step-by-step reasoning with clear explanations
 - Practical applications and actionable insights
-- Citations to web sources when referencing data
+- Acknowledge when information might be outdated (training data cutoff)
 
-Make complex topics accessible and engaging. Break down concepts clearly for better understanding.`
+Make complex topics accessible and engaging. Note: You don't have real-time web access - select Perplexity for live web search.`
         };
         
         // Insert system message at the beginning
