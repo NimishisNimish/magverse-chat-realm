@@ -145,12 +145,12 @@ const Chat = () => {
     setUploading(true);
     setUploadStatus('uploading');
     
-    // Validate file size first (10MB max)
-    const MAX_FILE_SIZE = 10 * 1024 * 1024;
+    // Validate file size first (25MB max)
+    const MAX_FILE_SIZE = 25 * 1024 * 1024;
     if (file.size > MAX_FILE_SIZE) {
       toast({
         title: "File too large",
-        description: `Maximum file size is 10MB. Your file is ${(file.size / 1024 / 1024).toFixed(2)}MB`,
+        description: `Maximum file size is 25MB. Your file is ${(file.size / 1024 / 1024).toFixed(2)}MB`,
         variant: "destructive",
       });
       setUploading(false);

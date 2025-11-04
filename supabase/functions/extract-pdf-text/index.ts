@@ -113,11 +113,11 @@ serve(async (req) => {
       );
     }
 
-    // Limit text to reasonable size (approx 50k chars = ~12.5k tokens)
-    const maxLength = 50000;
+    // Limit text to reasonable size (approx 100k chars = ~25k tokens)
+    const maxLength = 100000;
     const wasTruncated = text.length > maxLength;
     if (wasTruncated) {
-      text = text.substring(0, maxLength) + '\n\n[Document truncated for length - showing first 50,000 characters]';
+      text = text.substring(0, maxLength) + '\n\n[Document truncated for length - showing first 100,000 characters]';
       console.log('✂️ Text truncated from', text.length, 'to', maxLength, 'characters');
     }
 
