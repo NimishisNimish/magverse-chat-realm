@@ -235,6 +235,8 @@ const chatRequestSchema = z.object({
     'Attachment must be from your storage bucket'
   ),
   
+  attachmentExtension: z.string().optional(),
+  
   webSearchEnabled: z.boolean().optional(),
   searchMode: z.enum(['general', 'finance', 'academic']).optional(),
   deepResearchMode: z.boolean().optional(),
@@ -296,7 +298,7 @@ serve(async (req) => {
       );
     }
 
-    const { messages, selectedModels, chatId, attachmentUrl, webSearchEnabled = false, searchMode = 'general', deepResearchMode = false } = validationResult.data;
+    const { messages, selectedModels, chatId, attachmentUrl, attachmentExtension, webSearchEnabled = false, searchMode = 'general', deepResearchMode = false } = validationResult.data;
     
     // Auto-enable web search for Deep Research mode
     const effectiveWebSearchEnabled = deepResearchMode ? true : webSearchEnabled;
@@ -340,9 +342,14 @@ serve(async (req) => {
     // Process attachment if present with size validation
     let processedMessages = [...messages];
     if (attachmentUrl) {
+      const urlWithoutQuery = attachmentUrl.split('?')[0];
+      const detectedExtension = urlWithoutQuery.split('.').pop()?.toLowerCase();
+      
       console.log('📎 Attachment details:', {
-        url: attachmentUrl.substring(0, 100),
-        extension: attachmentUrl.split('.').pop()?.toLowerCase(),
+        url: attachmentUrl.substring(0, 100) + '...',
+        urlWithoutQuery: urlWithoutQuery.substring(0, 100),
+        detectedExtension,
+        explicitExtension: attachmentExtension,
         selectedModels,
         timestamp: new Date().toISOString()
       });
@@ -372,8 +379,12 @@ serve(async (req) => {
         );
       }
 
-      const fileExtension = attachmentUrl.split('.').pop()?.toLowerCase();
+      // Use explicit extension if provided, otherwise detect from URL (without query params)
+      const urlWithoutQuery = attachmentUrl.split('?')[0];
+      const fileExtension = attachmentExtension || urlWithoutQuery.split('.').pop()?.toLowerCase();
       const lastMessage = processedMessages[processedMessages.length - 1];
+      
+      console.log('📎 File extension:', fileExtension, '(explicit:', !!attachmentExtension, ')');
       
       if (fileExtension === 'pdf') {
         // Extract PDF text content using the extract-pdf-text function
@@ -556,7 +567,9 @@ serve(async (req) => {
       let finalMessages = processedMessages;
       if (attachmentUrl?.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
         const lastMsg = messages[messages.length - 1];
-        const fileExtension = attachmentUrl.split('.').pop()?.toLowerCase();
+        // Use explicit extension if provided, otherwise detect from URL (without query params)
+        const urlWithoutQuery = attachmentUrl.split('?')[0];
+        const fileExtension = attachmentExtension || urlWithoutQuery.split('.').pop()?.toLowerCase();
         
         if (supportsVision) {
           if (modelId === 'gemini') {

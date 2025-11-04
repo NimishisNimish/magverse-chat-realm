@@ -183,7 +183,7 @@ const Chat = () => {
 
       const signedUrlPromise = supabase.storage
         .from('chat-attachments')
-        .createSignedUrl(filePath, 86400); // 24 hours to prevent expiration during chat
+        .createSignedUrl(filePath, 604800); // 7 days (604800 seconds) to prevent expiration
 
       const { data: signedUrlData, error: signedUrlError } = await Promise.race([
         signedUrlPromise,
@@ -341,7 +341,10 @@ const Chat = () => {
             searchMode,
             deepResearchMode,
             ...(currentChatId && { chatId: currentChatId }),
-            ...(attachmentToSend && { attachmentUrl: attachmentToSend }),
+            ...(attachmentToSend && { 
+              attachmentUrl: attachmentToSend,
+              attachmentExtension: attachmentToSend.split('?')[0].split('.').pop()?.toLowerCase()
+            }),
           },
         }).then(result => {
           // Handle specific error codes
