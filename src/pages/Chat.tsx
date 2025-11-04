@@ -288,11 +288,11 @@ const Chat = () => {
     setMessages(prev => [...prev, userMessage]);
     setInput("");
 
-    // Frontend must wait LONGER than backend to avoid premature cancellation
-    const timeoutMs = deepResearchMode ? 660000 : 600000; // 11 min for Deep Research, 10 min for regular
+    // Frontend timeout (backend has longer timeout to complete processing)
+    const timeoutMs = deepResearchMode ? 720000 : 600000; // 12 min for Deep Research, 10 min for regular
     const timeout = new Promise((_, reject) => {
       const timeoutMessage = deepResearchMode 
-        ? 'Deep Research timed out after 11 minutes. Try breaking your query into smaller parts or selecting fewer AI models.'
+        ? 'Deep Research timed out after 12 minutes. Try breaking your query into smaller parts or selecting fewer AI models.'
         : 'Request timed out after 10 minutes. For complex queries requiring extensive analysis, try enabling Deep Research mode.';
       setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
     });
@@ -735,9 +735,11 @@ const Chat = () => {
                       <div className="w-2 h-2 bg-accent rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
                       <div className="w-2 h-2 bg-accent rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
                       <p className="text-muted-foreground ml-2">
-                        {deepResearchMode 
-                          ? `Processing with Deep Research mode (${selectedModels.length} model${selectedModels.length > 1 ? 's' : ''})... This may take up to 10 minutes for thorough analysis.`
-                          : `Processing with ${selectedModels.length} AI model${selectedModels.length > 1 ? 's' : ''}... This may take up to 8 minutes for complex queries.`}
+                        {processingFile 
+                          ? `Processing file${attachmentType === 'pdf' ? ' (extracting PDF text)' : ''}...`
+                          : deepResearchMode 
+                          ? `Deep Research mode active (${selectedModels.length} model${selectedModels.length > 1 ? 's' : ''})... May take up to 12 minutes for thorough analysis.`
+                          : `Processing with ${selectedModels.length} AI model${selectedModels.length > 1 ? 's' : ''}... May take up to 10 minutes.`}
                       </p>
                     </div>
                   </div>

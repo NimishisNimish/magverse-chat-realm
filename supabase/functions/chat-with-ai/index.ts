@@ -46,8 +46,8 @@ const MAX_MESSAGE_LENGTH = 10000;
 const MAX_MODELS_PER_REQUEST = 3;
 const RATE_LIMIT_REQUESTS = 10;
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
-const API_TIMEOUT_MS = 480000; // 8 minutes for regular queries
-const DEEP_RESEARCH_TIMEOUT_MS = 600000; // 10 minutes for deep research mode
+const API_TIMEOUT_MS = 660000; // 11 minutes for regular queries (longer than frontend 10min timeout)
+const DEEP_RESEARCH_TIMEOUT_MS = 780000; // 13 minutes for deep research mode (longer than frontend 11min timeout)
 
 // Provider configuration with direct API endpoints
 const providerConfig: Record<string, any> = {
@@ -342,6 +342,7 @@ serve(async (req) => {
     if (attachmentUrl) {
       try {
         console.log('📎 Processing attachment:', attachmentUrl);
+        console.log('📎 Current message count:', processedMessages.length);
         
         // Validate file size before processing
         const headResponse = await fetch(attachmentUrl, { method: 'HEAD' });
@@ -432,24 +433,29 @@ serve(async (req) => {
         }
       } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension || '')) {
         // For images with vision models, use proper format
-        processedMessages[processedMessages.length - 1] = {
-          role: 'user',
-          content: [
-            { type: 'text', text: lastMessage.content },
-            { type: 'image_url', image_url: { url: attachmentUrl } }
-          ]
-        };
+          console.log('🖼️ Image attachment detected, formatting for vision models');
+          processedMessages[processedMessages.length - 1] = {
+            role: 'user',
+            content: [
+              { type: 'text', text: lastMessage.content },
+              { type: 'image_url', image_url: { url: attachmentUrl } }
+            ]
+          };
+          console.log('✅ Image formatted successfully');
       } else if (['txt', 'md', 'json', 'csv'].includes(fileExtension || '')) {
         // For text files, try to fetch content
         try {
+          console.log('📄 Text file attachment detected, fetching content');
           const fileResponse = await fetch(attachmentUrl);
           const fileContent = await fileResponse.text();
           processedMessages[processedMessages.length - 1] = {
             ...lastMessage,
             content: `${lastMessage.content}\n\nFile content:\n\`\`\`\n${fileContent.slice(0, 5000)}\n\`\`\``
           };
+          console.log('✅ Text file content fetched successfully');
         } catch (error) {
           console.error('Error fetching file content:', error);
+          const lastMessage = processedMessages[processedMessages.length - 1];
           processedMessages[processedMessages.length - 1] = {
             ...lastMessage,
             content: `${lastMessage.content}\n\n[File attached: ${attachmentUrl}]`
@@ -457,12 +463,17 @@ serve(async (req) => {
         }
       } else {
         // For other file types
+        console.warn('⚠️ Unsupported file type:', fileExtension);
+        const lastMessage = processedMessages[processedMessages.length - 1];
         processedMessages[processedMessages.length - 1] = {
           ...lastMessage,
-          content: `${lastMessage.content}\n\n[File attached: ${attachmentUrl}]`
+          content: `${lastMessage.content}\n\n[Note: A file of type .${fileExtension} was attached but this format is not supported for processing.]`
         };
       }
     }
+    
+    console.log('📨 Final processed messages count:', processedMessages.length);
+    console.log('📨 Last message has attachment processing:', processedMessages[processedMessages.length - 1]?.content?.includes('attached') || processedMessages[processedMessages.length - 1]?.content?.includes('File content'));
 
     // Get profile for analytics (no credit enforcement)
     const { data: profile } = await supabase
