@@ -311,11 +311,11 @@ const Chat = () => {
     setInput("");
 
     // Frontend timeout (slightly longer than backend to avoid race conditions)
-    const timeoutMs = deepResearchMode ? 200000 : 100000; // 3.3 min for Deep Research, 1.7 min for regular
+    const timeoutMs = deepResearchMode ? 330000 : 180000; // 5.5 min for Deep Research, 3 min for regular
     const timeout = new Promise((_, reject) => {
       const timeoutMessage = deepResearchMode 
-        ? 'Deep Research timed out after 3 minutes. The AI models may be slow or rate limited.'
-        : 'Request timed out after 1.7 minutes. For complex queries requiring extensive research, try Deep Research mode.';
+        ? 'Deep Research timed out. The AI models may be experiencing high load. Try: selecting fewer models, simplifying your question, or trying again.'
+        : 'Request timed out. The AI models may be experiencing high load. Try: selecting 1-2 models instead of multiple, simplifying your question, or trying again.';
       setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
     });
 
@@ -449,8 +449,8 @@ const Chat = () => {
         errorMessage = "Failed to process image. Try:\n• Re-uploading the image\n• Using a different format (JPG, PNG)\n• Ensuring the file is under 10MB";
       } else if (error.message?.includes('timeout')) {
         errorMessage = deepResearchMode 
-          ? "Deep Research timed out after 11 minutes. This is very unusual. Please try:\n• Breaking your question into smaller parts\n• Selecting fewer AI models\n• Disabling web search temporarily"
-          : "Request timed out after 10 minutes. For complex queries requiring web research, try enabling Deep Research mode.";
+          ? "Deep Research timed out. The AI models are taking too long. Try:\n• Selecting only 1-2 AI models\n• Breaking complex questions into smaller parts\n• Simplifying your query\n• Trying again in a moment"
+          : "Request timed out. The AI models are taking too long. Try:\n• Selecting only 1-2 AI models instead of multiple\n• Simplifying your question\n• Trying again in a moment";
       } else if (error.status === 429) {
         errorMessage = "Rate limit reached. OpenRouter is receiving too many requests. Please wait 30 seconds and try again.";
       } else if (error.status === 504) {

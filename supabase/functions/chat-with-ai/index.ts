@@ -46,8 +46,8 @@ const MAX_MESSAGE_LENGTH = 10000;
 const MAX_MODELS_PER_REQUEST = 3;
 const RATE_LIMIT_REQUESTS = 10;
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
-const API_TIMEOUT_MS = 90000; // 90 seconds (1.5 minutes) for regular queries
-const DEEP_RESEARCH_TIMEOUT_MS = 180000; // 180 seconds (3 minutes) for deep research mode
+const API_TIMEOUT_MS = 150000; // 150 seconds (2.5 minutes) for regular queries
+const DEEP_RESEARCH_TIMEOUT_MS = 300000; // 300 seconds (5 minutes) for deep research mode
 
 // Provider configuration with direct API endpoints
 const providerConfig: Record<string, any> = {
@@ -74,7 +74,7 @@ const providerConfig: Record<string, any> = {
   gemini: {
     provider: 'google',
     apiKey: googleApiKey,
-    endpoint: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:streamGenerateContent?key=${googleApiKey}&alt=sse`,
+    endpoint: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${googleApiKey}`,
     model: 'gemini-2.0-flash-exp',
     headers: () => ({
       'Content-Type': 'application/json',
@@ -94,7 +94,11 @@ const providerConfig: Record<string, any> = {
                 return { text: JSON.stringify(part) };
               })
             : [{ text: JSON.stringify(msg.content) }]
-      }))
+      })),
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 2048,
+      }
     }),
     responseTransform: (data: any) => data.candidates[0]?.content?.parts[0]?.text || 'No response',
   },
