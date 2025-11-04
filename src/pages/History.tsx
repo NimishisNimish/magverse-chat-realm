@@ -22,12 +22,17 @@ const History = () => {
   const [chats, setChats] = useState<ChatHistory[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    
     loadChats();
 
     const channel = supabase
@@ -42,27 +47,44 @@ const History = () => {
   }, [user]);
 
   const loadChats = async () => {
-    const { data: chatData, error } = await supabase
-      .from('chat_history')
-      .select('*')
-      .eq('user_id', user!.id)
-      .order('updated_at', { ascending: false });
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      const { data: chatData, error } = await supabase
+        .from('chat_history')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false });
 
-    if (!error && chatData) {
-      const chatsWithCounts = await Promise.all(
-        chatData.map(async (chat) => {
-          const { count } = await supabase
-            .from('chat_messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('chat_id', chat.id);
-          
-          return {
-            ...chat,
-            message_count: count || 0
-          };
-        })
-      );
-      setChats(chatsWithCounts);
+      if (error) {
+        console.error('Error loading chat history:', error);
+        toast({ title: "Error loading chat history", variant: "destructive" });
+        setChats([]);
+        return;
+      }
+
+      if (chatData) {
+        const chatsWithCounts = await Promise.all(
+          chatData.map(async (chat) => {
+            const { count } = await supabase
+              .from('chat_messages')
+              .select('*', { count: 'exact', head: true })
+              .eq('chat_id', chat.id);
+            
+            return {
+              ...chat,
+              message_count: count || 0
+            };
+          })
+        );
+        setChats(chatsWithCounts);
+      }
+    } catch (err) {
+      console.error('Unexpected error loading chats:', err);
+      toast({ title: "Error loading chat history", variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -117,9 +139,14 @@ const History = () => {
       <div className="container mx-auto px-4 pt-24 pb-12">
         <h1 className="text-4xl font-bold gradient-text mb-8">Chat History</h1>
         
-        <ScrollArea className="h-[calc(100vh-200px)]">
-          <div className="grid gap-4">
-            {chats.map(chat => (
+        {loading ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Loading chat history...</p>
+          </div>
+        ) : (
+          <ScrollArea className="h-[calc(100vh-200px)]">
+            <div className="grid gap-4">
+              {chats.map(chat => (
               <div key={chat.id} className="glass-card p-6 rounded-xl hover:shadow-lg transition-all">
                 <div className="flex items-start gap-4">
                   <MessageSquare className="w-6 h-6 text-accent mt-1" />
@@ -180,13 +207,14 @@ const History = () => {
               </div>
             ))}
             
-            {chats.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground">No chat history yet. Start a conversation!</p>
-              </div>
-            )}
-          </div>
-        </ScrollArea>
+              {chats.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">No chat history yet. Start a conversation!</p>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        )}
       </div>
     </div>
   );
