@@ -380,7 +380,6 @@ serve(async (req) => {
       }
 
       // Use explicit extension if provided, otherwise detect from URL (without query params)
-      const urlWithoutQuery = attachmentUrl.split('?')[0];
       const fileExtension = attachmentExtension || urlWithoutQuery.split('.').pop()?.toLowerCase();
       const lastMessage = processedMessages[processedMessages.length - 1];
       
