@@ -413,13 +413,13 @@ serve(async (req) => {
             console.warn('⚠️ PDF is empty or contains only images');
             processedMessages[processedMessages.length - 1] = {
               ...lastMessage,
-              content: `${lastMessage.content}\n\n[Note: A PDF was attached but appears to be a scanned document or image-based PDF with no extractable text. Please describe what you see in the PDF or ask specific questions about it.]`
+              content: `${lastMessage.content}\n\n[❌ PDF Processing Failed: This PDF appears to be a scanned document or image-based PDF with no extractable text. To analyze this file:\n• Convert to text using OCR software (like Adobe Acrobat or online OCR tools)\n• Upload as individual images instead\n• Or describe the content manually in your message]`
             };
           } else {
             console.warn('⚠️ PDF extraction returned no text');
             processedMessages[processedMessages.length - 1] = {
               ...lastMessage,
-              content: `${lastMessage.content}\n\n[Note: A PDF was attached but text extraction failed. This might be a scanned document, image-based PDF, or password-protected file.]`
+              content: `${lastMessage.content}\n\n[❌ PDF Processing Failed: Could not extract text from this PDF. Possible reasons:\n• Scanned/image-based PDF (needs OCR)\n• Password-protected file\n• Corrupted PDF file\n• File format incompatibility\n\nPlease try a different file or upload as images.]`
             };
           }
         } catch (error: any) {

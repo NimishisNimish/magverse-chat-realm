@@ -273,16 +273,23 @@ const Chat = () => {
     }
 
     setLoading(true);
+
+    // Clear attachment UI immediately when sending (not in finally block)
+    const attachmentToSend = attachmentUrl; // Capture for API call
+    const attachmentTypeToSend = attachmentType; // Capture for feedback
+    setAttachmentUrl(null);
+    setAttachmentType(null);
+    setUploadStatus('idle');
     
     // Show processing indicator for files
-    if (attachmentUrl) {
+    if (attachmentToSend) {
       setProcessingFile(true);
-      if (attachmentType === 'pdf') {
+      if (attachmentTypeToSend === 'pdf') {
         toast({
           title: "Processing PDF...",
           description: "Extracting text from your PDF. This may take a moment.",
         });
-      } else if (attachmentType === 'image') {
+      } else if (attachmentTypeToSend === 'image') {
         toast({
           title: "Processing image...",
           description: "Preparing image for AI analysis.",
@@ -334,7 +341,7 @@ const Chat = () => {
             searchMode,
             deepResearchMode,
             ...(currentChatId && { chatId: currentChatId }),
-            ...(attachmentUrl && { attachmentUrl: attachmentUrl }),
+            ...(attachmentToSend && { attachmentUrl: attachmentToSend }),
           },
         }).then(result => {
           // Handle specific error codes
@@ -363,21 +370,30 @@ const Chat = () => {
         setCurrentChatId(data.chatId);
       }
 
-      // Create empty assistant messages first for streaming effect
-      const aiMessages: Message[] = data.responses.map((response: any) => ({
-        id: `${Date.now()}-${response.model}-${Math.random()}`,
-        model: aiModels.find(m => m.id === response.model)?.name || response.model,
-        content: '', // Start empty for streaming
-        timestamp: new Date(),
-        role: 'assistant' as const,
-        fullContent: response.content, // Store full content for streaming
-      }));
+      // Create assistant messages with visual confirmation for file attachments
+      const aiMessages: Message[] = data.responses.map((response: any) => {
+        let content = response.content;
+        
+        // Add visual confirmation if PDF was processed
+        if (attachmentTypeToSend === 'pdf' && content.includes('PDF Document Analysis')) {
+          content = "📄 *I've analyzed your PDF document*\n\n" + content;
+        }
+        // Add visual confirmation if image was processed
+        else if (attachmentTypeToSend === 'image') {
+          content = "🖼️ *I've analyzed your image*\n\n" + content;
+        }
+        
+        return {
+          id: `${Date.now()}-${response.model}-${Math.random()}`,
+          model: aiModels.find(m => m.id === response.model)?.name || response.model,
+          content: content,
+          timestamp: new Date(),
+          role: 'assistant' as const,
+        };
+      });
 
-      // Show responses immediately (no artificial streaming delay)
-      const messagesWithContent = aiMessages.map((msg, index) => ({
-        ...msg,
-        content: data.responses[index].content
-      }));
+      // Show responses immediately
+      const messagesWithContent = aiMessages;
       
       setMessages(prev => [...prev, ...messagesWithContent]);
       
@@ -456,11 +472,7 @@ const Chat = () => {
       setProcessingFile(false);
       setIsDeepResearching(false);
       
-      // Only clear attachment after successful send - preserve user settings
-      setAttachmentUrl(null);
-      setAttachmentType(null);
-      setUploadStatus('idle');
-      
+      // Attachments already cleared at the start of handleSend
       // DO NOT clear: selectedModels, deepResearchMode, webSearchEnabled, searchMode
       // These should persist until user manually changes them
     }
@@ -782,33 +794,7 @@ const Chat = () => {
           {/* Input Area */}
           <div className="border-t border-glass-border glass-card p-6">
             <div className="max-w-4xl mx-auto">
-              {/* Show attached file indicator */}
-              {attachmentUrl && uploadStatus === 'success' && (
-                <div className="flex items-center gap-2 px-4 py-2 bg-secondary/50 rounded-md text-sm border border-border mb-3">
-                  {attachmentType === 'pdf' && (
-                    <>
-                      <Paperclip className="h-4 w-4 text-blue-500" />
-                      <span className="flex-1">PDF ready to analyze</span>
-                    </>
-                  )}
-                  {attachmentType === 'image' && (
-                    <>
-                      <Paperclip className="h-4 w-4 text-green-500" />
-                      <span className="flex-1">Image ready to analyze</span>
-                    </>
-                  )}
-                  <button
-                    onClick={() => {
-                      setAttachmentUrl(null);
-                      setAttachmentType(null);
-                      setUploadStatus('idle');
-                    }}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
+              {/* Show attached file preview */}
               {attachmentUrl && (
                 <div className="glass-card p-3 rounded-lg border border-accent/30 flex items-center gap-3 mb-3 animate-fade-in">
                   {attachmentUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
@@ -836,6 +822,7 @@ const Chat = () => {
                     size="icon"
                     onClick={() => {
                       setAttachmentUrl(null);
+                      setAttachmentType(null);
                       setUploadStatus('idle');
                     }}
                     className="shrink-0 hover:bg-destructive/10 hover:text-destructive"
