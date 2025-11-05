@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   MessageSquarePlus, 
@@ -23,7 +23,8 @@ import {
   Rocket,
   Download,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  ExternalLink
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
@@ -61,6 +62,7 @@ interface Message {
   error?: boolean; // Track if this response was an error
   userQuery?: string; // Store original user query for retry
   retrying?: boolean; // Track if currently retrying
+  sources?: Array<{url: string, title: string, snippet?: string}>; // Source citations
 }
 
 const Chat = () => {
@@ -81,9 +83,23 @@ const Chat = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDeepResearching, setIsDeepResearching] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
   const { user, profile, refreshProfile } = useAuth();
   const [searchParams] = useSearchParams();
+
+  // Auto-resize textarea
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    
+    // Reset height to auto to get the correct scrollHeight
+    textarea.style.height = 'auto';
+    
+    // Set height to scrollHeight, max 200px
+    const newHeight = Math.min(textarea.scrollHeight, 200);
+    textarea.style.height = `${newHeight}px`;
+  }, [input]);
 
   useEffect(() => {
     const chatId = searchParams.get('id');
@@ -398,6 +414,7 @@ const Chat = () => {
           role: 'assistant' as const,
           error: false,
           userQuery: input,
+          sources: response.sources || [], // Add sources from backend
         };
       });
 
@@ -863,6 +880,36 @@ const Chat = () => {
                     </div>
                     <p className="text-foreground leading-relaxed whitespace-pre-wrap">{message.content}</p>
                     
+                    {/* Sources display below AI responses */}
+                    {message.role === 'assistant' && message.sources && message.sources.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-glass-border">
+                        <div className="flex items-center gap-2 mb-2">
+                          <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm font-semibold text-muted-foreground">Sources</span>
+                        </div>
+                        <div className="space-y-2">
+                          {message.sources.map((source, index) => (
+                            <a
+                              key={index}
+                              href={source.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-start gap-2 p-2 rounded-lg hover:bg-accent/10 transition-colors group"
+                            >
+                              <span className="text-xs font-mono text-accent shrink-0">[{index + 1}]</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-foreground group-hover:text-accent transition-colors truncate">
+                                  {source.title || source.url}
+                                </p>
+                                <p className="text-xs text-muted-foreground truncate">{source.url}</p>
+                              </div>
+                              <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-accent transition-colors shrink-0" />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
                     {/* Retry button for failed messages */}
                     {message.error && !message.retrying && (
                       <Button
@@ -976,13 +1023,20 @@ const Chat = () => {
                     <Paperclip className="w-5 h-5" />
                   )}
                 </Button>
-                <Input
+                <Textarea
+                  ref={textareaRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                  placeholder="Type your message..."
-                  className="glass-card border-accent/30 focus:border-accent"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  placeholder="Type your message... (Shift+Enter for new line)"
+                  className="glass-card border-accent/30 focus:border-accent resize-none min-h-[44px] max-h-[200px] overflow-y-auto"
                   disabled={loading}
+                  rows={1}
                 />
                 <Button
                   variant="ghost"

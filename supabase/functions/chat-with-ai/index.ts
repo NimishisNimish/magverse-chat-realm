@@ -220,10 +220,10 @@ const providerConfig: Record<string, any> = {
 /**
  * Helper function to perform web search and format results for all models
  */
-async function performWebSearch(query: string, searchMode: string = 'general'): Promise<string> {
+async function performWebSearch(query: string, searchMode: string = 'general'): Promise<{ content: string, sources: Array<{url: string, title: string, snippet?: string}> }> {
   if (!perplexityApiKey) {
     console.error('⚠️ Perplexity API key not configured for web search');
-    return '';
+    return { content: '', sources: [] };
   }
 
   try {
@@ -235,7 +235,7 @@ async function performWebSearch(query: string, searchMode: string = 'general'): 
       messages: [
         {
           role: 'system',
-          content: 'You are a web search assistant. Provide concise, factual information from recent web sources. Include citations.'
+          content: 'You are a web search assistant. Provide concise, factual information from recent web sources. Use numbered citations like [1], [2] for each source you reference.'
         },
         {
           role: 'user',
@@ -245,6 +245,7 @@ async function performWebSearch(query: string, searchMode: string = 'general'): 
       temperature: 0.2,
       max_tokens: 1000,
       search_recency_filter: 'month',
+      return_citations: true, // Request citations from Perplexity
     };
 
     if (domains.length > 0) {
@@ -262,17 +263,25 @@ async function performWebSearch(query: string, searchMode: string = 'general'): 
 
     if (!response.ok) {
       console.error('❌ Web search failed:', response.status);
-      return '';
+      return { content: '', sources: [] };
     }
 
     const data = await response.json();
     const searchResults = data.choices[0]?.message?.content || '';
     
-    console.log('✅ Web search completed:', searchResults.substring(0, 200) + '...');
-    return searchResults;
+    // Extract citations from Perplexity response
+    const citations = data.citations || [];
+    const sources = citations.map((citation: string, index: number) => ({
+      url: citation,
+      title: `Source ${index + 1}`,
+      snippet: '' // Perplexity doesn't provide snippets in citations
+    }));
+    
+    console.log('✅ Web search completed with', sources.length, 'sources:', searchResults.substring(0, 200) + '...');
+    return { content: searchResults, sources };
   } catch (error) {
     console.error('❌ Web search error:', error);
-    return '';
+    return { content: '', sources: [] };
   }
 }
 
@@ -629,6 +638,7 @@ serve(async (req) => {
       let finalMessages = processedMessages;
       
       // Perform web search if enabled (for ALL models except Perplexity, which does its own native search)
+      let webSearchSources: Array<{url: string, title: string, snippet?: string}> = [];
       if (effectiveWebSearchEnabled && modelId !== 'perplexity') {
         const lastMsg = processedMessages[processedMessages.length - 1];
         const userQuery = typeof lastMsg.content === 'string' 
@@ -639,16 +649,22 @@ serve(async (req) => {
           console.log(`🌐 Web search enabled for ${modelId}, searching...`);
           const searchResults = await performWebSearch(userQuery, searchMode);
           
-          if (searchResults) {
-            // Inject search results into the prompt
+          if (searchResults.content) {
+            webSearchSources = searchResults.sources;
+            
+            // Inject search results into the prompt with numbered citations
+            const sourcesText = searchResults.sources.length > 0 
+              ? `\n\n**Sources:**\n${searchResults.sources.map((s, i) => `[${i+1}] ${s.url}`).join('\n')}`
+              : '';
+            
             const enhancedPrompt = `${userQuery}
 
 ---
 📊 **Recent Web Information:**
-${searchResults}
+${searchResults.content}${sourcesText}
 ---
 
-Please synthesize the above web information with your knowledge to provide a comprehensive answer. Cite sources when referencing the web data.`;
+Please synthesize the above web information with your knowledge to provide a comprehensive answer. When referencing web data, use numbered citations like [1], [2] corresponding to the sources above.`;
 
             finalMessages = [
               ...processedMessages.slice(0, -1),
@@ -658,7 +674,7 @@ Please synthesize the above web information with your knowledge to provide a com
               }
             ];
             
-            console.log(`✅ Web search results injected into ${modelId} prompt`);
+            console.log(`✅ Web search results with ${webSearchSources.length} sources injected into ${modelId} prompt`);
           }
         }
       }
@@ -848,6 +864,7 @@ Make complex topics accessible and engaging.`
             success: true,
             model: modelId,
             content: content,
+            sources: webSearchSources, // Add sources from web search
           };
         } catch (fetchError: any) {
           clearTimeout(timeoutId);
@@ -887,6 +904,7 @@ Make complex topics accessible and engaging.`
       .map(r => ({
         model: (r as PromiseFulfilledResult<any>).value.model,
         content: (r as PromiseFulfilledResult<any>).value.content,
+        sources: (r as PromiseFulfilledResult<any>).value.sources || [], // Include sources
       }));
 
     // Check if we got any responses
