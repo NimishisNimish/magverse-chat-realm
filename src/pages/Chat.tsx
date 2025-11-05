@@ -24,7 +24,11 @@ import {
   Download,
   Loader2,
   RefreshCw,
-  ExternalLink
+  ExternalLink,
+  Edit2,
+  GitBranch,
+  Save,
+  Ban
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
@@ -85,6 +89,8 @@ const Chat = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDeepResearching, setIsDeepResearching] = useState(false);
   const [imageGenerationMode, setImageGenerationMode] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editedContent, setEditedContent] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
@@ -773,6 +779,210 @@ const Chat = () => {
     }
   };
 
+  const handleEditMessage = (messageId: string, content: string) => {
+    setEditingMessageId(messageId);
+    setEditedContent(content);
+  };
+
+  const handleSaveEdit = (messageId: string) => {
+    if (!editedContent.trim()) {
+      toast({
+        title: "Empty message",
+        description: "Message cannot be empty",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Update the message content
+    setMessages(prev => prev.map(msg => 
+      msg.id === messageId 
+        ? { ...msg, content: editedContent }
+        : msg
+    ));
+
+    setEditingMessageId(null);
+    setEditedContent("");
+
+    toast({
+      title: "Message updated",
+      description: "Your message has been edited. Click 'Branch from here' to regenerate AI responses.",
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditedContent("");
+  };
+
+  const handleBranchFromMessage = async (messageIndex: number) => {
+    if (loading) return;
+
+    const message = messages[messageIndex];
+    
+    // Truncate messages at this point
+    const truncatedMessages = messages.slice(0, messageIndex + 1);
+    
+    // If branching from a user message, regenerate AI responses
+    if (message.role === 'user') {
+      setMessages(truncatedMessages);
+      setInput(message.content);
+      
+      toast({
+        title: "Branch created",
+        description: "Creating new conversation branch. Send your message to generate new AI responses.",
+      });
+    } 
+    // If branching from an AI message, go back to the previous user message
+    else {
+      // Find the previous user message
+      const lastUserMessageIndex = truncatedMessages.findIndex((m, idx) => 
+        idx < messageIndex && m.role === 'user'
+      );
+      
+      if (lastUserMessageIndex === -1) {
+        toast({
+          title: "Cannot branch",
+          description: "No user message found to branch from",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const messagesUpToUser = truncatedMessages.slice(0, lastUserMessageIndex + 1);
+      const userMessage = truncatedMessages[lastUserMessageIndex];
+      
+      setMessages(messagesUpToUser);
+      setLoading(true);
+
+      toast({
+        title: "Branching conversation",
+        description: "Regenerating AI responses from this point...",
+      });
+
+      try {
+        // Send full conversation history for better context awareness
+        const MAX_CONTEXT_MESSAGES = 50;
+        const conversationHistory = messagesUpToUser.length > MAX_CONTEXT_MESSAGES 
+          ? messagesUpToUser.slice(-MAX_CONTEXT_MESSAGES)
+          : messagesUpToUser;
+
+        // Regenerate with the same models that were selected
+        const modelPromises = selectedModels.map(async (modelId) => {
+          const modelConfig = aiModels.find(m => m.id === modelId);
+          if (!modelConfig) return;
+
+          const assistantMessageId = Date.now().toString() + Math.random() + modelId;
+          const placeholderMessage: Message = {
+            id: assistantMessageId,
+            model: modelConfig.name,
+            content: "",
+            timestamp: new Date(),
+            role: 'assistant',
+          };
+
+          setMessages(prev => [...prev, placeholderMessage]);
+
+          try {
+            const CHAT_URL = `https://pqdgpxetysqcdcjwormb.supabase.co/functions/v1/lovable-ai-chat`;
+            
+            const response = await fetch(CHAT_URL, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxZGdweGV0eXNxY2Rjandvcm1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3NTcwMDMsImV4cCI6MjA3NzMzMzAwM30.AspAeB_iUnc-XJmDNhdV5_HYTMLg32LM1bVAdwM6A5E`,
+              },
+              body: JSON.stringify({
+                model: modelConfig.model,
+                messages: conversationHistory.map(m => ({ role: m.role, content: m.content })),
+                stream: true,
+                generateImage: imageGenerationMode,
+              }),
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || `HTTP ${response.status}`);
+            }
+
+            if (!response.body) {
+              throw new Error('No response body');
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullContent = '';
+            let streamDone = false;
+
+            while (!streamDone) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+
+              let newlineIndex: number;
+              while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+                let line = buffer.slice(0, newlineIndex);
+                buffer = buffer.slice(newlineIndex + 1);
+
+                if (line.endsWith('\r')) line = line.slice(0, -1);
+                if (line.startsWith(':') || line.trim() === '') continue;
+                if (!line.startsWith('data: ')) continue;
+
+                const jsonStr = line.slice(6).trim();
+                if (jsonStr === '[DONE]') {
+                  streamDone = true;
+                  break;
+                }
+
+                try {
+                  const parsed = JSON.parse(jsonStr);
+                  const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+                  
+                  if (content) {
+                    fullContent += content;
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessageId 
+                        ? { ...msg, content: fullContent }
+                        : msg
+                    ));
+                  }
+                } catch (parseError) {
+                  buffer = line + '\n' + buffer;
+                  break;
+                }
+              }
+            }
+          } catch (err: any) {
+            console.error(`Error with ${modelConfig.name}:`, err);
+            setMessages(prev => prev.map(msg => 
+              msg.id === assistantMessageId 
+                ? { ...msg, content: `Error: ${err.message}`, error: true }
+                : msg
+            ));
+          }
+        });
+
+        await Promise.all(modelPromises);
+
+        toast({
+          title: "Branch created",
+          description: "New conversation path generated successfully!",
+        });
+      } catch (error: any) {
+        console.error('Branch error:', error);
+        toast({
+          title: "Branching failed",
+          description: error.message || "Failed to create branch. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   // Sidebar content component to reuse in both desktop and mobile
   const SidebarContent = () => (
     <>
@@ -1009,7 +1219,7 @@ const Chat = () => {
               </div>
             ) : (
               <div className="max-w-4xl mx-auto space-y-6">
-                {messages.map(message => (
+                {messages.map((message, index) => (
                   <div 
                     key={message.id} 
                     className={`glass-card-hover p-6 rounded-xl space-y-3 animate-fade-in ${
@@ -1040,7 +1250,67 @@ const Chat = () => {
                         </span>
                       )}
                     </div>
-                    <p className="text-foreground leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                    
+                    {/* Message content or edit mode */}
+                    {editingMessageId === message.id ? (
+                      <div className="space-y-2">
+                        <Textarea
+                          value={editedContent}
+                          onChange={(e) => setEditedContent(e.target.value)}
+                          className="min-h-[100px]"
+                          placeholder="Edit your message..."
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleSaveEdit(message.id)}
+                          >
+                            <Save className="w-3 h-3 mr-1" />
+                            Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleCancelEdit}
+                          >
+                            <Ban className="w-3 h-3 mr-1" />
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-foreground leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                        
+                        {/* Action buttons */}
+                        <div className="flex gap-2 mt-3">
+                          {message.role === 'user' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleEditMessage(message.id, message.content)}
+                              className="text-xs"
+                            >
+                              <Edit2 className="w-3 h-3 mr-1" />
+                              Edit
+                            </Button>
+                          )}
+                          
+                          {index < messages.length - 1 && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleBranchFromMessage(index)}
+                              disabled={loading}
+                              className="text-xs"
+                            >
+                              <GitBranch className="w-3 h-3 mr-1" />
+                              Branch from here
+                            </Button>
+                          )}
+                        </div>
+                      </>
+                    )}
                     
                     {/* Sources display below AI responses */}
                     {message.role === 'assistant' && message.sources && message.sources.length > 0 && (
