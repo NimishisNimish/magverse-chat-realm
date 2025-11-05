@@ -451,6 +451,9 @@ const Chat = () => {
         try {
           const CHAT_URL = `https://pqdgpxetysqcdcjwormb.supabase.co/functions/v1/lovable-ai-chat`;
           
+          // Image generation requires non-streaming mode to get complete response
+          const shouldStream = !imageGenerationMode;
+          
           const response = await fetchWithRetry(CHAT_URL, {
             method: 'POST',
             headers: {
@@ -460,7 +463,7 @@ const Chat = () => {
             body: JSON.stringify({
               model: modelConfig.model,
               messages: [...conversationHistory.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: input }],
-              stream: true,
+              stream: shouldStream,
               generateImage: imageGenerationMode,
             }),
           });
@@ -470,94 +473,105 @@ const Chat = () => {
             throw new Error(errorData.error || `HTTP ${response.status}`);
           }
 
-          if (!response.body) {
-            throw new Error('No response body');
-          }
+          // Handle image generation (non-streaming) vs regular streaming
+          if (imageGenerationMode) {
+            // Non-streaming mode for image generation
+            const data = await response.json();
+            const content = data.choices?.[0]?.message?.content || '';
+            const images = data.images || [];
+            
+            // Update message with content and images
+            setMessages(prev => prev.map(msg => 
+              msg.id === assistantMessageId 
+                ? { 
+                    ...msg, 
+                    content: content || 'Image generated successfully',
+                    images: images.length > 0 ? images : undefined 
+                  }
+                : msg
+            ));
+            
+            console.log(`Image generation complete for ${modelConfig.name}`, { imageCount: images.length });
+          } else {
+            // Streaming mode for regular chat
+            if (!response.body) {
+              throw new Error('No response body');
+            }
 
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = '';
-          let fullContent = '';
-          let streamDone = false;
-          let images: any[] = [];
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullContent = '';
+            let streamDone = false;
 
-          while (!streamDone) {
-            const { done, value } = await reader.read();
-            if (done) break;
+            while (!streamDone) {
+              const { done, value } = await reader.read();
+              if (done) break;
 
-            buffer += decoder.decode(value, { stream: true });
+              buffer += decoder.decode(value, { stream: true });
 
-            let newlineIndex: number;
-            while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
-              let line = buffer.slice(0, newlineIndex);
-              buffer = buffer.slice(newlineIndex + 1);
+              let newlineIndex: number;
+              while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+                let line = buffer.slice(0, newlineIndex);
+                buffer = buffer.slice(newlineIndex + 1);
 
-              if (line.endsWith('\r')) line = line.slice(0, -1);
-              if (line.startsWith(':') || line.trim() === '') continue;
-              if (!line.startsWith('data: ')) continue;
+                if (line.endsWith('\r')) line = line.slice(0, -1);
+                if (line.startsWith(':') || line.trim() === '') continue;
+                if (!line.startsWith('data: ')) continue;
 
-              const jsonStr = line.slice(6).trim();
-              if (jsonStr === '[DONE]') {
-                streamDone = true;
-                break;
-              }
+                const jsonStr = line.slice(6).trim();
+                if (jsonStr === '[DONE]') {
+                  streamDone = true;
+                  break;
+                }
 
-              try {
-                const parsed = JSON.parse(jsonStr);
-                const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-                const parsedImages = parsed.choices?.[0]?.message?.images;
-                
-                if (content) {
-                  fullContent += content;
+                try {
+                  const parsed = JSON.parse(jsonStr);
+                  const content = parsed.choices?.[0]?.delta?.content as string | undefined;
                   
-                  // Update the message in real-time
-                  setMessages(prev => prev.map(msg => 
-                    msg.id === assistantMessageId 
-                      ? { ...msg, content: fullContent }
-                      : msg
-                  ));
+                  if (content) {
+                    fullContent += content;
+                    
+                    // Update the message in real-time
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessageId 
+                        ? { ...msg, content: fullContent }
+                        : msg
+                    ));
+                  }
+                } catch (parseError) {
+                  // Incomplete JSON, put it back and wait for more data
+                  buffer = line + '\n' + buffer;
+                  break;
                 }
-
-                if (parsedImages) {
-                  images = parsedImages;
-                  setMessages(prev => prev.map(msg => 
-                    msg.id === assistantMessageId 
-                      ? { ...msg, images: parsedImages.map((img: any) => ({ image_url: { url: img.image_url?.url || img.url } })) }
-                      : msg
-                  ));
-                }
-              } catch (parseError) {
-                // Incomplete JSON, put it back and wait for more data
-                buffer = line + '\n' + buffer;
-                break;
               }
             }
-          }
 
-          // Final flush
-          if (buffer.trim()) {
-            for (let raw of buffer.split('\n')) {
-              if (!raw || raw.startsWith(':') || raw.trim() === '') continue;
-              if (!raw.startsWith('data: ')) continue;
-              const jsonStr = raw.slice(6).trim();
-              if (jsonStr === '[DONE]') continue;
-              
-              try {
-                const parsed = JSON.parse(jsonStr);
-                const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-                if (content) {
-                  fullContent += content;
-                  setMessages(prev => prev.map(msg => 
-                    msg.id === assistantMessageId 
-                      ? { ...msg, content: fullContent }
-                      : msg
-                  ));
-                }
-              } catch { /* ignore */ }
+            // Final flush
+            if (buffer.trim()) {
+              for (let raw of buffer.split('\n')) {
+                if (!raw || raw.startsWith(':') || raw.trim() === '') continue;
+                if (!raw.startsWith('data: ')) continue;
+                const jsonStr = raw.slice(6).trim();
+                if (jsonStr === '[DONE]') continue;
+                
+                try {
+                  const parsed = JSON.parse(jsonStr);
+                  const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+                  if (content) {
+                    fullContent += content;
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === assistantMessageId 
+                        ? { ...msg, content: fullContent }
+                        : msg
+                    ));
+                  }
+                } catch { /* ignore */ }
+              }
             }
-          }
 
-          console.log(`Streaming complete for ${modelConfig.name}`);
+            console.log(`Streaming complete for ${modelConfig.name}`);
+          }
         } catch (err: any) {
           console.error(`Error with ${modelConfig.name}:`, err);
           
