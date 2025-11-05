@@ -28,7 +28,11 @@ import {
   Edit2,
   GitBranch,
   Save,
-  Ban
+  Ban,
+  Heart,
+  Trash2,
+  Image as ImageIcon,
+  Palette
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
@@ -89,6 +93,11 @@ const Chat = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDeepResearching, setIsDeepResearching] = useState(false);
   const [imageGenerationMode, setImageGenerationMode] = useState(false);
+  const [imageStyle, setImageStyle] = useState<'realistic' | 'artistic' | 'cartoon' | 'anime' | 'photographic'>('realistic');
+  const [editingImageId, setEditingImageId] = useState<string | null>(null);
+  const [imageEditPrompt, setImageEditPrompt] = useState("");
+  const [savedImages, setSavedImages] = useState<Array<{id: string, url: string, prompt: string, timestamp: Date}>>([]);
+  const [showGallery, setShowGallery] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -116,6 +125,22 @@ const Chat = () => {
       loadChatMessages(chatId);
     }
   }, [searchParams, user]);
+
+  // Load saved images from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('savedImages');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setSavedImages(parsed.map((img: any) => ({
+          ...img,
+          timestamp: new Date(img.timestamp)
+        })));
+      } catch (error) {
+        console.error('Failed to load saved images:', error);
+      }
+    }
+  }, []);
 
   const loadChatMessages = async (chatId: string) => {
     try {
@@ -462,7 +487,12 @@ const Chat = () => {
             },
             body: JSON.stringify({
               model: modelConfig.model,
-              messages: [...conversationHistory.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: input }],
+              messages: [...conversationHistory.map(m => ({ role: m.role, content: m.content })), { 
+                role: 'user', 
+                content: imageGenerationMode 
+                  ? `Generate a ${imageStyle} style image: ${input}` 
+                  : input 
+              }],
               stream: shouldStream,
               generateImage: imageGenerationMode,
             }),
@@ -595,8 +625,10 @@ const Chat = () => {
 
       await Promise.all(modelPromises);
       
-      // Clear processing state
+      // Clear all loading states
+      setLoading(false);
       setProcessingFile(false);
+      setIsDeepResearching(false);
       
       const successCount = selectedModels.length;
       toast({
@@ -605,7 +637,6 @@ const Chat = () => {
       });
 
       await refreshProfile();
-      setIsDeepResearching(false);
     } catch (error: any) {
       console.error('Chat error:', error);
       setProcessingFile(false);
@@ -997,6 +1028,104 @@ const Chat = () => {
     }
   };
 
+  // Image gallery functions
+  const saveImageToGallery = (imageUrl: string, prompt: string) => {
+    const newImage = {
+      id: crypto.randomUUID(),
+      url: imageUrl,
+      prompt: prompt,
+      timestamp: new Date()
+    };
+    const updated = [...savedImages, newImage];
+    setSavedImages(updated);
+    localStorage.setItem('savedImages', JSON.stringify(updated));
+    toast({
+      title: "Image saved",
+      description: "Added to your gallery",
+    });
+  };
+
+  const deleteImageFromGallery = (imageId: string) => {
+    const updated = savedImages.filter(img => img.id !== imageId);
+    setSavedImages(updated);
+    localStorage.setItem('savedImages', JSON.stringify(updated));
+    toast({
+      title: "Image removed",
+      description: "Removed from gallery",
+    });
+  };
+
+  const handleEditImage = async (imageUrl: string, editPrompt: string) => {
+    if (!editPrompt.trim()) {
+      toast({
+        title: "Edit prompt required",
+        description: "Please enter what changes you want to make",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('https://pqdgpxetysqcdcjwormb.supabase.co/functions/v1/lovable-ai-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxZGdweGV0eXNxY2Rjandvcm1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3NTcwMDMsImV4cCI6MjA3NzMzMzAwM30.AspAeB_iUnc-XJmDNhdV5_HYTMLg32LM1bVAdwM6A5E`,
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash-image-preview',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: editPrompt },
+                { type: 'image_url', image_url: { url: imageUrl } }
+              ]
+            }
+          ],
+          stream: false,
+          generateImage: true,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to edit image');
+      }
+
+      const data = await response.json();
+      const editedImage = data.images?.[0]?.image_url?.url;
+
+      if (editedImage) {
+        // Add edited image as new assistant message
+        const newMessage: Message = {
+          id: crypto.randomUUID(),
+          model: 'Image Editor',
+          content: `Edited: ${editPrompt}`,
+          timestamp: new Date(),
+          role: 'assistant',
+          images: [{ image_url: { url: editedImage } }]
+        };
+        setMessages(prev => [...prev, newMessage]);
+        toast({
+          title: "Image edited successfully",
+          description: "Your edited image is ready",
+        });
+      }
+    } catch (error: any) {
+      console.error('Image edit error:', error);
+      toast({
+        title: "Failed to edit image",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      setEditingImageId(null);
+      setImageEditPrompt("");
+    }
+  };
+
   // Sidebar content component to reuse in both desktop and mobile
   const SidebarContent = () => (
     <>
@@ -1169,10 +1298,49 @@ const Chat = () => {
           </button>
           
           {imageGenerationMode && (
-            <p className="text-xs text-muted-foreground pl-2 animate-fade-in">
-              Using Gemini 2.5 Flash Image to generate images from your prompts
-            </p>
+            <>
+              <p className="text-xs text-muted-foreground pl-2 animate-fade-in">
+                Using Gemini 2.5 Flash Image to generate images from your prompts
+              </p>
+              
+              {/* Image Style Selector */}
+              <div className="space-y-2 pl-2">
+                <label className="text-xs font-medium text-muted-foreground">Image Style</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['realistic', 'artistic', 'cartoon', 'anime', 'photographic'] as const).map(style => (
+                    <button
+                      key={style}
+                      onClick={() => setImageStyle(style)}
+                      className={`p-2 rounded-lg text-xs capitalize transition-all ${
+                        imageStyle === style
+                          ? 'glass-card border-accent/50 text-foreground'
+                          : 'bg-muted/20 text-muted-foreground hover:bg-muted/30'
+                      }`}
+                    >
+                      {style}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
+          
+          {/* Image Gallery Button */}
+          <button
+            onClick={() => setShowGallery(!showGallery)}
+            className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
+              showGallery 
+                ? 'glass-card border-accent/50' 
+                : 'hover:bg-muted/20'
+            }`}
+          >
+            <div className={`w-8 h-8 rounded-lg ${showGallery ? 'bg-accent/20' : 'bg-muted/20'} flex items-center justify-center`}>
+              <ImageIcon className={`w-4 h-4 ${showGallery ? 'text-accent' : 'text-muted-foreground'}`} />
+            </div>
+            <span className={`font-medium ${showGallery ? 'text-foreground' : 'text-muted-foreground'}`}>
+              Image Gallery ({savedImages.length})
+            </span>
+          </button>
         </div>
         
         <Link to="/history">
@@ -1410,27 +1578,65 @@ const Chat = () => {
                                   size="sm" 
                                   variant="secondary"
                                   onClick={() => downloadImage('png')}
+                                  className="shadow-lg"
+                                  title="Download as PNG"
                                 >
-                                  <Download className="w-4 h-4 mr-1" />
-                                  PNG
+                                  <Download className="w-4 h-4" />
                                 </Button>
                                 <Button 
                                   size="sm" 
                                   variant="secondary"
-                                  onClick={() => downloadImage('jpeg')}
+                                  onClick={() => saveImageToGallery(img.image_url.url, message.content)}
+                                  className="shadow-lg"
+                                  title="Save to Gallery"
                                 >
-                                  <Download className="w-4 h-4 mr-1" />
-                                  JPEG
+                                  <Heart className="w-4 h-4" />
                                 </Button>
                                 <Button 
                                   size="sm" 
                                   variant="secondary"
-                                  onClick={() => downloadImage('webp')}
+                                  onClick={() => {
+                                    setEditingImageId(img.image_url.url);
+                                    setImageEditPrompt("");
+                                  }}
+                                  className="shadow-lg"
+                                  title="Edit Image"
                                 >
-                                  <Download className="w-4 h-4 mr-1" />
-                                  WEBP
+                                  <Edit2 className="w-4 h-4" />
                                 </Button>
                               </div>
+                              
+                              {/* Image edit prompt */}
+                              {editingImageId === img.image_url.url && (
+                                <div className="mt-3 space-y-2 animate-fade-in">
+                                  <Textarea
+                                    value={imageEditPrompt}
+                                    onChange={(e) => setImageEditPrompt(e.target.value)}
+                                    placeholder="Describe your edits (e.g., 'make it sunset', 'add snow', 'change to night')"
+                                    className="min-h-[80px]"
+                                  />
+                                  <div className="flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleEditImage(img.image_url.url, imageEditPrompt)}
+                                      disabled={loading || !imageEditPrompt.trim()}
+                                    >
+                                      {loading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Palette className="w-3 h-3 mr-1" />}
+                                      Apply Edit
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setEditingImageId(null);
+                                        setImageEditPrompt("");
+                                      }}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -1601,6 +1807,71 @@ const Chat = () => {
           </div>
         </main>
       </div>
+
+      {/* Image Gallery Modal */}
+      {showGallery && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in" onClick={() => setShowGallery(false)}>
+          <div className="glass-card p-6 rounded-xl max-w-4xl max-h-[80vh] w-full mx-4 overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <ImageIcon className="w-6 h-6 text-accent" />
+                Image Gallery ({savedImages.length})
+              </h2>
+              <Button variant="ghost" size="icon" onClick={() => setShowGallery(false)}>
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            
+            {savedImages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <ImageIcon className="w-16 h-16 text-muted-foreground mb-4 opacity-50" />
+                <p className="text-lg text-muted-foreground mb-2">No saved images yet</p>
+                <p className="text-sm text-muted-foreground">Generate images and click the heart icon to save them here</p>
+              </div>
+            ) : (
+              <ScrollArea className="flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4">
+                  {savedImages.map((image) => (
+                    <div key={image.id} className="relative group glass-card p-3 rounded-lg">
+                      <img 
+                        src={image.url} 
+                        alt={image.prompt}
+                        className="w-full aspect-square object-cover rounded-lg mb-3"
+                      />
+                      <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{image.prompt}</p>
+                      <p className="text-xs text-muted-foreground">{new Date(image.timestamp).toLocaleDateString()}</p>
+                      
+                      <div className="absolute top-5 right-5 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            const a = document.createElement('a');
+                            a.href = image.url;
+                            a.download = `image-${image.id}.png`;
+                            a.click();
+                          }}
+                          className="shadow-lg"
+                        >
+                          <Download className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => deleteImageFromGallery(image.id)}
+                          className="shadow-lg hover:bg-destructive hover:text-destructive-foreground"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
