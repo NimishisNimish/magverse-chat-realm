@@ -639,6 +639,7 @@ serve(async (req) => {
       
       // Perform web search if enabled (for ALL models except Perplexity, which does its own native search)
       let webSearchSources: Array<{url: string, title: string, snippet?: string}> = [];
+      let webSearchApplied = false;
       if (effectiveWebSearchEnabled && modelId !== 'perplexity') {
         const lastMsg = processedMessages[processedMessages.length - 1];
         const userQuery = typeof lastMsg.content === 'string' 
@@ -651,6 +652,7 @@ serve(async (req) => {
           
           if (searchResults.content) {
             webSearchSources = searchResults.sources;
+            webSearchApplied = true;
             
             // Inject search results into the prompt with numbered citations
             const sourcesText = searchResults.sources.length > 0 
@@ -678,8 +680,17 @@ Please synthesize the above web information with your knowledge to provide a com
           }
         }
       }
+      
+      // Handle image attachments (this needs to merge with web search if both are present)
       if (attachmentUrl?.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
-        const lastMsg = messages[messages.length - 1];
+        // Get the base content (either from web search enhanced prompt or original message)
+        const lastMsg = webSearchApplied 
+          ? finalMessages[finalMessages.length - 1]
+          : messages[messages.length - 1];
+        const baseContent = webSearchApplied 
+          ? (finalMessages[finalMessages.length - 1].content as string)
+          : lastMsg.content;
+        
         // Use explicit extension if provided, otherwise detect from URL (without query params)
         const urlWithoutQuery = attachmentUrl.split('?')[0];
         const fileExtension = attachmentExtension || urlWithoutQuery.split('.').pop()?.toLowerCase();
@@ -695,11 +706,11 @@ Please synthesize the above web information with your knowledge to provide a com
               const mimeType = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
               
               finalMessages = [
-                ...processedMessages.slice(0, -1),
+                ...(webSearchApplied ? finalMessages.slice(0, -1) : processedMessages.slice(0, -1)),
                 {
                   role: 'user',
                   content: [
-                    { type: 'text', text: lastMsg.content },
+                    { type: 'text', text: baseContent },
                     { 
                       type: 'inline_data',
                       inline_data: { mime_type: mimeType, data: base64Image }
@@ -707,26 +718,26 @@ Please synthesize the above web information with your knowledge to provide a com
                   ]
                 }
               ];
-              console.log(`✅ Image converted to base64 for ${modelId}`);
+              console.log(`✅ Image converted to base64 for ${modelId}${webSearchApplied ? ' (with web search)' : ''}`);
             } catch (error) {
               console.error(`❌ Failed to convert image for ${modelId}:`, error);
               finalMessages = [
-                ...processedMessages.slice(0, -1),
+                ...(webSearchApplied ? finalMessages.slice(0, -1) : processedMessages.slice(0, -1)),
                 {
                   role: 'user',
-                  content: `${lastMsg.content}\n\n[Note: Image was attached but conversion failed for ${modelId}]`
+                  content: `${baseContent}\n\n[Note: Image was attached but conversion failed for ${modelId}]`
                 }
               ];
             }
           } else if (['chatgpt', 'claude'].includes(modelId)) {
             // OpenAI/Claude use image_url format
-            console.log(`✅ Image formatted for ${modelId} (image_url)`);
+            console.log(`✅ Image formatted for ${modelId} (image_url)${webSearchApplied ? ' with web search' : ''}`);
             finalMessages = [
-              ...processedMessages.slice(0, -1),
+              ...(webSearchApplied ? finalMessages.slice(0, -1) : processedMessages.slice(0, -1)),
               {
                 role: 'user',
                 content: [
-                  { type: 'text', text: lastMsg.content },
+                  { type: 'text', text: baseContent },
                   { type: 'image_url', image_url: { url: attachmentUrl } }
                 ]
               }
@@ -736,10 +747,10 @@ Please synthesize the above web information with your knowledge to provide a com
           // Non-vision model - add helpful note
           console.log(`⚠️ ${modelId} doesn't support vision`);
           finalMessages = [
-            ...processedMessages.slice(0, -1),
+            ...(webSearchApplied ? finalMessages.slice(0, -1) : processedMessages.slice(0, -1)),
             {
               role: 'user',
-              content: `${lastMsg.content}\n\n[Note: An image was attached but ${modelId} doesn't support image analysis. Please describe the image or select a vision-capable model (ChatGPT, Claude, or Gemini).]`
+              content: `${baseContent}\n\n[Note: An image was attached but ${modelId} doesn't support image analysis. Please describe the image or select a vision-capable model (ChatGPT, Claude, or Gemini).]`
             }
           ];
         }
