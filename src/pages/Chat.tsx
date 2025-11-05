@@ -22,7 +22,8 @@ import {
   Menu,
   Rocket,
   Download,
-  Loader2
+  Loader2,
+  RefreshCw
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
@@ -57,6 +58,9 @@ interface Message {
   webSearchEnabled?: boolean;
   searchMode?: string;
   fullContent?: string; // For streaming support
+  error?: boolean; // Track if this response was an error
+  userQuery?: string; // Store original user query for retry
+  retrying?: boolean; // Track if currently retrying
 }
 
 const Chat = () => {
@@ -392,13 +396,29 @@ const Chat = () => {
           content: content,
           timestamp: new Date(),
           role: 'assistant' as const,
+          error: false,
+          userQuery: input,
         };
       });
 
-      // Show responses immediately
-      const messagesWithContent = aiMessages;
+      // Track failed models and create error messages for them
+      const successfulModels = data.responses.map((r: any) => r.model);
+      const failedModels = selectedModels.filter(m => !successfulModels.includes(m));
       
-      setMessages(prev => [...prev, ...messagesWithContent]);
+      const failedMessages: Message[] = failedModels.map((modelId) => ({
+        id: `${Date.now()}-${modelId}-error-${Math.random()}`,
+        model: aiModels.find(m => m.id === modelId)?.name || modelId,
+        content: '❌ Failed to get response from this model. Click retry to try again.',
+        timestamp: new Date(),
+        role: 'assistant' as const,
+        error: true,
+        userQuery: input,
+      }));
+
+      // Show responses immediately (both successful and failed)
+      const allMessages = [...aiMessages, ...failedMessages];
+      
+      setMessages(prev => [...prev, ...allMessages]);
       
       // Show appropriate toast based on success
       if (data.partialSuccess && aiMessages.length < selectedModels.length) {
@@ -479,6 +499,83 @@ const Chat = () => {
       // Attachments already cleared at the start of handleSend
       // DO NOT clear: selectedModels, deepResearchMode, webSearchEnabled, searchMode
       // These should persist until user manually changes them
+    }
+  };
+
+  const handleRetryModel = async (messageId: string) => {
+    const messageToRetry = messages.find(m => m.id === messageId);
+    if (!messageToRetry || !messageToRetry.error || !messageToRetry.userQuery) return;
+
+    const modelName = messageToRetry.model;
+    const modelId = aiModels.find(m => m.name === modelName)?.id;
+    if (!modelId) return;
+
+    // Mark message as retrying
+    setMessages(prev => prev.map(m => 
+      m.id === messageId ? { ...m, retrying: true } : m
+    ));
+
+    try {
+      // Get recent messages for context (exclude error messages)
+      const MAX_CONTEXT_MESSAGES = 6;
+      const validMessages = messages.filter(m => !m.error && !m.retrying);
+      const recentMessages = validMessages.slice(-MAX_CONTEXT_MESSAGES);
+
+      const { data, error } = await supabase.functions.invoke('chat-with-ai', {
+        body: {
+          messages: [
+            ...recentMessages.map(m => ({
+              role: m.role,
+              content: m.content,
+            })),
+            { role: 'user', content: messageToRetry.userQuery }
+          ],
+          selectedModels: [modelId], // Only retry the failed model
+          webSearchEnabled: messageToRetry.webSearchEnabled || false,
+          searchMode: messageToRetry.searchMode || 'general',
+          deepResearchMode: false,
+          ...(currentChatId && { chatId: currentChatId }),
+        },
+      });
+
+      if (error) throw error;
+
+      if (!data.responses || data.responses.length === 0) {
+        throw new Error('Model failed to respond again');
+      }
+
+      // Replace error message with successful response
+      const newResponse = data.responses[0];
+      setMessages(prev => prev.map(m => 
+        m.id === messageId 
+          ? {
+              ...m,
+              content: newResponse.content,
+              error: false,
+              retrying: false,
+            }
+          : m
+      ));
+
+      toast({
+        title: "Retry successful",
+        description: `${modelName} responded successfully.`,
+      });
+
+      await refreshProfile();
+    } catch (error: any) {
+      console.error('Retry error:', error);
+      
+      // Restore error state
+      setMessages(prev => prev.map(m => 
+        m.id === messageId ? { ...m, retrying: false } : m
+      ));
+
+      toast({
+        title: "Retry failed",
+        description: `${modelName} failed again. ${error.message || 'Please try again later.'}`,
+        variant: "destructive",
+      });
     }
   };
 
@@ -765,6 +862,26 @@ const Chat = () => {
                       )}
                     </div>
                     <p className="text-foreground leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                    
+                    {/* Retry button for failed messages */}
+                    {message.error && !message.retrying && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRetryModel(message.id)}
+                        className="mt-3 text-xs"
+                      >
+                        <RefreshCw className="w-3 h-3 mr-1" />
+                        Retry {message.model}
+                      </Button>
+                    )}
+                    
+                    {message.retrying && (
+                      <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Retrying {message.model}...
+                      </div>
+                    )}
                   </div>
                 ))}
                 {loading && (
