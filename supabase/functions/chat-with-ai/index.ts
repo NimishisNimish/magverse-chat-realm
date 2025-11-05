@@ -217,6 +217,65 @@ const providerConfig: Record<string, any> = {
   },
 };
 
+/**
+ * Helper function to perform web search and format results for all models
+ */
+async function performWebSearch(query: string, searchMode: string = 'general'): Promise<string> {
+  if (!perplexityApiKey) {
+    console.error('⚠️ Perplexity API key not configured for web search');
+    return '';
+  }
+
+  try {
+    console.log('🔍 Performing web search:', query);
+    
+    const domains = getSearchDomains(searchMode);
+    const searchPayload: any = {
+      model: 'sonar', // Use sonar for search (faster than sonar-pro)
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a web search assistant. Provide concise, factual information from recent web sources. Include citations.'
+        },
+        {
+          role: 'user',
+          content: query
+        }
+      ],
+      temperature: 0.2,
+      max_tokens: 1000,
+      search_recency_filter: 'month',
+    };
+
+    if (domains.length > 0) {
+      searchPayload.search_domain_filter = domains;
+    }
+
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${perplexityApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(searchPayload),
+    });
+
+    if (!response.ok) {
+      console.error('❌ Web search failed:', response.status);
+      return '';
+    }
+
+    const data = await response.json();
+    const searchResults = data.choices[0]?.message?.content || '';
+    
+    console.log('✅ Web search completed:', searchResults.substring(0, 200) + '...');
+    return searchResults;
+  } catch (error) {
+    console.error('❌ Web search error:', error);
+    return '';
+  }
+}
+
 // Validation schema
 const chatRequestSchema = z.object({
   messages: z.array(z.object({
@@ -568,6 +627,41 @@ serve(async (req) => {
       
       // Handle image attachments per model
       let finalMessages = processedMessages;
+      
+      // Perform web search if enabled (for ALL models except Perplexity, which does its own native search)
+      if (effectiveWebSearchEnabled && modelId !== 'perplexity') {
+        const lastMsg = processedMessages[processedMessages.length - 1];
+        const userQuery = typeof lastMsg.content === 'string' 
+          ? lastMsg.content 
+          : (Array.isArray(lastMsg.content) && lastMsg.content[0]?.text) || '';
+
+        if (userQuery) {
+          console.log(`🌐 Web search enabled for ${modelId}, searching...`);
+          const searchResults = await performWebSearch(userQuery, searchMode);
+          
+          if (searchResults) {
+            // Inject search results into the prompt
+            const enhancedPrompt = `${userQuery}
+
+---
+📊 **Recent Web Information:**
+${searchResults}
+---
+
+Please synthesize the above web information with your knowledge to provide a comprehensive answer. Cite sources when referencing the web data.`;
+
+            finalMessages = [
+              ...processedMessages.slice(0, -1),
+              {
+                role: 'user',
+                content: enhancedPrompt
+              }
+            ];
+            
+            console.log(`✅ Web search results injected into ${modelId} prompt`);
+          }
+        }
+      }
       if (attachmentUrl?.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
         const lastMsg = messages[messages.length - 1];
         // Use explicit extension if provided, otherwise detect from URL (without query params)
@@ -637,17 +731,17 @@ serve(async (req) => {
       
       // Add Deep Research system prompt if enabled
       if (deepResearchMode && finalMessages.length > 0) {
-        const hasPerplexity = selectedModels.includes('perplexity');
-        
         const deepResearchPrompt = {
           role: 'system' as const,
-          content: hasPerplexity 
-            ? `You are in Deep Research mode with real-time web search enabled via Perplexity. Provide comprehensive, detailed explanations using current information. ${effectiveWebSearchEnabled ? 'Search the web for recent data, statistics, and cite sources.' : ''} Include:
+          content: effectiveWebSearchEnabled
+            ? `You are in Deep Research mode with real-time web search enabled. Web search results have been injected into the user's query. Provide comprehensive, detailed explanations combining:
+- Current web information (provided in the query)
+- Your extensive training knowledge
 - Multiple perspectives and expert opinions
 - Real-world examples and case studies
-- Step-by-step reasoning with clear explanations  
+- Step-by-step reasoning with clear explanations
 - Practical applications and actionable insights
-- Citations from web sources when available
+- Citations from web sources when referencing them
 
 Make complex topics accessible and engaging.`
             : `You are in Deep Research mode. Provide comprehensive, detailed explanations using your extensive training data. Include:
@@ -655,9 +749,8 @@ Make complex topics accessible and engaging.`
 - Real-world examples and case studies
 - Step-by-step reasoning with clear explanations
 - Practical applications and actionable insights
-- Acknowledge when information might be outdated (training data cutoff)
 
-Make complex topics accessible and engaging. Note: You don't have real-time web access - select Perplexity for live web search.`
+Make complex topics accessible and engaging.`
         };
         
         // Insert system message at the beginning

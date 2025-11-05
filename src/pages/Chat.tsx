@@ -423,6 +423,7 @@ const Chat = () => {
       console.error('Chat error:', error);
       setProcessingFile(false);
       setIsDeepResearching(false);
+      setLoading(false); // Prevent UI lock after errors
       
       // Detect token limit errors and auto-retry with reduced context
       if (error.message?.includes('token') || error.message?.includes('context') || error.message?.includes('length')) {
