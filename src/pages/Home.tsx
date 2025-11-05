@@ -241,22 +241,11 @@ const Home = () => {
                 </div>
               </div>
               
-              {user ? (
-                <Button 
-                  variant="hero" 
-                  size="lg" 
-                  className="w-full"
-                  onClick={() => document.getElementById('payment-section')?.scrollIntoView({ behavior: 'smooth' })}
-                >
+              <Link to={user ? "/payment" : "/auth"}>
+                <Button variant="hero" size="lg" className="w-full">
                   Start Free Trial
                 </Button>
-              ) : (
-                <Link to="/auth">
-                  <Button variant="hero" size="lg" className="w-full">
-                    Start Free Trial
-                  </Button>
-                </Link>
-              )}
+              </Link>
               
               <ul className="space-y-3 pt-4">
                 <li className="flex items-start gap-3">
@@ -308,22 +297,11 @@ const Home = () => {
                 </div>
               </div>
               
-              {user ? (
-                <Button 
-                  variant="outline" 
-                  size="lg" 
-                  className="w-full"
-                  onClick={() => document.getElementById('payment-section')?.scrollIntoView({ behavior: 'smooth' })}
-                >
+              <Link to={user ? "/payment" : "/auth"}>
+                <Button variant="outline" size="lg" className="w-full">
                   Get Lifetime Access
                 </Button>
-              ) : (
-                <Link to="/auth">
-                  <Button variant="outline" size="lg" className="w-full">
-                    Get Lifetime Access
-                  </Button>
-                </Link>
-              )}
+              </Link>
               
               <ul className="space-y-3 pt-4">
                 <li className="flex items-start gap-3">

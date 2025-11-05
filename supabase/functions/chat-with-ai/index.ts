@@ -106,40 +106,43 @@ const providerConfig: Record<string, any> = {
     provider: 'perplexity',
     apiKey: perplexityApiKey,
     endpoint: 'https://api.perplexity.ai/chat/completions',
-      model: 'sonar-pro',
-      headers: () => ({
-        'Authorization': `Bearer ${perplexityApiKey}`,
-        'Content-Type': 'application/json',
-      }),
-      bodyTemplate: (messages: any[], webSearchEnabled?: boolean, searchMode?: string) => {
-        const baseConfig: any = {
-          model: 'sonar-pro',
-          messages,
-          stream: false,
-          temperature: 0.5,
-          max_tokens: 2000,
-        };
-        
-        // Add web search parameters if enabled
-        if (webSearchEnabled) {
-          const domains = getSearchDomains(searchMode);
-          if (domains.length > 0) {
-            baseConfig.search_domain_filter = domains;
-          }
-          baseConfig.search_recency_filter = 'month';
-          baseConfig.return_images = false;
-          baseConfig.return_related_questions = false;
-          
-          // Add search mode specific parameters
-          if (searchMode === 'finance') {
-            baseConfig.temperature = 0.2; // More precise for financial data
-          } else if (searchMode === 'academic') {
-            baseConfig.temperature = 0.3; // Slightly more precise for academic content
-          }
+    model: 'sonar-pro',
+    headers: () => ({
+      'Authorization': `Bearer ${perplexityApiKey}`,
+      'Content-Type': 'application/json',
+    }),
+    bodyTemplate: (messages: any[], webSearchEnabled?: boolean, searchMode?: string) => {
+      const baseConfig: any = {
+        model: 'sonar-pro',
+        messages,
+        stream: false,
+        temperature: 0.5,
+        max_tokens: 2000,
+      };
+      
+      // Add web search parameters if enabled
+      if (webSearchEnabled) {
+        const domains = getSearchDomains(searchMode);
+        if (domains.length > 0) {
+          baseConfig.search_domain_filter = domains;
         }
+        baseConfig.search_recency_filter = 'month';
+        baseConfig.return_images = false;
+        baseConfig.return_related_questions = false;
         
-        return baseConfig;
-      },
+        // Add search mode specific parameters
+        if (searchMode === 'finance') {
+          baseConfig.temperature = 0.2; // More precise for financial data
+        } else if (searchMode === 'academic') {
+          baseConfig.temperature = 0.3; // Slightly more precise for academic content
+        }
+      }
+      
+      return baseConfig;
+    },
+    responseTransform: (data: any) => {
+      return data.choices[0]?.message?.content || 'No response';
+    },
   },
   claude: {
     provider: 'openrouter',
@@ -158,6 +161,9 @@ const providerConfig: Record<string, any> = {
       temperature: 0.7,
       max_tokens: 4000,
     }),
+    responseTransform: (data: any) => {
+      return data.choices[0]?.message?.content || 'No response';
+    },
   },
   llama: {
     provider: 'nvidia-nim',
