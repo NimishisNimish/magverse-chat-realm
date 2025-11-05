@@ -47,7 +47,10 @@ const History = () => {
   }, [user]);
 
   const loadChats = async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     
     try {
       setLoading(true);
@@ -59,12 +62,13 @@ const History = () => {
 
       if (error) {
         console.error('Error loading chat history:', error);
-        toast({ title: "Error loading chat history", variant: "destructive" });
+        toast({ title: "Error loading chat history", description: error.message, variant: "destructive" });
         setChats([]);
+        setLoading(false);
         return;
       }
 
-      if (chatData) {
+      if (chatData && chatData.length > 0) {
         const chatsWithCounts = await Promise.all(
           chatData.map(async (chat) => {
             const { count } = await supabase
@@ -79,10 +83,13 @@ const History = () => {
           })
         );
         setChats(chatsWithCounts);
+      } else {
+        setChats([]);
       }
     } catch (err) {
       console.error('Unexpected error loading chats:', err);
-      toast({ title: "Error loading chat history", variant: "destructive" });
+      toast({ title: "Error loading chat history", description: "Please try again", variant: "destructive" });
+      setChats([]);
     } finally {
       setLoading(false);
     }

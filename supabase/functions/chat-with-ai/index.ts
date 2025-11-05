@@ -106,38 +106,40 @@ const providerConfig: Record<string, any> = {
     provider: 'perplexity',
     apiKey: perplexityApiKey,
     endpoint: 'https://api.perplexity.ai/chat/completions',
-    model: 'sonar-pro',
-    headers: () => ({
-      'Authorization': `Bearer ${perplexityApiKey}`,
-      'Content-Type': 'application/json',
-    }),
-    bodyTemplate: (messages: any[], webSearchEnabled?: boolean, searchMode?: string) => {
-      const baseConfig: any = {
-        model: 'sonar-pro',
-        messages,
-        stream: false,
-      };
-      
-      // Add web search parameters if enabled
-      if (webSearchEnabled) {
-        const domains = getSearchDomains(searchMode);
-        if (domains.length > 0) {
-          baseConfig.search_domain_filter = domains;
-        }
-        baseConfig.search_recency_filter = 'month';
-        baseConfig.return_images = false;
-        baseConfig.return_related_questions = false;
+      model: 'sonar-pro',
+      headers: () => ({
+        'Authorization': `Bearer ${perplexityApiKey}`,
+        'Content-Type': 'application/json',
+      }),
+      bodyTemplate: (messages: any[], webSearchEnabled?: boolean, searchMode?: string) => {
+        const baseConfig: any = {
+          model: 'sonar-pro',
+          messages,
+          stream: false,
+          temperature: 0.5,
+          max_tokens: 2000,
+        };
         
-        // Add search mode specific parameters
-        if (searchMode === 'finance') {
-          baseConfig.temperature = 0.2; // More precise for financial data
-        } else if (searchMode === 'academic') {
-          baseConfig.temperature = 0.3; // Slightly more precise for academic content
+        // Add web search parameters if enabled
+        if (webSearchEnabled) {
+          const domains = getSearchDomains(searchMode);
+          if (domains.length > 0) {
+            baseConfig.search_domain_filter = domains;
+          }
+          baseConfig.search_recency_filter = 'month';
+          baseConfig.return_images = false;
+          baseConfig.return_related_questions = false;
+          
+          // Add search mode specific parameters
+          if (searchMode === 'finance') {
+            baseConfig.temperature = 0.2; // More precise for financial data
+          } else if (searchMode === 'academic') {
+            baseConfig.temperature = 0.3; // Slightly more precise for academic content
+          }
         }
-      }
-      
-      return baseConfig;
-    },
+        
+        return baseConfig;
+      },
   },
   claude: {
     provider: 'openrouter',
@@ -154,7 +156,7 @@ const providerConfig: Record<string, any> = {
       model: 'anthropic/claude-3.5-sonnet',
       messages,
       temperature: 0.7,
-      max_tokens: 2000,
+      max_tokens: 4000,
     }),
   },
   llama: {

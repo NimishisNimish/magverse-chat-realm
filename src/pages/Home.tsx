@@ -4,6 +4,7 @@ import { Sparkles, Zap, Shield, Infinity, Mail, MapPin, Phone, Users, Target, Ro
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
 import magverseLogo from "@/assets/magverse-logo.png";
+import upiQrCode from "@/assets/upi-qr-code.jpg";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -50,24 +51,117 @@ const Home = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <Link to="/chat">
-              <Button variant="hero" size="lg" className="w-full sm:w-auto text-lg px-8">
-                <Zap className="w-5 h-5" />
-                Start Chatting
-              </Button>
-            </Link>
-            <Link to="/upgrade">
-              <Button variant="outline" size="lg" className="w-full sm:w-auto text-lg px-8">
-                <Sparkles className="w-5 h-5" />
-                View Pricing
-              </Button>
-            </Link>
+            <Button 
+              variant="hero" 
+              size="lg" 
+              className="w-full sm:w-auto text-lg px-8"
+              onClick={() => document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth' })}
+            >
+              <Zap className="w-5 h-5" />
+              Start Chatting
+            </Button>
+            <Button 
+              variant="outline" 
+              size="lg" 
+              className="w-full sm:w-auto text-lg px-8"
+              onClick={() => document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth' })}
+            >
+              <Sparkles className="w-5 h-5" />
+              View Pricing
+            </Button>
           </div>
         </div>
       </section>
+
+      {/* Payment Section */}
+      {user && (
+        <section id="payment-section" className="container mx-auto px-4 py-20">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-12 animate-fade-in">
+              <h2 className="text-4xl md:text-5xl font-bold mb-4">
+                Complete Your <span className="text-primary">Payment</span>
+              </h2>
+              <p className="text-xl text-muted-foreground">
+                Scan the QR code or use the UPI ID to complete your payment
+              </p>
+            </div>
+
+            <div className="glass-card p-8 rounded-2xl space-y-8">
+              <div className="grid md:grid-cols-2 gap-8">
+                {/* QR Code Section */}
+                <div className="space-y-4">
+                  <h3 className="text-2xl font-semibold text-center">Scan QR Code</h3>
+                  <div className="flex justify-center">
+                    <img 
+                      src={upiQrCode} 
+                      alt="UPI Payment QR Code" 
+                      className="w-64 h-64 rounded-xl border-2 border-primary/30"
+                    />
+                  </div>
+                  <p className="text-sm text-muted-foreground text-center">
+                    Use any UPI app to scan and pay
+                  </p>
+                </div>
+
+                {/* UPI ID Section */}
+                <div className="space-y-6 flex flex-col justify-center">
+                  <div className="space-y-4">
+                    <h3 className="text-2xl font-semibold">Or Pay via UPI ID</h3>
+                    <div className="glass-card p-6 rounded-xl space-y-3">
+                      <p className="text-sm text-muted-foreground">UPI ID</p>
+                      <p className="text-2xl font-mono font-bold text-primary">9872021777@fam</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          navigator.clipboard.writeText('9872021777@fam');
+                          toast({ title: "UPI ID copied to clipboard!" });
+                        }}
+                      >
+                        Copy UPI ID
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Shield className="w-4 h-4" />
+                      <span>Secure payment gateway</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Zap className="w-4 h-4" />
+                      <span>Instant activation after payment</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-4">
+                    <p className="text-sm text-muted-foreground mb-4">
+                      After payment, please send a screenshot to our support for verification:
+                    </p>
+                    <Button variant="outline" className="w-full" asChild>
+                      <a href="mailto:support@magverse.ai">
+                        <Mail className="w-4 h-4 mr-2" />
+                        Send Payment Proof
+                      </a>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-6 border-t border-border">
+                <p className="text-center text-sm text-muted-foreground">
+                  <strong>Note:</strong> Your subscription will be activated within 24 hours after payment verification.
+                  For immediate activation, please contact support with your transaction ID.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
       
       {/* Pricing Section */}
-      <section className="container mx-auto px-4 py-20">
+      <section id="pricing-section" className="container mx-auto px-4 py-20">
         <div className="max-w-6xl mx-auto space-y-12">
           <div className="text-center space-y-4 animate-fade-in">
             <h2 className="text-4xl md:text-5xl font-bold">
@@ -93,11 +187,19 @@ const Home = () => {
                 </div>
               </div>
               
-              <Link to="/auth">
-                <Button variant="outline" size="lg" className="w-full">
-                  Get Started
-                </Button>
-              </Link>
+              {user ? (
+                <Link to="/chat">
+                  <Button variant="outline" size="lg" className="w-full">
+                    Start Chatting
+                  </Button>
+                </Link>
+              ) : (
+                <Link to="/auth">
+                  <Button variant="outline" size="lg" className="w-full">
+                    Get Started
+                  </Button>
+                </Link>
+              )}
               
               <ul className="space-y-3 pt-4">
                 <li className="flex items-start gap-3">
@@ -139,11 +241,22 @@ const Home = () => {
                 </div>
               </div>
               
-              <Link to="/upgrade">
-                <Button variant="hero" size="lg" className="w-full">
+              {user ? (
+                <Button 
+                  variant="hero" 
+                  size="lg" 
+                  className="w-full"
+                  onClick={() => document.getElementById('payment-section')?.scrollIntoView({ behavior: 'smooth' })}
+                >
                   Start Free Trial
                 </Button>
-              </Link>
+              ) : (
+                <Link to="/auth">
+                  <Button variant="hero" size="lg" className="w-full">
+                    Start Free Trial
+                  </Button>
+                </Link>
+              )}
               
               <ul className="space-y-3 pt-4">
                 <li className="flex items-start gap-3">
@@ -195,11 +308,22 @@ const Home = () => {
                 </div>
               </div>
               
-              <Link to="/upgrade">
-                <Button variant="outline" size="lg" className="w-full">
+              {user ? (
+                <Button 
+                  variant="outline" 
+                  size="lg" 
+                  className="w-full"
+                  onClick={() => document.getElementById('payment-section')?.scrollIntoView({ behavior: 'smooth' })}
+                >
                   Get Lifetime Access
                 </Button>
-              </Link>
+              ) : (
+                <Link to="/auth">
+                  <Button variant="outline" size="lg" className="w-full">
+                    Get Lifetime Access
+                  </Button>
+                </Link>
+              )}
               
               <ul className="space-y-3 pt-4">
                 <li className="flex items-start gap-3">
