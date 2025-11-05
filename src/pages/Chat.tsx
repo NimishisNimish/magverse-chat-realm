@@ -62,6 +62,7 @@ interface Message {
   userQuery?: string; // Store original user query for retry
   retrying?: boolean; // Track if currently retrying
   sources?: Array<{url: string, title: string, snippet?: string}>; // Source citations
+  images?: Array<{image_url: {url: string}}>; // Generated images
 }
 
 const Chat = () => {
@@ -81,6 +82,7 @@ const Chat = () => {
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDeepResearching, setIsDeepResearching] = useState(false);
+  const [imageGenerationMode, setImageGenerationMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
@@ -356,11 +358,17 @@ const Chat = () => {
             body: {
               model: modelConfig.model,
               messages: [...recentMessages.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: input }],
+              generateImage: imageGenerationMode,
             },
           });
           
           if (result.error) throw result.error;
-          responses.push({ model: modelId, content: result.data.choices?.[0]?.message?.content || 'No response', error: false });
+          responses.push({ 
+            model: modelId, 
+            content: result.data.choices?.[0]?.message?.content || 'No response', 
+            error: false,
+            images: result.data.images || [],
+          });
         } catch (err: any) {
           responses.push({ model: modelId, content: `Error: ${err.message}`, error: true });
         }
@@ -389,6 +397,7 @@ const Chat = () => {
           error: response.error || false,
           userQuery: input,
           sources: response.sources || [],
+          images: response.images || [],
         };
       });
 
@@ -489,16 +498,17 @@ const Chat = () => {
       const modelConfig = aiModels.find(m => m.id === modelId);
       if (!modelConfig) throw new Error('Model not found');
 
-      const { data, error } = await supabase.functions.invoke('lovable-ai-chat', {
-        body: {
-          model: modelConfig.model,
-          messages: [
-            ...recentMessages.map(m => ({ role: m.role, content: m.content })),
-            { role: 'user', content: messageToRetry.userQuery }
-          ],
-          stream: false,
-        },
-      });
+        const { data, error } = await supabase.functions.invoke('lovable-ai-chat', {
+          body: {
+            model: modelConfig.model,
+            messages: [
+              ...recentMessages.map(m => ({ role: m.role, content: m.content })),
+              { role: 'user', content: messageToRetry.userQuery }
+            ],
+            stream: false,
+            generateImage: false,
+          },
+        });
 
       if (error) throw error;
 
@@ -706,6 +716,36 @@ const Chat = () => {
           )}
         </div>
         
+        {/* Image Generation Settings */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            Image Generation
+          </h3>
+          
+          <button
+            onClick={() => setImageGenerationMode(!imageGenerationMode)}
+            className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
+              imageGenerationMode 
+                ? 'glass-card border-purple-500/50 shadow-lg shadow-purple-500/20' 
+                : 'hover:bg-muted/20'
+            }`}
+          >
+            <div className={`w-8 h-8 rounded-lg ${imageGenerationMode ? 'bg-purple-500/20' : 'bg-muted/20'} flex items-center justify-center`}>
+              <Sparkles className={`w-4 h-4 ${imageGenerationMode ? 'text-purple-400' : 'text-muted-foreground'}`} />
+            </div>
+            <span className={`font-medium ${imageGenerationMode ? 'text-foreground' : 'text-muted-foreground'}`}>
+              Generate Images
+            </span>
+            {imageGenerationMode && <Circle className="w-2 h-2 ml-auto fill-purple-400 text-purple-400" />}
+          </button>
+          
+          {imageGenerationMode && (
+            <p className="text-xs text-muted-foreground pl-2 animate-fade-in">
+              Using Gemini 2.5 Flash Image to generate images from your prompts
+            </p>
+          )}
+        </div>
+        
         <Link to="/history">
           <Button variant="outline" className="w-full justify-start">
             <HistoryIcon className="w-5 h-5" />
@@ -857,6 +897,31 @@ const Chat = () => {
                       </div>
                     )}
                     
+                    {/* Display generated images */}
+                    {message.role === 'assistant' && message.images && message.images.length > 0 && (
+                      <div className="mt-4 space-y-4">
+                        {message.images.map((img, idx) => (
+                          <div key={idx} className="relative group">
+                            <img 
+                              src={img.image_url.url} 
+                              alt={`Generated image ${idx + 1}`}
+                              className="w-full rounded-lg border border-border shadow-lg"
+                            />
+                            <a
+                              href={img.image_url.url}
+                              download={`generated-image-${Date.now()}-${idx}.png`}
+                              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <Button size="sm" variant="secondary">
+                                <Download className="w-4 h-4 mr-1" />
+                                Download
+                              </Button>
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
                     {/* Retry button for failed messages */}
                     {message.error && !message.retrying && (
                       <Button
@@ -909,6 +974,14 @@ const Chat = () => {
           {/* Input Area */}
           <div className="border-t border-glass-border glass-card p-6">
             <div className="max-w-4xl mx-auto">
+              {/* Image Generation Mode Indicator */}
+              {imageGenerationMode && (
+                <div className="mb-3 flex items-center gap-2 text-xs bg-purple-500/20 text-purple-300 px-3 py-1.5 rounded-md w-fit">
+                  <Sparkles className="w-3 h-3" />
+                  Image Generation Mode
+                </div>
+              )}
+              
               {/* Show attached file preview */}
               {attachmentUrl && (
                 <div className="glass-card p-3 rounded-lg border border-accent/30 flex items-center gap-3 mb-3 animate-fade-in">

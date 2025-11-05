@@ -11,14 +11,25 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, model = "google/gemini-2.5-flash", stream = false } = await req.json();
+    const { messages, model = "google/gemini-2.5-flash", stream = false, generateImage = false } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log(`Processing request for model: ${model}`);
+    const selectedModel = generateImage ? "google/gemini-2.5-flash-image-preview" : model;
+    console.log(`Processing request for model: ${selectedModel}, generateImage: ${generateImage}`);
+
+    const requestBody: any = {
+      model: selectedModel,
+      messages,
+      stream,
+    };
+
+    if (generateImage) {
+      requestBody.modalities = ["image", "text"];
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -26,11 +37,7 @@ serve(async (req) => {
         "Authorization": `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model,
-        messages,
-        stream,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
@@ -77,8 +84,14 @@ serve(async (req) => {
 
     const data = await response.json();
     
+    // Extract images if present
+    const images = data.choices?.[0]?.message?.images || [];
+    
     return new Response(
-      JSON.stringify(data),
+      JSON.stringify({
+        ...data,
+        images,
+      }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" } 
       }
