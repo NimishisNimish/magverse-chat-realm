@@ -368,11 +368,62 @@ const Chat = () => {
     });
 
     try {
-      // Context window management: keep only last 6 messages to prevent token overflow
-      const MAX_CONTEXT_MESSAGES = 6;
-      const recentMessages = messages.slice(-MAX_CONTEXT_MESSAGES);
+      // Send full conversation history for better context awareness
+      // Only limit if conversation becomes extremely long (>50 messages)
+      const MAX_CONTEXT_MESSAGES = 50;
+      const conversationHistory = messages.length > MAX_CONTEXT_MESSAGES 
+        ? messages.slice(-MAX_CONTEXT_MESSAGES)
+        : messages;
       
-      console.log(`Sending ${recentMessages.length} recent messages (${messages.length} total in history)`);
+      console.log(`Sending ${conversationHistory.length} messages for full context (${messages.length} total in history)`);
+
+      // Helper function for retry with exponential backoff
+      const fetchWithRetry = async (
+        url: string, 
+        options: RequestInit, 
+        maxRetries = 3, 
+        baseDelay = 1000
+      ): Promise<Response> => {
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+          try {
+            const response = await fetch(url, options);
+            
+            // Handle rate limiting
+            if (response.status === 429) {
+              if (attempt < maxRetries) {
+                const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff
+                console.log(`Rate limited. Retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+                
+                toast({
+                  title: "Rate limit reached",
+                  description: `Waiting ${delay / 1000}s before retry (${attempt + 1}/${maxRetries})...`,
+                });
+                
+                await new Promise(resolve => setTimeout(resolve, delay));
+                continue;
+              } else {
+                throw new Error('Rate limit exceeded. Please try again in a few moments.');
+              }
+            }
+            
+            // Handle payment required
+            if (response.status === 402) {
+              throw new Error('Credits exhausted. Please add credits to your Lovable AI workspace.');
+            }
+            
+            return response;
+          } catch (error: any) {
+            if (attempt === maxRetries || error.message.includes('Credits exhausted')) {
+              throw error;
+            }
+            // Network errors - retry with backoff
+            const delay = baseDelay * Math.pow(2, attempt);
+            console.log(`Network error. Retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
+        throw new Error('Max retries exceeded');
+      };
 
       // Process each model with streaming
       const modelPromises = selectedModels.map(async (modelId) => {
@@ -394,7 +445,7 @@ const Chat = () => {
         try {
           const CHAT_URL = `https://pqdgpxetysqcdcjwormb.supabase.co/functions/v1/lovable-ai-chat`;
           
-          const response = await fetch(CHAT_URL, {
+          const response = await fetchWithRetry(CHAT_URL, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -402,7 +453,7 @@ const Chat = () => {
             },
             body: JSON.stringify({
               model: modelConfig.model,
-              messages: [...recentMessages.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: input }],
+              messages: [...conversationHistory.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: input }],
               stream: true,
               generateImage: imageGenerationMode,
             }),
@@ -510,6 +561,15 @@ const Chat = () => {
               ? { ...msg, content: `Error: ${err.message}`, error: true }
               : msg
           ));
+          
+          // Show specific error toast for rate limiting
+          if (err.message.includes('Rate limit')) {
+            toast({
+              title: `${modelConfig.name} rate limited`,
+              description: "All retry attempts exhausted. Please wait a moment before trying again.",
+              variant: "destructive",
+            });
+          }
         }
       });
 
