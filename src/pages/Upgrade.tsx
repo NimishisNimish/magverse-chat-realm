@@ -29,7 +29,7 @@ const Upgrade = () => {
   const paymentStatus = usePaymentStatus(orderId, async () => {
     toast({
       title: "Payment Verified!",
-      description: `Your ${selectedPlan === 'monthly' ? 'monthly subscription' : 'lifetime Pro access'} has been activated.`,
+      description: `Your ${selectedPlan === 'monthly' ? 'yearly Pro subscription' : 'lifetime Pro access'} has been activated.`,
     });
     await refreshProfile();
     setTimeout(() => {
@@ -60,7 +60,7 @@ const Upgrade = () => {
     if (planType === 'monthly' && profile?.subscription_type === 'monthly') {
       toast({
         title: "Already Subscribed",
-        description: "You already have an active monthly subscription",
+        description: "You already have an active yearly subscription",
       });
       return;
     }
@@ -170,97 +170,37 @@ const Upgrade = () => {
               </Button>
             </div>
 
-            {/* Monthly Plan */}
-            <div className="glass-card-hover p-8 rounded-2xl space-y-6 border-primary/30 relative">
+            {/* Yearly Plan (Using monthly in backend) */}
+            <div className="glass-card p-8 rounded-2xl space-y-6 border-primary relative">
               <div className="absolute top-4 right-4">
-                <div className="px-3 py-1 rounded-full bg-primary/20 text-xs font-semibold text-primary">
-                  POPULAR
+                <div className="px-3 py-1 rounded-full bg-primary text-xs font-semibold text-white">
+                  MOST POPULAR
                 </div>
               </div>
               
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Zap className="w-6 h-6 text-primary" />
-                  <h2 className="text-2xl font-bold">Monthly Plan</h2>
-                </div>
-                <p className="text-muted-foreground">Affordable subscription</p>
-              </div>
-              
-              <div className="space-y-1">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-bold">₹1</span>
-                  <span className="text-muted-foreground">/month</span>
-                </div>
-                <p className="text-sm text-muted-foreground">Renews every 30 days</p>
-              </div>
-              
-              <ul className="space-y-3">
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground font-semibold">50 credits per month</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Access to all 6 AI models</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">No daily limits</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Cancel anytime</span>
-                </li>
-              </ul>
-              
-              <Button 
-                variant="outline" 
-                size="lg" 
-                className="w-full"
-                onClick={() => handleOpenPaymentDialog('monthly')}
-                disabled={loading || profile?.subscription_type === 'monthly'}
-              >
-                <Zap className="w-5 h-5" />
-                {loading ? "Processing..." : profile?.subscription_type === 'monthly' ? "Current Plan" : "Subscribe Monthly"}
-              </Button>
-            </div>
-            
-            {/* Lifetime Pro Plan */}
-            <div className="glass-card p-8 rounded-2xl space-y-6 border-accent relative overflow-hidden animate-glow-pulse">
-              <div className="absolute top-4 right-4">
-                <div className="px-3 py-1 rounded-full bg-gradient-to-r from-primary to-secondary text-xs font-semibold">
-                  BEST VALUE
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Crown className="w-6 h-6 text-primary" />
                   <h2 className="text-2xl font-bold">Pro Plan</h2>
                 </div>
-                <p className="text-muted-foreground">Lifetime unlimited access</p>
+                <p className="text-muted-foreground">Full access to all premium AI models</p>
               </div>
               
               <div className="space-y-1">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-bold gradient-text">₹199</span>
-                  <span className="text-muted-foreground line-through">₹999</span>
+                  <span className="text-4xl font-bold gradient-text">₹299</span>
+                  <span className="text-muted-foreground">/per year</span>
                 </div>
-                <p className="text-sm text-muted-foreground">One-time payment • Lifetime access</p>
               </div>
               
               <ul className="space-y-3">
                 <li className="flex items-start gap-3">
                   <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground font-semibold">Unlimited credits forever</span>
+                  <span className="text-foreground">Unlimited messages</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Access to all 6 AI models</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">No daily limits</span>
+                  <span className="text-foreground">All 6+ premium AI models</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
@@ -268,19 +208,83 @@ const Upgrade = () => {
                 </li>
                 <li className="flex items-start gap-3">
                   <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Early access to new models</span>
+                  <span className="text-foreground">Fastest response times</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <span className="text-foreground">Advanced features</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <span className="text-foreground">Team collaboration (up to 3)</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <span className="text-foreground">Chat history & export</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <span className="text-foreground">API access</span>
                 </li>
               </ul>
               
               <Button 
                 variant="hero" 
                 size="lg" 
-                className="w-full text-lg"
+                className="w-full"
+                onClick={() => handleOpenPaymentDialog('monthly')}
+                disabled={loading || profile?.subscription_type === 'monthly'}
+              >
+                <Zap className="w-5 h-5" />
+                {loading ? "Processing..." : profile?.subscription_type === 'monthly' ? "Current Plan" : "Subscribe Yearly"}
+              </Button>
+            </div>
+            
+            {/* Lifetime Plan */}
+            <div className="glass-card-hover p-8 rounded-2xl space-y-6 border-accent/20">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Crown className="w-6 h-6 text-primary" />
+                  <h2 className="text-2xl font-bold">Lifetime</h2>
+                </div>
+                <p className="text-muted-foreground">For individuals and professionals</p>
+              </div>
+              
+              <div className="space-y-1">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-bold">₹799</span>
+                  <span className="text-muted-foreground">/forever</span>
+                </div>
+              </div>
+              
+              <ul className="space-y-3">
+                <li className="flex items-start gap-3">
+                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <span className="text-foreground font-semibold">Everything in Pro</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <span className="text-foreground">Lifetime access - pay once</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <span className="text-foreground">All future model updates</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <span className="text-foreground">Priority feature requests</span>
+                </li>
+              </ul>
+              
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="w-full"
                 onClick={() => handleOpenPaymentDialog('lifetime')}
                 disabled={loading || profile?.subscription_type === 'lifetime' || profile?.is_pro}
               >
                 <Infinity className="w-5 h-5" />
-                {loading ? "Processing..." : (profile?.subscription_type === 'lifetime' || profile?.is_pro) ? "Current Plan" : "Pay with UPI"}
+                {loading ? "Processing..." : (profile?.subscription_type === 'lifetime' || profile?.is_pro) ? "Current Plan" : "Get Lifetime Access"}
               </Button>
             </div>
           </div>
@@ -324,8 +328,8 @@ const Upgrade = () => {
             <DialogTitle>Pay with UPI</DialogTitle>
             <DialogDescription>
               {selectedPlan === 'monthly' 
-                ? "Pay ₹1 for monthly subscription (50 credits)"
-                : "Pay ₹199 for lifetime Pro access (unlimited credits)"
+                ? "Pay ₹299 for yearly subscription (unlimited for 1 year)"
+                : "Pay ₹799 for lifetime Pro access (unlimited forever)"
               }
             </DialogDescription>
           </DialogHeader>
@@ -357,11 +361,11 @@ const Upgrade = () => {
                 size="lg"
                 variant="hero"
               >
-                Pay ₹{selectedPlan === 'monthly' ? '1' : '199'} with UPI
+                Pay ₹{selectedPlan === 'monthly' ? '299' : '799'} with UPI
               </Button>
 
               <p className="text-xs text-muted-foreground text-center">
-                After paying, we'll automatically verify your payment and activate your {selectedPlan === 'monthly' ? 'subscription' : 'Pro access'}.
+                After paying, we'll automatically verify your payment and activate your {selectedPlan === 'monthly' ? 'yearly subscription' : 'lifetime Pro access'}.
               </p>
             </div>
           )}
@@ -371,7 +375,7 @@ const Upgrade = () => {
               <CheckCircle2 className="h-16 w-16 text-green-500" />
               <h3 className="text-xl font-semibold">Payment Successful!</h3>
               <p className="text-center text-muted-foreground">
-                Your {selectedPlan === 'monthly' ? 'monthly subscription with 50 credits' : 'lifetime Pro access with unlimited credits'} has been activated.
+                Your {selectedPlan === 'monthly' ? 'yearly Pro subscription with unlimited access' : 'lifetime Pro access with unlimited access'} has been activated.
               </p>
             </div>
           )}
