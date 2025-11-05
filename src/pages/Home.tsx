@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Zap, Shield, Infinity, Mail, MapPin, Phone, Users, Target, Rocket, Check } from "lucide-react";
+import { Sparkles, Zap, Shield, Infinity, Mail, MapPin, Phone, Users, Target, Rocket, Check, X } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
 import magverseLogo from "@/assets/magverse-logo.png";
@@ -219,6 +219,251 @@ const Home = () => {
                   <span className="text-foreground">Priority feature requests</span>
                 </li>
               </ul>
+            </div>
+          </div>
+
+          {/* Feature Comparison Table */}
+          <div className="mt-16 animate-slide-up" style={{ animationDelay: "0.3s" }}>
+            <h3 className="text-2xl font-bold text-center mb-8">Compare Plans</h3>
+            <div className="glass-card rounded-2xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-glass-border">
+                      <th className="text-left p-4 font-semibold">Features</th>
+                      <th className="text-center p-4 font-semibold">Free</th>
+                      <th className="text-center p-4 font-semibold bg-primary/5">Pro</th>
+                      <th className="text-center p-4 font-semibold">Lifetime</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-glass-border/50">
+                      <td className="p-4 text-muted-foreground">Messages per day</td>
+                      <td className="text-center p-4">5</td>
+                      <td className="text-center p-4 bg-primary/5 font-semibold text-primary">Unlimited</td>
+                      <td className="text-center p-4 font-semibold text-primary">Unlimited</td>
+                    </tr>
+                    <tr className="border-b border-glass-border/50">
+                      <td className="p-4 text-muted-foreground">AI Models</td>
+                      <td className="text-center p-4">GPT-5 Mini</td>
+                      <td className="text-center p-4 bg-primary/5 font-semibold">All 6+ models</td>
+                      <td className="text-center p-4 font-semibold">All 6+ models</td>
+                    </tr>
+                    <tr className="border-b border-glass-border/50">
+                      <td className="p-4 text-muted-foreground">GPT-5, Claude, Gemini Pro</td>
+                      <td className="text-center p-4">
+                        <X className="w-5 h-5 text-muted-foreground mx-auto" />
+                      </td>
+                      <td className="text-center p-4 bg-primary/5">
+                        <Check className="w-5 h-5 text-primary mx-auto" />
+                      </td>
+                      <td className="text-center p-4">
+                        <Check className="w-5 h-5 text-primary mx-auto" />
+                      </td>
+                    </tr>
+                    <tr className="border-b border-glass-border/50">
+                      <td className="p-4 text-muted-foreground">Image generation</td>
+                      <td className="text-center p-4">
+                        <X className="w-5 h-5 text-muted-foreground mx-auto" />
+                      </td>
+                      <td className="text-center p-4 bg-primary/5">
+                        <Check className="w-5 h-5 text-primary mx-auto" />
+                      </td>
+                      <td className="text-center p-4">
+                        <Check className="w-5 h-5 text-primary mx-auto" />
+                      </td>
+                    </tr>
+                    <tr className="border-b border-glass-border/50">
+                      <td className="p-4 text-muted-foreground">Image editing & upscaling</td>
+                      <td className="text-center p-4">
+                        <X className="w-5 h-5 text-muted-foreground mx-auto" />
+                      </td>
+                      <td className="text-center p-4 bg-primary/5">
+                        <Check className="w-5 h-5 text-primary mx-auto" />
+                      </td>
+                      <td className="text-center p-4">
+                        <Check className="w-5 h-5 text-primary mx-auto" />
+                      </td>
+                    </tr>
+                    <tr className="border-b border-glass-border/50">
+                      <td className="p-4 text-muted-foreground">PDF & document upload</td>
+                      <td className="text-center p-4">
+                        <Check className="w-5 h-5 text-primary mx-auto" />
+                      </td>
+                      <td className="text-center p-4 bg-primary/5">
+                        <Check className="w-5 h-5 text-primary mx-auto" />
+                      </td>
+                      <td className="text-center p-4">
+                        <Check className="w-5 h-5 text-primary mx-auto" />
+                      </td>
+                    </tr>
+                    <tr className="border-b border-glass-border/50">
+                      <td className="p-4 text-muted-foreground">Chat history</td>
+                      <td className="text-center p-4">7 days</td>
+                      <td className="text-center p-4 bg-primary/5 font-semibold">Unlimited</td>
+                      <td className="text-center p-4 font-semibold">Unlimited</td>
+                    </tr>
+                    <tr className="border-b border-glass-border/50">
+                      <td className="p-4 text-muted-foreground">Export to PDF</td>
+                      <td className="text-center p-4">
+                        <X className="w-5 h-5 text-muted-foreground mx-auto" />
+                      </td>
+                      <td className="text-center p-4 bg-primary/5">
+                        <Check className="w-5 h-5 text-primary mx-auto" />
+                      </td>
+                      <td className="text-center p-4">
+                        <Check className="w-5 h-5 text-primary mx-auto" />
+                      </td>
+                    </tr>
+                    <tr className="border-b border-glass-border/50">
+                      <td className="p-4 text-muted-foreground">Team collaboration</td>
+                      <td className="text-center p-4">
+                        <X className="w-5 h-5 text-muted-foreground mx-auto" />
+                      </td>
+                      <td className="text-center p-4 bg-primary/5">Up to 3</td>
+                      <td className="text-center p-4">Up to 3</td>
+                    </tr>
+                    <tr className="border-b border-glass-border/50">
+                      <td className="p-4 text-muted-foreground">API access</td>
+                      <td className="text-center p-4">
+                        <X className="w-5 h-5 text-muted-foreground mx-auto" />
+                      </td>
+                      <td className="text-center p-4 bg-primary/5">
+                        <Check className="w-5 h-5 text-primary mx-auto" />
+                      </td>
+                      <td className="text-center p-4">
+                        <Check className="w-5 h-5 text-primary mx-auto" />
+                      </td>
+                    </tr>
+                    <tr className="border-b border-glass-border/50">
+                      <td className="p-4 text-muted-foreground">Priority support</td>
+                      <td className="text-center p-4">
+                        <X className="w-5 h-5 text-muted-foreground mx-auto" />
+                      </td>
+                      <td className="text-center p-4 bg-primary/5">
+                        <Check className="w-5 h-5 text-primary mx-auto" />
+                      </td>
+                      <td className="text-center p-4">
+                        <Check className="w-5 h-5 text-primary mx-auto" />
+                      </td>
+                    </tr>
+                    <tr className="border-b border-glass-border/50">
+                      <td className="p-4 text-muted-foreground">Response time</td>
+                      <td className="text-center p-4">Standard</td>
+                      <td className="text-center p-4 bg-primary/5 font-semibold">Fastest</td>
+                      <td className="text-center p-4 font-semibold">Fastest</td>
+                    </tr>
+                    <tr className="border-b border-glass-border/50">
+                      <td className="p-4 text-muted-foreground">Duration</td>
+                      <td className="text-center p-4">Forever</td>
+                      <td className="text-center p-4 bg-primary/5">1 Year</td>
+                      <td className="text-center p-4 font-semibold text-primary">Forever</td>
+                    </tr>
+                    <tr>
+                      <td className="p-4 text-muted-foreground font-semibold">Price</td>
+                      <td className="text-center p-4 font-bold">₹0</td>
+                      <td className="text-center p-4 bg-primary/5 font-bold text-primary">₹299/year</td>
+                      <td className="text-center p-4 font-bold">₹799</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* Billing FAQ Section */}
+          <div className="mt-16 animate-slide-up" style={{ animationDelay: "0.4s" }}>
+            <h3 className="text-2xl font-bold text-center mb-8">Billing & Payment FAQ</h3>
+            <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+              <div className="glass-card-hover p-6 rounded-xl space-y-3">
+                <h4 className="font-semibold flex items-start gap-2">
+                  <span className="text-primary">Q:</span>
+                  <span>What payment methods do you accept?</span>
+                </h4>
+                <p className="text-sm text-muted-foreground pl-6">
+                  We accept all major UPI apps (Google Pay, PhonePe, Paytm, etc.) and UPI-enabled bank accounts. Payment is quick, secure, and instant.
+                </p>
+              </div>
+
+              <div className="glass-card-hover p-6 rounded-xl space-y-3">
+                <h4 className="font-semibold flex items-start gap-2">
+                  <span className="text-primary">Q:</span>
+                  <span>Is my payment information secure?</span>
+                </h4>
+                <p className="text-sm text-muted-foreground pl-6">
+                  Yes! All payments are processed through secure UPI gateways. We never store your payment information on our servers.
+                </p>
+              </div>
+
+              <div className="glass-card-hover p-6 rounded-xl space-y-3">
+                <h4 className="font-semibold flex items-start gap-2">
+                  <span className="text-primary">Q:</span>
+                  <span>What is your refund policy?</span>
+                </h4>
+                <p className="text-sm text-muted-foreground pl-6">
+                  We offer a 7-day money-back guarantee for Pro and Lifetime plans. If you're not satisfied, contact us at magverse4@gmail.com for a full refund.
+                </p>
+              </div>
+
+              <div className="glass-card-hover p-6 rounded-xl space-y-3">
+                <h4 className="font-semibold flex items-start gap-2">
+                  <span className="text-primary">Q:</span>
+                  <span>When does my Pro subscription renew?</span>
+                </h4>
+                <p className="text-sm text-muted-foreground pl-6">
+                  Pro subscriptions renew automatically after 1 year. You'll receive an email reminder 7 days before renewal. You can cancel anytime from your account settings.
+                </p>
+              </div>
+
+              <div className="glass-card-hover p-6 rounded-xl space-y-3">
+                <h4 className="font-semibold flex items-start gap-2">
+                  <span className="text-primary">Q:</span>
+                  <span>Can I upgrade from Pro to Lifetime?</span>
+                </h4>
+                <p className="text-sm text-muted-foreground pl-6">
+                  Yes! The remaining amount will be credited when you upgrade. For example, if you have 6 months left on Pro, we'll adjust the Lifetime price accordingly.
+                </p>
+              </div>
+
+              <div className="glass-card-hover p-6 rounded-xl space-y-3">
+                <h4 className="font-semibold flex items-start gap-2">
+                  <span className="text-primary">Q:</span>
+                  <span>Do you offer discounts or promotions?</span>
+                </h4>
+                <p className="text-sm text-muted-foreground pl-6">
+                  Yes! Students get 20% off with valid ID. We also run seasonal promotions. Follow us on social media or subscribe to our newsletter for updates.
+                </p>
+              </div>
+
+              <div className="glass-card-hover p-6 rounded-xl space-y-3">
+                <h4 className="font-semibold flex items-start gap-2">
+                  <span className="text-primary">Q:</span>
+                  <span>What happens when my Pro plan expires?</span>
+                </h4>
+                <p className="text-sm text-muted-foreground pl-6">
+                  Your account will automatically downgrade to the Free plan. You'll keep all your chat history but will be limited to 5 messages per day with GPT-5 Mini only.
+                </p>
+              </div>
+
+              <div className="glass-card-hover p-6 rounded-xl space-y-3">
+                <h4 className="font-semibold flex items-start gap-2">
+                  <span className="text-primary">Q:</span>
+                  <span>Can I get an invoice for my purchase?</span>
+                </h4>
+                <p className="text-sm text-muted-foreground pl-6">
+                  Yes! Invoices are automatically sent to your registered email after payment. You can also download them anytime from your account settings.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-8 text-center">
+              <p className="text-muted-foreground mb-4">Still have questions?</p>
+              <a href="#contact">
+                <Button variant="outline" size="lg">
+                  <Mail className="w-5 h-5" />
+                  Contact Support
+                </Button>
+              </a>
             </div>
           </div>
         </div>
