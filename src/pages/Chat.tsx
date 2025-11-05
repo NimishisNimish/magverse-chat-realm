@@ -374,69 +374,155 @@ const Chat = () => {
       
       console.log(`Sending ${recentMessages.length} recent messages (${messages.length} total in history)`);
 
-      // Process each model with Lovable AI
-      const responses = [];
-      for (const modelId of selectedModels) {
+      // Process each model with streaming
+      const modelPromises = selectedModels.map(async (modelId) => {
         const modelConfig = aiModels.find(m => m.id === modelId);
-        if (!modelConfig) continue;
-        
+        if (!modelConfig) return;
+
+        // Create placeholder message for this model
+        const assistantMessageId = Date.now().toString() + Math.random() + modelId;
+        const placeholderMessage: Message = {
+          id: assistantMessageId,
+          model: modelConfig.name,
+          content: "",
+          timestamp: new Date(),
+          role: 'assistant',
+        };
+
+        setMessages(prev => [...prev, placeholderMessage]);
+
         try {
-          const result = await supabase.functions.invoke('lovable-ai-chat', {
-            body: {
+          const CHAT_URL = `https://pqdgpxetysqcdcjwormb.supabase.co/functions/v1/lovable-ai-chat`;
+          
+          const response = await fetch(CHAT_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxZGdweGV0eXNxY2Rjandvcm1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3NTcwMDMsImV4cCI6MjA3NzMzMzAwM30.AspAeB_iUnc-XJmDNhdV5_HYTMLg32LM1bVAdwM6A5E`,
+            },
+            body: JSON.stringify({
               model: modelConfig.model,
               messages: [...recentMessages.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: input }],
+              stream: true,
               generateImage: imageGenerationMode,
-            },
+            }),
           });
-          
-          if (result.error) throw result.error;
-          responses.push({ 
-            model: modelId, 
-            content: result.data.choices?.[0]?.message?.content || 'No response', 
-            error: false,
-            images: result.data.images || [],
-          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP ${response.status}`);
+          }
+
+          if (!response.body) {
+            throw new Error('No response body');
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          let fullContent = '';
+          let streamDone = false;
+          let images: any[] = [];
+
+          while (!streamDone) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+
+            let newlineIndex: number;
+            while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+              let line = buffer.slice(0, newlineIndex);
+              buffer = buffer.slice(newlineIndex + 1);
+
+              if (line.endsWith('\r')) line = line.slice(0, -1);
+              if (line.startsWith(':') || line.trim() === '') continue;
+              if (!line.startsWith('data: ')) continue;
+
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr === '[DONE]') {
+                streamDone = true;
+                break;
+              }
+
+              try {
+                const parsed = JSON.parse(jsonStr);
+                const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+                const parsedImages = parsed.choices?.[0]?.message?.images;
+                
+                if (content) {
+                  fullContent += content;
+                  
+                  // Update the message in real-time
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === assistantMessageId 
+                      ? { ...msg, content: fullContent }
+                      : msg
+                  ));
+                }
+
+                if (parsedImages) {
+                  images = parsedImages;
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === assistantMessageId 
+                      ? { ...msg, images: parsedImages.map((img: any) => ({ image_url: { url: img.image_url?.url || img.url } })) }
+                      : msg
+                  ));
+                }
+              } catch (parseError) {
+                // Incomplete JSON, put it back and wait for more data
+                buffer = line + '\n' + buffer;
+                break;
+              }
+            }
+          }
+
+          // Final flush
+          if (buffer.trim()) {
+            for (let raw of buffer.split('\n')) {
+              if (!raw || raw.startsWith(':') || raw.trim() === '') continue;
+              if (!raw.startsWith('data: ')) continue;
+              const jsonStr = raw.slice(6).trim();
+              if (jsonStr === '[DONE]') continue;
+              
+              try {
+                const parsed = JSON.parse(jsonStr);
+                const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+                if (content) {
+                  fullContent += content;
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === assistantMessageId 
+                      ? { ...msg, content: fullContent }
+                      : msg
+                  ));
+                }
+              } catch { /* ignore */ }
+            }
+          }
+
+          console.log(`Streaming complete for ${modelConfig.name}`);
         } catch (err: any) {
-          responses.push({ model: modelId, content: `Error: ${err.message}`, error: true });
+          console.error(`Error with ${modelConfig.name}:`, err);
+          
+          // Update message to show error
+          setMessages(prev => prev.map(msg => 
+            msg.id === assistantMessageId 
+              ? { ...msg, content: `Error: ${err.message}`, error: true }
+              : msg
+          ));
         }
-      }
+      });
+
+      await Promise.all(modelPromises);
       
-      const data = { responses };
-
-
       // Clear processing state
       setProcessingFile(false);
       
-      // Validate we got responses
-      if (!data.responses || data.responses.length === 0) {
-        throw new Error('All AI models failed to respond. Please try again.');
-      }
-
-      // Create assistant messages
-      const aiMessages: Message[] = data.responses.map((response: any) => {
-        const modelConfig = aiModels.find(m => m.id === response.model);
-        return {
-          id: `${Date.now()}-${response.model}-${Math.random()}`,
-          model: modelConfig?.name || response.model,
-          content: response.content,
-          timestamp: new Date(),
-          role: 'assistant' as const,
-          error: response.error || false,
-          userQuery: input,
-          sources: response.sources || [],
-          images: response.images || [],
-        };
+      const successCount = selectedModels.length;
+      toast({
+        title: `${successCount} AI${successCount > 1 ? 's' : ''} responded`,
+        description: `Received streaming responses successfully.`,
       });
-
-      setMessages(prev => [...prev, ...aiMessages]);
-      
-      const successCount = aiMessages.filter(m => !m.error).length;
-      if (successCount > 0) {
-        toast({
-          title: `${successCount} AI${successCount > 1 ? 's' : ''} responded`,
-          description: `Received responses successfully.`,
-        });
-      }
 
       await refreshProfile();
       setIsDeepResearching(false);
