@@ -41,12 +41,14 @@ import {
 } from "@/components/ui/sheet";
 
 const aiModels = [
-  { id: "gemini-flash", name: "Gemini Flash", icon: Brain, color: "text-primary", model: "google/gemini-2.5-flash" },
+  { id: "gemini-flash", name: "Gemini Flash", icon: Zap, color: "text-primary", model: "google/gemini-2.5-flash" },
   { id: "gemini-pro", name: "Gemini Pro", icon: Brain, color: "text-secondary", model: "google/gemini-2.5-pro" },
   { id: "gemini-lite", name: "Gemini Lite", icon: Cpu, color: "text-muted-foreground", model: "google/gemini-2.5-flash-lite" },
   { id: "gpt-5", name: "GPT-5", icon: Bot, color: "text-accent", model: "openai/gpt-5" },
-  { id: "gpt-5-mini", name: "GPT-5 Mini", icon: Zap, color: "text-purple-500", model: "openai/gpt-5-mini" },
-  { id: "gpt-5-nano", name: "GPT-5 Nano", icon: Sparkles, color: "text-primary", model: "openai/gpt-5-nano" },
+  { id: "gpt-5-mini", name: "GPT-5 Mini", icon: Sparkles, color: "text-purple-400", model: "openai/gpt-5-mini" },
+  { id: "gpt-5-nano", name: "GPT-5 Nano", icon: Star, color: "text-blue-400", model: "openai/gpt-5-nano" },
+  { id: "perplexity", name: "Perplexity", icon: Globe, color: "text-green-400", model: "perplexity/sonar" },
+  { id: "claude", name: "Claude", icon: Rocket, color: "text-orange-400", model: "anthropic/claude" },
 ];
 
 interface Message {
@@ -110,22 +112,47 @@ const Chat = () => {
   }, [searchParams, user]);
 
   const loadChatMessages = async (chatId: string) => {
-    setCurrentChatId(chatId);
-    const { data, error } = await supabase
-      .from('chat_messages')
-      .select('*')
-      .eq('chat_id', chatId)
-      .order('created_at', { ascending: true });
+    try {
+      setLoading(true);
+      setCurrentChatId(chatId);
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('chat_id', chatId)
+        .order('created_at', { ascending: true });
 
-    if (!error && data) {
-      const loadedMessages: Message[] = data.map(msg => ({
-        id: msg.id,
-        model: msg.model || 'AI',
-        content: msg.content,
-        timestamp: new Date(msg.created_at),
-        role: msg.role as 'user' | 'assistant',
-      }));
-      setMessages(loadedMessages);
+      if (error) {
+        toast({
+          title: "Failed to load chat history",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data) {
+        const loadedMessages: Message[] = data.map(msg => ({
+          id: msg.id,
+          model: msg.model || 'AI',
+          content: msg.content,
+          timestamp: new Date(msg.created_at),
+          role: msg.role as 'user' | 'assistant',
+        }));
+        setMessages(loadedMessages);
+        toast({
+          title: "Chat history loaded",
+          description: `Loaded ${loadedMessages.length} messages`,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading chat:', error);
+      toast({
+        title: "Error loading chat history",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -617,6 +644,38 @@ const Chat = () => {
       </Button>
       
       <div className="space-y-4">
+        {/* AI Models Selection */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            AI Models
+          </h3>
+          <div className="space-y-2">
+            {aiModels.map(model => {
+              const Icon = model.icon;
+              const isSelected = selectedModels.includes(model.id);
+              return (
+                <button
+                  key={model.id}
+                  onClick={() => toggleModel(model.id)}
+                  className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
+                    isSelected 
+                      ? 'glass-card border-accent/50 shadow-lg shadow-accent/20' 
+                      : 'hover:bg-muted/20'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-lg ${isSelected ? 'bg-accent/20' : 'bg-muted/20'} flex items-center justify-center`}>
+                    <Icon className={`w-4 h-4 ${isSelected ? model.color : 'text-muted-foreground'}`} />
+                  </div>
+                  <span className={`font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    {model.name}
+                  </span>
+                  {isSelected && <Circle className="w-1.5 h-1.5 ml-auto fill-accent text-accent" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        
         {/* Deep Research Mode */}
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
@@ -760,37 +819,7 @@ const Chat = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
       
-      {/* AI Models Bar - Like Chrome Bookmarks */}
-      <div className="fixed top-16 left-0 right-0 z-40 glass-card border-b border-glass-border px-4 py-2">
-        <div className="flex items-center gap-2 overflow-x-auto">
-          <span className="text-sm font-semibold text-muted-foreground whitespace-nowrap mr-2">
-            AI Models:
-          </span>
-          {aiModels.map(model => {
-            const Icon = model.icon;
-            const isSelected = selectedModels.includes(model.id);
-            return (
-              <button
-                key={model.id}
-                onClick={() => toggleModel(model.id)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
-                  isSelected 
-                    ? 'glass-card border-accent/50 shadow-sm' 
-                    : 'hover:bg-muted/20'
-                }`}
-              >
-                <Icon className={`w-4 h-4 ${isSelected ? model.color : 'text-muted-foreground'}`} />
-                <span className={`text-sm font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
-                  {model.name}
-                </span>
-                {isSelected && <Circle className="w-1.5 h-1.5 fill-primary text-primary" />}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      
-      <div className="flex-1 flex pt-32">
+      <div className="flex-1 flex pt-16">
         {/* Desktop Sidebar */}
         <aside className="w-80 glass-card border-r border-glass-border p-6 space-y-6 hidden lg:block">
           <SidebarContent />
@@ -802,14 +831,14 @@ const Chat = () => {
             <Button 
               variant="outline" 
               size="icon"
-              className="fixed top-36 left-4 z-50 lg:hidden glass-card"
+              className="fixed top-20 left-4 z-50 lg:hidden glass-card"
             >
               <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-80 p-6 overflow-y-auto">
             <SheetHeader>
-              <SheetTitle>Research Settings</SheetTitle>
+              <SheetTitle>AI Models & Settings</SheetTitle>
             </SheetHeader>
             <div className="mt-6 space-y-6">
               <SidebarContent />
@@ -897,28 +926,84 @@ const Chat = () => {
                       </div>
                     )}
                     
-                    {/* Display generated images */}
+                     {/* Display generated images */}
                     {message.role === 'assistant' && message.images && message.images.length > 0 && (
                       <div className="mt-4 space-y-4">
-                        {message.images.map((img, idx) => (
-                          <div key={idx} className="relative group">
-                            <img 
-                              src={img.image_url.url} 
-                              alt={`Generated image ${idx + 1}`}
-                              className="w-full rounded-lg border border-border shadow-lg"
-                            />
-                            <a
-                              href={img.image_url.url}
-                              download={`generated-image-${Date.now()}-${idx}.png`}
-                              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <Button size="sm" variant="secondary">
-                                <Download className="w-4 h-4 mr-1" />
-                                Download
-                              </Button>
-                            </a>
-                          </div>
-                        ))}
+                        {message.images.map((img, idx) => {
+                          const downloadImage = async (format: 'png' | 'jpeg' | 'webp') => {
+                            try {
+                              const response = await fetch(img.image_url.url);
+                              const blob = await response.blob();
+                              
+                              // Create canvas to convert image format
+                              const canvas = document.createElement('canvas');
+                              const ctx = canvas.getContext('2d');
+                              const image = new Image();
+                              
+                              image.onload = () => {
+                                canvas.width = image.width;
+                                canvas.height = image.height;
+                                ctx?.drawImage(image, 0, 0);
+                                
+                                canvas.toBlob((convertedBlob) => {
+                                  if (convertedBlob) {
+                                    const url = URL.createObjectURL(convertedBlob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `generated-image-${Date.now()}-${idx}.${format}`;
+                                    a.click();
+                                    URL.revokeObjectURL(url);
+                                  }
+                                }, `image/${format === 'jpeg' ? 'jpeg' : format}`);
+                              };
+                              
+                              image.src = img.image_url.url;
+                            } catch (error) {
+                              console.error('Error downloading image:', error);
+                              toast({
+                                title: "Download failed",
+                                description: "Could not download the image",
+                                variant: "destructive",
+                              });
+                            }
+                          };
+
+                          return (
+                            <div key={idx} className="relative group">
+                              <img 
+                                src={img.image_url.url} 
+                                alt={`Generated image ${idx + 1}`}
+                                className="w-full rounded-lg border border-border shadow-lg"
+                              />
+                              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                                <Button 
+                                  size="sm" 
+                                  variant="secondary"
+                                  onClick={() => downloadImage('png')}
+                                >
+                                  <Download className="w-4 h-4 mr-1" />
+                                  PNG
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="secondary"
+                                  onClick={() => downloadImage('jpeg')}
+                                >
+                                  <Download className="w-4 h-4 mr-1" />
+                                  JPEG
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="secondary"
+                                  onClick={() => downloadImage('webp')}
+                                >
+                                  <Download className="w-4 h-4 mr-1" />
+                                  WEBP
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                     
