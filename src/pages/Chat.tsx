@@ -41,13 +41,12 @@ import {
 } from "@/components/ui/sheet";
 
 const aiModels = [
-  { id: "chatgpt", name: "ChatGPT", icon: Bot, color: "text-primary" },
-  { id: "gemini", name: "Gemini", icon: Brain, color: "text-secondary" },
-  { id: "perplexity", name: "Perplexity", icon: Cpu, color: "text-secondary" },
-  { id: "deepseek", name: "Deepseek", icon: Zap, color: "text-purple-500" },
-  { id: "claude", name: "Claude", icon: Sparkles, color: "text-accent" },
-  { id: "llama", name: "Llama", icon: Rocket, color: "text-primary" },
-  { id: "grok", name: "Grok", icon: Star, color: "text-accent" },
+  { id: "gemini-flash", name: "Gemini Flash", icon: Brain, color: "text-primary", model: "google/gemini-2.5-flash" },
+  { id: "gemini-pro", name: "Gemini Pro", icon: Brain, color: "text-secondary", model: "google/gemini-2.5-pro" },
+  { id: "gemini-lite", name: "Gemini Lite", icon: Cpu, color: "text-muted-foreground", model: "google/gemini-2.5-flash-lite" },
+  { id: "gpt-5", name: "GPT-5", icon: Bot, color: "text-accent", model: "openai/gpt-5" },
+  { id: "gpt-5-mini", name: "GPT-5 Mini", icon: Zap, color: "text-purple-500", model: "openai/gpt-5-mini" },
+  { id: "gpt-5-nano", name: "GPT-5 Nano", icon: Sparkles, color: "text-primary", model: "openai/gpt-5-nano" },
 ];
 
 interface Message {
@@ -66,7 +65,7 @@ interface Message {
 }
 
 const Chat = () => {
-  const [selectedModels, setSelectedModels] = useState<string[]>(["chatgpt"]);
+  const [selectedModels, setSelectedModels] = useState<string[]>(["gemini-flash"]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
@@ -346,111 +345,60 @@ const Chat = () => {
       
       console.log(`Sending ${recentMessages.length} recent messages (${messages.length} total in history)`);
 
-      const { data, error } = await Promise.race([
-        supabase.functions.invoke('chat-with-ai', {
-          body: {
-            messages: [
-              ...recentMessages.map(m => ({
-                role: m.role,
-                content: m.content,
-              })),
-              { role: 'user', content: input } // Send clean input without attachment URL
-            ],
-            selectedModels,
-            webSearchEnabled,
-            searchMode,
-            deepResearchMode,
-            ...(currentChatId && { chatId: currentChatId }),
-            ...(attachmentToSend && { 
-              attachmentUrl: attachmentToSend,
-              attachmentExtension: attachmentToSend.split('?')[0].split('.').pop()?.toLowerCase()
-            }),
-          },
-        }).then(result => {
-          // Handle specific error codes
-          if (result.error?.status === 429) {
-            throw new Error('Rate limit reached. Please wait and try again.');
-          }
-          if (result.error?.status === 504) {
-            throw new Error('Backend timeout. AI took too long to respond.');
-          }
-          return result;
-        }),
-        timeout
-      ]) as any;
+      // Process each model with Lovable AI
+      const responses = [];
+      for (const modelId of selectedModels) {
+        const modelConfig = aiModels.find(m => m.id === modelId);
+        if (!modelConfig) continue;
+        
+        try {
+          const result = await supabase.functions.invoke('lovable-ai-chat', {
+            body: {
+              model: modelConfig.model,
+              messages: [...recentMessages.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: input }],
+            },
+          });
+          
+          if (result.error) throw result.error;
+          responses.push({ model: modelId, content: result.data.choices?.[0]?.message?.content || 'No response', error: false });
+        } catch (err: any) {
+          responses.push({ model: modelId, content: `Error: ${err.message}`, error: true });
+        }
+      }
+      
+      const data = { responses };
 
-      if (error) throw error;
 
       // Clear processing state
       setProcessingFile(false);
       
       // Validate we got responses
       if (!data.responses || data.responses.length === 0) {
-        throw new Error('All AI models failed to respond. Please check your API keys or try different models.');
+        throw new Error('All AI models failed to respond. Please try again.');
       }
 
-      if (data.chatId && !currentChatId) {
-        setCurrentChatId(data.chatId);
-      }
-
-      // Create assistant messages with visual confirmation for file attachments
+      // Create assistant messages
       const aiMessages: Message[] = data.responses.map((response: any) => {
-        let content = response.content;
-        
-        // Add visual confirmation if PDF was processed
-        if (attachmentTypeToSend === 'pdf' && content.includes('PDF Document Analysis')) {
-          content = "📄 *I've analyzed your PDF document*\n\n" + content;
-        }
-        // Add visual confirmation if image was processed
-        else if (attachmentTypeToSend === 'image') {
-          content = "🖼️ *I've analyzed your image*\n\n" + content;
-        }
-        
+        const modelConfig = aiModels.find(m => m.id === response.model);
         return {
           id: `${Date.now()}-${response.model}-${Math.random()}`,
-          model: aiModels.find(m => m.id === response.model)?.name || response.model,
-          content: content,
+          model: modelConfig?.name || response.model,
+          content: response.content,
           timestamp: new Date(),
           role: 'assistant' as const,
-          error: false,
+          error: response.error || false,
           userQuery: input,
-          sources: response.sources || [], // Add sources from backend
+          sources: response.sources || [],
         };
       });
 
-      // Track failed models and create error messages for them
-      const successfulModels = data.responses.map((r: any) => r.model);
-      const failedModels = selectedModels.filter(m => !successfulModels.includes(m));
+      setMessages(prev => [...prev, ...aiMessages]);
       
-      const failedMessages: Message[] = failedModels.map((modelId) => ({
-        id: `${Date.now()}-${modelId}-error-${Math.random()}`,
-        model: aiModels.find(m => m.id === modelId)?.name || modelId,
-        content: '❌ Failed to get response from this model. Click retry to try again.',
-        timestamp: new Date(),
-        role: 'assistant' as const,
-        error: true,
-        userQuery: input,
-      }));
-
-      // Show responses immediately (both successful and failed)
-      const allMessages = [...aiMessages, ...failedMessages];
-      
-      setMessages(prev => [...prev, ...allMessages]);
-      
-      // Show appropriate toast based on success
-      if (data.partialSuccess && aiMessages.length < selectedModels.length) {
-        // Partial success - some models failed
-        const failedCount = selectedModels.length - aiMessages.length;
+      const successCount = aiMessages.filter(m => !m.error).length;
+      if (successCount > 0) {
         toast({
-          title: "Partial Response",
-          description: `${aiMessages.length} of ${selectedModels.length} AI models responded successfully. ${failedCount} model${failedCount > 1 ? 's' : ''} failed.`,
-          variant: "default",
-        });
-      } else {
-        // Full success - all models responded
-        toast({
-          title: `${aiMessages.length} AI${aiMessages.length > 1 ? 's' : ''} responded`,
-          description: `Successfully received responses from: ${aiMessages.map(m => m.model).join(', ')}`,
+          title: `${successCount} AI${successCount > 1 ? 's' : ''} responded`,
+          description: `Received responses successfully.`,
         });
       }
 
@@ -538,31 +486,31 @@ const Chat = () => {
       const validMessages = messages.filter(m => !m.error && !m.retrying);
       const recentMessages = validMessages.slice(-MAX_CONTEXT_MESSAGES);
 
-      const { data, error } = await supabase.functions.invoke('chat-with-ai', {
+      const modelConfig = aiModels.find(m => m.id === modelId);
+      if (!modelConfig) throw new Error('Model not found');
+
+      const { data, error } = await supabase.functions.invoke('lovable-ai-chat', {
         body: {
+          model: modelConfig.model,
           messages: [
-            ...recentMessages.map(m => ({
-              role: m.role,
-              content: m.content,
-            })),
+            ...recentMessages.map(m => ({ role: m.role, content: m.content })),
             { role: 'user', content: messageToRetry.userQuery }
           ],
-          selectedModels: [modelId], // Only retry the failed model
-          webSearchEnabled: messageToRetry.webSearchEnabled || false,
-          searchMode: messageToRetry.searchMode || 'general',
-          deepResearchMode: false,
-          ...(currentChatId && { chatId: currentChatId }),
+          stream: false,
         },
       });
 
       if (error) throw error;
 
-      if (!data.responses || data.responses.length === 0) {
+      if (!data.choices?.[0]?.message?.content) {
         throw new Error('Model failed to respond again');
       }
 
       // Replace error message with successful response
-      const newResponse = data.responses[0];
+      const newResponse = {
+        content: data.choices[0].message.content,
+        model: modelConfig.name,
+      };
       setMessages(prev => prev.map(m => 
         m.id === messageId 
           ? {
@@ -659,37 +607,6 @@ const Chat = () => {
       </Button>
       
       <div className="space-y-4">
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            AI Models ({selectedModels.length}/3)
-          </h3>
-          <div className="space-y-2">
-            {aiModels.map(model => {
-              const Icon = model.icon;
-              const isSelected = selectedModels.includes(model.id);
-              return (
-                <button
-                  key={model.id}
-                  onClick={() => toggleModel(model.id)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
-                    isSelected 
-                      ? 'glass-card border-accent/50 shadow-lg shadow-accent/20' 
-                      : 'hover:bg-muted/20'
-                  }`}
-                >
-                  <div className={`w-8 h-8 rounded-lg ${isSelected ? 'bg-accent/20' : 'bg-muted/20'} flex items-center justify-center`}>
-                    <Icon className={`w-4 h-4 ${isSelected ? model.color : 'text-muted-foreground'}`} />
-                  </div>
-                  <span className={`font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
-                    {model.name}
-                  </span>
-                  {isSelected && <Circle className="w-2 h-2 ml-auto fill-primary text-primary" />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        
         {/* Deep Research Mode */}
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
@@ -803,7 +720,37 @@ const Chat = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
       
-      <div className="flex-1 flex pt-16">
+      {/* AI Models Bar - Like Chrome Bookmarks */}
+      <div className="fixed top-16 left-0 right-0 z-40 glass-card border-b border-glass-border px-4 py-2">
+        <div className="flex items-center gap-2 overflow-x-auto">
+          <span className="text-sm font-semibold text-muted-foreground whitespace-nowrap mr-2">
+            AI Models:
+          </span>
+          {aiModels.map(model => {
+            const Icon = model.icon;
+            const isSelected = selectedModels.includes(model.id);
+            return (
+              <button
+                key={model.id}
+                onClick={() => toggleModel(model.id)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+                  isSelected 
+                    ? 'glass-card border-accent/50 shadow-sm' 
+                    : 'hover:bg-muted/20'
+                }`}
+              >
+                <Icon className={`w-4 h-4 ${isSelected ? model.color : 'text-muted-foreground'}`} />
+                <span className={`text-sm font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {model.name}
+                </span>
+                {isSelected && <Circle className="w-1.5 h-1.5 fill-primary text-primary" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      
+      <div className="flex-1 flex pt-32">
         {/* Desktop Sidebar */}
         <aside className="w-80 glass-card border-r border-glass-border p-6 space-y-6 hidden lg:block">
           <SidebarContent />
@@ -815,14 +762,14 @@ const Chat = () => {
             <Button 
               variant="outline" 
               size="icon"
-              className="fixed top-20 left-4 z-50 lg:hidden glass-card"
+              className="fixed top-36 left-4 z-50 lg:hidden glass-card"
             >
               <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-80 p-6 overflow-y-auto">
             <SheetHeader>
-              <SheetTitle>AI Chat Settings</SheetTitle>
+              <SheetTitle>Research Settings</SheetTitle>
             </SheetHeader>
             <div className="mt-6 space-y-6">
               <SidebarContent />

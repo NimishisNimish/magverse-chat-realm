@@ -1,5 +1,9 @@
 project_id = "pqdgpxetysqcdcjwormb"
 
+[functions.lovable-ai-chat]
+verify_jwt = true
+request_timeout = 300
+
 [functions.chat-with-ai]
 verify_jwt = true
 request_timeout = 300

@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sparkles, LogOut, Zap, User, History, MessageSquare, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +34,8 @@ const Navbar = () => {
             Contact
           </a>
         </div>
+        
+        <ThemeToggle />
         
         {user ? (
             <>
