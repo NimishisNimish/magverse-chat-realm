@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Check, Sparkles, Zap, Infinity, Crown, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Check, Sparkles, Zap, Infinity, Crown, Loader2, CheckCircle2, XCircle, CreditCard, QrCode } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,7 +13,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePaymentStatus } from "@/hooks/usePaymentStatus";
+import upiQrCode from "@/assets/upi-qr-code.jpg";
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 const Upgrade = () => {
   const [loading, setLoading] = useState(false);
@@ -21,6 +29,7 @@ const Upgrade = () => {
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'lifetime'>('lifetime');
   const [orderId, setOrderId] = useState<string | null>(null);
   const [paymentLink, setPaymentLink] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'razorpay' | 'upi'>('razorpay');
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -37,6 +46,21 @@ const Upgrade = () => {
       navigate("/chat");
     }, 2000);
   });
+
+  const loadRazorpayScript = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (window.Razorpay) {
+        resolve(true);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
 
   const handleOpenPaymentDialog = async (planType: 'monthly' | 'lifetime') => {
     if (!user) {
@@ -69,12 +93,105 @@ const Upgrade = () => {
     setShowPaymentDialog(true);
     setOrderId(null);
     setPaymentLink(null);
-    
-    // Create payment order
+    setPaymentMethod('razorpay');
+  };
+
+  const handleRazorpayPayment = async () => {
+    try {
+      setLoading(true);
+
+      // Load Razorpay script
+      const loaded = await loadRazorpayScript();
+      if (!loaded) {
+        throw new Error('Failed to load Razorpay SDK');
+      }
+
+      // Create order
+      const { data, error } = await supabase.functions.invoke('razorpay-create-order', {
+        body: { planType: selectedPlan },
+      });
+
+      if (error) throw error;
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to create order');
+      }
+
+      const options = {
+        key: data.keyId,
+        amount: data.amount * 100,
+        currency: data.currency,
+        name: 'Magverse AI',
+        description: selectedPlan === 'monthly' ? 'Yearly Pro Subscription' : 'Lifetime Pro Access',
+        order_id: data.orderId,
+        handler: async function (response: any) {
+          try {
+            setLoading(true);
+            // Verify payment
+            const { data: verifyData, error: verifyError } = await supabase.functions.invoke('razorpay-verify-payment', {
+              body: {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              },
+            });
+
+            if (verifyError) throw verifyError;
+
+            if (verifyData.success) {
+              toast({
+                title: "Payment Successful!",
+                description: "Your subscription has been activated",
+              });
+              await refreshProfile();
+              setShowPaymentDialog(false);
+              navigate("/chat");
+            } else {
+              throw new Error(verifyData.error || 'Payment verification failed');
+            }
+          } catch (error: any) {
+            console.error('Payment verification error:', error);
+            toast({
+              title: "Verification Failed",
+              description: error.message || "Please contact support",
+              variant: "destructive",
+            });
+          } finally {
+            setLoading(false);
+          }
+        },
+        prefill: {
+          email: user?.email || '',
+        },
+        theme: {
+          color: '#6366f1',
+        },
+        modal: {
+          ondismiss: function () {
+            setLoading(false);
+          }
+        }
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
+    } catch (error: any) {
+      console.error('Razorpay error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to initiate payment",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUPIPayment = async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase.functions.invoke('create-upi-payment', {
-        body: { planType },
+        body: { planType: selectedPlan },
       });
 
       if (error) throw error;
@@ -90,7 +207,7 @@ const Upgrade = () => {
         throw new Error(data.error || "Failed to create payment");
       }
     } catch (error: any) {
-      console.error("Error creating payment:", error);
+      console.error("Error creating UPI payment:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to create payment. Please try again.",
@@ -104,7 +221,6 @@ const Upgrade = () => {
 
   const handlePayWithUPI = () => {
     if (paymentLink) {
-      // Open UPI link in new tab (will open UPI app on mobile)
       window.open(paymentLink, '_blank');
     }
   };
@@ -126,7 +242,7 @@ const Upgrade = () => {
               <span className="gradient-text">Choose Your Plan</span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Choose the perfect plan for your needs - start free, go monthly, or unlock lifetime access
+              Choose the perfect plan for your needs - start free, go yearly, or unlock lifetime access
             </p>
           </div>
           
@@ -152,7 +268,7 @@ const Upgrade = () => {
                 </li>
                 <li className="flex items-start gap-3">
                   <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Access to all 6 AI models</span>
+                  <span className="text-foreground">Access to all 7+ AI models</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
@@ -170,7 +286,7 @@ const Upgrade = () => {
               </Button>
             </div>
 
-            {/* Yearly Plan (Using monthly in backend) */}
+            {/* Yearly Plan */}
             <div className="glass-card p-8 rounded-2xl space-y-6 border-primary relative">
               <div className="absolute top-4 right-4">
                 <div className="px-3 py-1 rounded-full bg-primary text-xs font-semibold text-white">
@@ -200,7 +316,7 @@ const Upgrade = () => {
                 </li>
                 <li className="flex items-start gap-3">
                   <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">All 6+ premium AI models</span>
+                  <span className="text-foreground">All 7+ premium AI models</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
@@ -213,18 +329,6 @@ const Upgrade = () => {
                 <li className="flex items-start gap-3">
                   <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                   <span className="text-foreground">Advanced features</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Team collaboration (up to 3)</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Chat history & export</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">API access</span>
                 </li>
               </ul>
               
@@ -301,13 +405,13 @@ const Upgrade = () => {
               <div className="space-y-2">
                 <h3 className="font-semibold">Is the Pro plan really lifetime?</h3>
                 <p className="text-sm text-muted-foreground">
-                  Yes! Pay once and enjoy unlimited access to all AI models forever.
+                  Yes! The Lifetime plan is a one-time payment for unlimited access forever.
                 </p>
               </div>
               <div className="space-y-2">
                 <h3 className="font-semibold">Which AI models are included?</h3>
                 <p className="text-sm text-muted-foreground">
-                  ChatGPT, Gemini, Claude, Llama, Mistral, and Grok - all in one platform.
+                  ChatGPT, Gemini, Claude, Llama, Perplexity, DeepSeek, and Grok - all in one platform.
                 </p>
               </div>
               <div className="space-y-2">
@@ -321,11 +425,11 @@ const Upgrade = () => {
         </div>
       </div>
 
-      {/* UPI Payment Dialog */}
+      {/* Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Pay with UPI</DialogTitle>
+            <DialogTitle>Choose Payment Method</DialogTitle>
             <DialogDescription>
               {selectedPlan === 'monthly' 
                 ? "Pay ₹299 for yearly subscription (unlimited for 1 year)"
@@ -334,64 +438,104 @@ const Upgrade = () => {
             </DialogDescription>
           </DialogHeader>
 
-          {loading && (
-            <div className="flex flex-col items-center space-y-4 py-8">
-              <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              <p className="text-center text-muted-foreground">
-                Creating payment order...
-              </p>
-            </div>
-          )}
+          <Tabs value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as 'razorpay' | 'upi')}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="razorpay">
+                <CreditCard className="w-4 h-4 mr-2" />
+                Card/UPI/Net Banking
+              </TabsTrigger>
+              <TabsTrigger value="upi">
+                <QrCode className="w-4 h-4 mr-2" />
+                Direct UPI
+              </TabsTrigger>
+            </TabsList>
 
-          {!loading && paymentLink && paymentStatus.status === 'pending' && (
-            <div className="space-y-6">
-              <div className="flex flex-col items-center space-y-4">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-                <h3 className="text-lg font-semibold">Waiting for Payment</h3>
-                <p className="text-center text-sm text-muted-foreground">
-                  Complete the payment in your UPI app
+            <TabsContent value="razorpay" className="space-y-4">
+              <div className="text-center py-4">
+                <p className="text-sm text-muted-foreground mb-4">
+                  Secure payment via Razorpay. Supports Credit/Debit Cards, UPI, Net Banking, and Wallets.
                 </p>
+                <Button
+                  onClick={handleRazorpayPayment}
+                  disabled={loading}
+                  className="w-full"
+                  size="lg"
+                  variant="hero"
+                >
+                  {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CreditCard className="w-4 h-4 mr-2" />}
+                  Pay ₹{selectedPlan === 'monthly' ? '299' : '799'}
+                </Button>
               </div>
+            </TabsContent>
 
-              <Button
-                onClick={handlePayWithUPI}
-                className="w-full"
-                size="lg"
-                variant="hero"
-              >
-                Pay ₹{selectedPlan === 'monthly' ? '299' : '799'} with UPI
-              </Button>
+            <TabsContent value="upi" className="space-y-4">
+              {!paymentLink ? (
+                <div className="text-center py-4">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Pay directly via UPI to our merchant UPI ID. Instant activation after verification.
+                  </p>
+                  <div className="mb-4">
+                    <img src={upiQrCode} alt="UPI QR Code" className="w-48 h-48 mx-auto rounded-xl border-2 border-primary/30" />
+                    <p className="text-sm font-mono text-primary mt-2">9872021777@fam</p>
+                  </div>
+                  <Button
+                    onClick={handleUPIPayment}
+                    disabled={loading}
+                    className="w-full"
+                    size="lg"
+                    variant="hero"
+                  >
+                    {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <QrCode className="w-4 h-4 mr-2" />}
+                    Pay ₹{selectedPlan === 'monthly' ? '299' : '799'} via UPI
+                  </Button>
+                </div>
+              ) : paymentStatus.status === 'pending' ? (
+                <div className="space-y-6">
+                  <div className="flex flex-col items-center space-y-4">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                    <h3 className="text-lg font-semibold">Waiting for Payment</h3>
+                    <p className="text-center text-sm text-muted-foreground">
+                      Complete the payment in your UPI app
+                    </p>
+                  </div>
 
-              <p className="text-xs text-muted-foreground text-center">
-                After paying, we'll automatically verify your payment and activate your {selectedPlan === 'monthly' ? 'yearly subscription' : 'lifetime Pro access'}.
-              </p>
-            </div>
-          )}
+                  <Button
+                    onClick={handlePayWithUPI}
+                    className="w-full"
+                    size="lg"
+                    variant="hero"
+                  >
+                    Pay ₹{selectedPlan === 'monthly' ? '299' : '799'} with UPI
+                  </Button>
 
-          {paymentStatus.status === 'completed' && (
-            <div className="flex flex-col items-center space-y-4 py-8">
-              <CheckCircle2 className="h-16 w-16 text-green-500" />
-              <h3 className="text-xl font-semibold">Payment Successful!</h3>
-              <p className="text-center text-muted-foreground">
-                Your {selectedPlan === 'monthly' ? 'yearly Pro subscription with unlimited access' : 'lifetime Pro access with unlimited access'} has been activated.
-              </p>
-            </div>
-          )}
-
-          {paymentStatus.status === 'error' && (
-            <div className="flex flex-col items-center space-y-4 py-8">
-              <XCircle className="h-16 w-16 text-destructive" />
-              <h3 className="text-xl font-semibold">Payment Failed</h3>
-              <p className="text-center text-muted-foreground">
-                {paymentStatus.error || "There was an error processing your payment. Please try again or contact support."}
-              </p>
-              <Button onClick={() => setShowPaymentDialog(false)} variant="outline">
-                Close
-              </Button>
-            </div>
-          )}
+                  <p className="text-xs text-muted-foreground text-center">
+                    After paying, we'll automatically verify your payment and activate your subscription.
+                  </p>
+                </div>
+              ) : paymentStatus.status === 'completed' ? (
+                <div className="flex flex-col items-center space-y-4 py-8">
+                  <CheckCircle2 className="h-16 w-16 text-green-500" />
+                  <h3 className="text-xl font-semibold">Payment Successful!</h3>
+                  <p className="text-center text-muted-foreground">
+                    Your subscription has been activated.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center space-y-4 py-8">
+                  <XCircle className="h-16 w-16 text-destructive" />
+                  <h3 className="text-xl font-semibold">Payment Failed</h3>
+                  <p className="text-center text-muted-foreground">
+                    {paymentStatus.error || "Please try again or contact support."}
+                  </p>
+                  <Button onClick={() => setShowPaymentDialog(false)} variant="outline">
+                    Close
+                  </Button>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </div>
