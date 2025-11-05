@@ -100,6 +100,7 @@ const Chat = () => {
   const [showGallery, setShowGallery] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState("");
+  const [upscalingImageId, setUpscalingImageId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
@@ -314,6 +315,71 @@ const Chat = () => {
     }
   };
 
+  const saveChatToDatabase = async (userMsg: Message, aiResponses: Message[]) => {
+    if (!user) return;
+
+    try {
+      let chatHistoryId = currentChatId;
+
+      // Create chat_history entry if this is a new chat
+      if (!chatHistoryId) {
+        const chatTitle = userMsg.content.substring(0, 50) + (userMsg.content.length > 50 ? '...' : '');
+        const { data: chatData, error: chatError } = await supabase
+          .from('chat_history')
+          .insert({
+            user_id: user.id,
+            title: chatTitle,
+          })
+          .select()
+          .single();
+
+        if (chatError) {
+          console.error('Failed to create chat history:', chatError);
+          return;
+        }
+
+        chatHistoryId = chatData.id;
+        setCurrentChatId(chatHistoryId);
+      }
+
+      // Save user message
+      const { error: userMsgError } = await supabase
+        .from('chat_messages')
+        .insert({
+          chat_id: chatHistoryId,
+          user_id: user.id,
+          role: 'user',
+          content: userMsg.content,
+          model: 'user',
+        });
+
+      if (userMsgError) {
+        console.error('Failed to save user message:', userMsgError);
+      }
+
+      // Save all AI responses
+      for (const aiMsg of aiResponses) {
+        if (aiMsg.error) continue; // Skip error messages
+
+        const { error: aiMsgError } = await supabase
+          .from('chat_messages')
+          .insert({
+            chat_id: chatHistoryId,
+            user_id: user.id,
+            role: 'assistant',
+            content: aiMsg.content,
+            model: aiMsg.model,
+          });
+
+        if (aiMsgError) {
+          console.error('Failed to save AI message:', aiMsgError);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving chat to database:', error);
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim() || !user || loading) return;
 
@@ -456,12 +522,21 @@ const Chat = () => {
         throw new Error('Max retries exceeded');
       };
 
-      // Process each model with streaming
-      const modelPromises = selectedModels.map(async (modelId) => {
+      // Separate models into Lovable AI vs External APIs
+      const lovableAIModels = selectedModels.filter(id => 
+        ['gemini-flash', 'gemini-pro', 'gemini-lite', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano'].includes(id)
+      );
+      const externalModels = selectedModels.filter(id => 
+        ['claude', 'perplexity'].includes(id)
+      );
+
+      const allAIResponses: Message[] = [];
+
+      // Process Lovable AI models (streaming)
+      const lovablePromises = lovableAIModels.map(async (modelId) => {
         const modelConfig = aiModels.find(m => m.id === modelId);
         if (!modelConfig) return;
 
-        // Create placeholder message for this model
         const assistantMessageId = Date.now().toString() + Math.random() + modelId;
         const placeholderMessage: Message = {
           id: assistantMessageId,
@@ -472,6 +547,7 @@ const Chat = () => {
         };
 
         setMessages(prev => [...prev, placeholderMessage]);
+        allAIResponses.push(placeholderMessage);
 
         try {
           const CHAT_URL = `https://pqdgpxetysqcdcjwormb.supabase.co/functions/v1/lovable-ai-chat`;
@@ -605,14 +681,12 @@ const Chat = () => {
         } catch (err: any) {
           console.error(`Error with ${modelConfig.name}:`, err);
           
-          // Update message to show error
           setMessages(prev => prev.map(msg => 
             msg.id === assistantMessageId 
               ? { ...msg, content: `Error: ${err.message}`, error: true }
               : msg
           ));
           
-          // Show specific error toast for rate limiting
           if (err.message.includes('Rate limit')) {
             toast({
               title: `${modelConfig.name} rate limited`,
@@ -623,7 +697,82 @@ const Chat = () => {
         }
       });
 
-      await Promise.all(modelPromises);
+      // Process External API models (Claude, Perplexity) via chat-with-ai
+      const externalPromises = externalModels.map(async (modelId) => {
+        const modelConfig = aiModels.find(m => m.id === modelId);
+        if (!modelConfig) return;
+
+        const assistantMessageId = Date.now().toString() + Math.random() + modelId;
+        const placeholderMessage: Message = {
+          id: assistantMessageId,
+          model: modelConfig.name,
+          content: "",
+          timestamp: new Date(),
+          role: 'assistant',
+        };
+
+        setMessages(prev => [...prev, placeholderMessage]);
+        allAIResponses.push(placeholderMessage);
+
+        try {
+          // Map UI model names to chat-with-ai expected names
+          const modelMapping: Record<string, string> = {
+            'claude': 'claude',
+            'perplexity': 'perplexity',
+          };
+
+          const { data, error } = await supabase.functions.invoke('chat-with-ai', {
+            body: {
+              messages: conversationHistory.map(m => ({ role: m.role, content: m.content })),
+              selectedModels: [modelMapping[modelId]],
+              webSearchEnabled,
+              searchMode,
+              deepResearchMode,
+              attachmentUrl: attachmentToSend || undefined,
+            },
+          });
+
+          if (error) throw error;
+
+          // Extract response for this model
+          const modelResponse = data.responses?.find((r: any) => r.model === modelMapping[modelId]);
+          if (modelResponse?.response) {
+            setMessages(prev => prev.map(msg => 
+              msg.id === assistantMessageId 
+                ? { 
+                    ...msg, 
+                    content: modelResponse.response,
+                    sources: modelResponse.sources 
+                  }
+                : msg
+            ));
+          } else {
+            throw new Error('No response from model');
+          }
+        } catch (err: any) {
+          console.error(`Error with ${modelConfig.name}:`, err);
+          
+          setMessages(prev => prev.map(msg => 
+            msg.id === assistantMessageId 
+              ? { ...msg, content: `Error: ${err.message}`, error: true }
+              : msg
+          ));
+          
+          toast({
+            title: `${modelConfig.name} error`,
+            description: err.message || "Failed to get response. Please try again.",
+            variant: "destructive",
+          });
+        }
+      });
+
+      await Promise.all([...lovablePromises, ...externalPromises]);
+      
+      // Save chat to database
+      const successfulResponses = allAIResponses.filter(msg => !msg.error && msg.content);
+      if (successfulResponses.length > 0) {
+        await saveChatToDatabase(userMessage, successfulResponses);
+      }
       
       // Clear all loading states
       setLoading(false);
@@ -633,7 +782,7 @@ const Chat = () => {
       const successCount = selectedModels.length;
       toast({
         title: `${successCount} AI${successCount > 1 ? 's' : ''} responded`,
-        description: `Received streaming responses successfully.`,
+        description: `Received responses successfully.`,
       });
 
       await refreshProfile();
@@ -1097,7 +1246,6 @@ const Chat = () => {
       const editedImage = data.images?.[0]?.image_url?.url;
 
       if (editedImage) {
-        // Add edited image as new assistant message
         const newMessage: Message = {
           id: crypto.randomUUID(),
           model: 'Image Editor',
@@ -1123,6 +1271,68 @@ const Chat = () => {
       setLoading(false);
       setEditingImageId(null);
       setImageEditPrompt("");
+    }
+  };
+
+  const handleUpscaleImage = async (imageUrl: string, messageId: string) => {
+    setUpscalingImageId(messageId);
+    try {
+      const response = await fetch('https://pqdgpxetysqcdcjwormb.supabase.co/functions/v1/lovable-ai-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxZGdweGV0eXNxY2Rjandvcm1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3NTcwMDMsImV4cCI6MjA3NzMzMzAwM30.AspAeB_iUnc-XJmDNhdV5_HYTMLg32LM1bVAdwM6A5E`,
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash-image-preview',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { 
+                  type: 'text', 
+                  text: 'Enhance this image to higher resolution and quality while preserving all details. Improve sharpness, clarity, and overall quality.' 
+                },
+                { type: 'image_url', image_url: { url: imageUrl } }
+              ]
+            }
+          ],
+          stream: false,
+          generateImage: true,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upscale image');
+      }
+
+      const data = await response.json();
+      const upscaledImage = data.images?.[0]?.image_url?.url;
+
+      if (upscaledImage) {
+        const newMessage: Message = {
+          id: crypto.randomUUID(),
+          model: 'Image Upscaler',
+          content: 'Upscaled to higher resolution',
+          timestamp: new Date(),
+          role: 'assistant',
+          images: [{ image_url: { url: upscaledImage } }]
+        };
+        setMessages(prev => [...prev, newMessage]);
+        toast({
+          title: "Image upscaled successfully",
+          description: "Your enhanced image is ready",
+        });
+      }
+    } catch (error: any) {
+      console.error('Image upscale error:', error);
+      toast({
+        title: "Failed to upscale image",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setUpscalingImageId(null);
     }
   };
 
@@ -1603,6 +1813,20 @@ const Chat = () => {
                                   title="Edit Image"
                                 >
                                   <Edit2 className="w-4 h-4" />
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="secondary"
+                                  onClick={() => handleUpscaleImage(img.image_url.url, message.id)}
+                                  disabled={upscalingImageId === message.id}
+                                  className="shadow-lg"
+                                  title="Upscale Image"
+                                >
+                                  {upscalingImageId === message.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Sparkles className="w-4 h-4" />
+                                  )}
                                 </Button>
                               </div>
                               
