@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Sparkles, LogOut, Zap, User, History, MessageSquare, Settings, LayoutDashboard, BarChart3, Shield, Crown, Users } from "lucide-react";
+import { Sparkles, LogOut, Zap, User, History, MessageSquare, Settings, LayoutDashboard, BarChart3, Shield, Crown, Users, Activity, GitCompare, TrendingUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useState, useEffect } from "react";
@@ -173,7 +173,33 @@ const Navbar = () => {
                           User Management
                         </Link>
                       </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin/activity" className="cursor-pointer">
+                          <Activity className="w-4 h-4 mr-2" />
+                          User Activity
+                        </Link>
+                      </DropdownMenuItem>
                     </>
+                  )}
+                  {/* Pro Features */}
+                  {(profile?.is_pro || profile?.subscription_type === 'monthly' || profile?.subscription_type === 'lifetime') && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link to="/model-comparison" className="cursor-pointer">
+                          <GitCompare className="w-4 h-4 mr-2" />
+                          Model Comparison
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  {profile?.subscription_type === 'lifetime' && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/pro-analytics" className="cursor-pointer">
+                        <TrendingUp className="w-4 h-4 mr-2" />
+                        Pro Analytics
+                      </Link>
+                    </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={signOut} className="cursor-pointer text-destructive focus:text-destructive">

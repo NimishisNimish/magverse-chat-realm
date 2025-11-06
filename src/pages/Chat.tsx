@@ -41,6 +41,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { generateChatPDF } from "@/utils/pdfGenerator";
 import { Link, useSearchParams } from "react-router-dom";
 import { useCreditAlerts } from "@/hooks/useCreditAlerts";
+import { usePaymentNotifications } from "@/hooks/usePaymentNotifications";
 import {
   Sheet,
   SheetContent,
@@ -108,8 +109,9 @@ const Chat = () => {
   const { user, profile, refreshProfile } = useAuth();
   const [searchParams] = useSearchParams();
   
-  // Enable credit alerts
+  // Enable credit alerts and payment notifications
   useCreditAlerts();
+  usePaymentNotifications();
 
   // Auto-resize textarea
   useEffect(() => {

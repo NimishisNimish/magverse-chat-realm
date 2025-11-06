@@ -23,6 +23,9 @@ import Dashboard from "./pages/Dashboard";
 import AdminAnalytics from "./pages/AdminAnalytics";
 import UserManagement from "./pages/UserManagement";
 import Support from "./pages/Support";
+import ModelComparison from "./pages/ModelComparison";
+import ProAnalytics from "./pages/ProAnalytics";
+import AdminUserActivity from "./pages/AdminUserActivity";
 
 const queryClient = new QueryClient();
 
@@ -63,6 +66,9 @@ const App = () => (
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/admin/analytics" element={<ProtectedRoute><AdminAnalytics /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
+            <Route path="/admin/activity" element={<ProtectedRoute><AdminUserActivity /></ProtectedRoute>} />
+            <Route path="/model-comparison" element={<ProtectedRoute><ModelComparison /></ProtectedRoute>} />
+            <Route path="/pro-analytics" element={<ProtectedRoute><ProAnalytics /></ProtectedRoute>} />
             <Route path="/support" element={<Support />} />
             <Route path="*" element={<NotFound />} />
             </Routes>

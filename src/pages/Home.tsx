@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Zap, Shield, Infinity, Mail, MapPin, Phone, Users, Target, Rocket, Check, X } from "lucide-react";
+import { Sparkles, Zap, Shield, Infinity, Mail, MapPin, Phone, Users, Target, Rocket, Check, X, Crown } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
 import magverseLogo from "@/assets/magverse-logo.png";
@@ -56,13 +56,30 @@ const Home = () => {
                 Start Chatting
               </Button>
             </Link>
-            {profile?.subscription_type !== 'lifetime' && (
+            {/* Hide View Pricing for all Pro users (lifetime and monthly) */}
+            {profile?.subscription_type !== 'lifetime' && profile?.subscription_type !== 'monthly' && (
               <Button variant="outline" size="lg" className="w-full sm:w-auto text-lg px-8" onClick={() => document.getElementById('pricing-section')?.scrollIntoView({
                 behavior: 'smooth'
               })}>
                 <Sparkles className="w-5 h-5" />
                 View Pricing
               </Button>
+            )}
+            {/* Show current plan for Pro users */}
+            {(profile?.subscription_type === 'lifetime' || profile?.subscription_type === 'monthly') && (
+              <div className="flex items-center gap-2 px-6 py-3 rounded-full glass-card border-primary/30">
+                {profile?.subscription_type === 'lifetime' ? (
+                  <>
+                    <Crown className="w-5 h-5 text-amber-500" />
+                    <span className="text-sm font-semibold">Your Plan: Lifetime Pro</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-5 h-5 text-primary" />
+                    <span className="text-sm font-semibold">Your Plan: Pro Yearly</span>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </div>
