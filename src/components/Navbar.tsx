@@ -43,24 +43,30 @@ const Navbar = () => {
     
     if (profile.subscription_type === 'lifetime') {
       return (
-        <Badge className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 border-0">
-          <Crown className="w-3 h-3 mr-1" />
-          Lifetime Pro
-        </Badge>
+        <Link to="/dashboard">
+          <Badge className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 border-0 cursor-pointer">
+            <Crown className="w-3 h-3 mr-1" />
+            Lifetime Pro
+          </Badge>
+        </Link>
       );
     } else if (profile.subscription_type === 'monthly') {
       return (
-        <Badge className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 border-0">
-          <Zap className="w-3 h-3 mr-1" />
-          Pro Monthly
-        </Badge>
+        <Link to="/dashboard">
+          <Badge className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 border-0 cursor-pointer">
+            <Zap className="w-3 h-3 mr-1" />
+            Pro Yearly
+          </Badge>
+        </Link>
       );
     } else {
       return (
-        <Badge variant="outline" className="border-muted-foreground/30">
-          <User className="w-3 h-3 mr-1" />
-          Free Plan
-        </Badge>
+        <Link to="/dashboard">
+          <Badge variant="outline" className="border-muted-foreground/30 hover:bg-accent/10 cursor-pointer">
+            <User className="w-3 h-3 mr-1" />
+            Free Plan
+          </Badge>
+        </Link>
       );
     }
   };
@@ -78,9 +84,9 @@ const Navbar = () => {
           <a href="#about" className="text-foreground hover:text-primary transition-colors">
             About
           </a>
-          <a href="#contact" className="text-foreground hover:text-primary transition-colors">
-            Contact
-          </a>
+          <Link to="/support" className="text-foreground hover:text-primary transition-colors">
+            Support
+          </Link>
         </div>
         
         <ThemeToggle />

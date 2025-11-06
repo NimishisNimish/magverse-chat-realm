@@ -50,18 +50,20 @@ const Home = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <Button variant="hero" size="lg" className="w-full sm:w-auto text-lg px-8" onClick={() => document.getElementById('pricing-section')?.scrollIntoView({
-            behavior: 'smooth'
-          })}>
-              <Zap className="w-5 h-5" />
-              Start Chatting
-            </Button>
-            <Button variant="outline" size="lg" className="w-full sm:w-auto text-lg px-8" onClick={() => document.getElementById('pricing-section')?.scrollIntoView({
-            behavior: 'smooth'
-          })}>
-              <Sparkles className="w-5 h-5" />
-              View Pricing
-            </Button>
+            <Link to={user ? "/chat" : "/auth"}>
+              <Button variant="hero" size="lg" className="w-full sm:w-auto text-lg px-8">
+                <Zap className="w-5 h-5" />
+                Start Chatting
+              </Button>
+            </Link>
+            {profile?.subscription_type !== 'lifetime' && (
+              <Button variant="outline" size="lg" className="w-full sm:w-auto text-lg px-8" onClick={() => document.getElementById('pricing-section')?.scrollIntoView({
+                behavior: 'smooth'
+              })}>
+                <Sparkles className="w-5 h-5" />
+                View Pricing
+              </Button>
+            )}
           </div>
         </div>
       </section>

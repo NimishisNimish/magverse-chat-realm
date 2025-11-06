@@ -133,10 +133,9 @@ const Dashboard = () => {
     if (profile?.subscription_type === 'lifetime') {
       return "Unlimited";
     } else if (profile?.subscription_type === 'monthly') {
-      const remaining = (profile?.monthly_credits || 0) - (profile?.monthly_credits_used || 0);
-      return `${remaining} / ${profile?.monthly_credits || 0}`;
+      return "500 per day";
     } else {
-      return `${profile?.credits_remaining || 0} / 10 daily`;
+      return `${profile?.credits_remaining || 0} / 5 daily`;
     }
   };
 
@@ -210,7 +209,17 @@ const Dashboard = () => {
               </div>
               {profile?.subscription_type === 'free' && (
                 <p className="text-xs text-muted-foreground">
-                  Free users get 10 messages per day. Credits reset daily at midnight.
+                  Free users get 5 messages per day. Credits reset daily at midnight.
+                </p>
+              )}
+              {profile?.subscription_type === 'monthly' && (
+                <p className="text-xs text-muted-foreground">
+                  Pro Yearly users get 500 messages per day. Credits reset daily at midnight.
+                </p>
+              )}
+              {profile?.subscription_type === 'lifetime' && (
+                <p className="text-xs text-muted-foreground">
+                  Lifetime Pro members enjoy unlimited messages forever!
                 </p>
               )}
             </div>
