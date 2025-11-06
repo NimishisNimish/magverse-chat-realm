@@ -1,10 +1,8 @@
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { Shield, Lock, Eye, Database, Mail } from "lucide-react";
-
 const PrivacyPolicy = () => {
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       <Navbar />
       
       <div className="container mx-auto px-4 pt-32 pb-20">
@@ -96,7 +94,7 @@ const PrivacyPolicy = () => {
                 <li><strong>Google AI (Gemini)</strong> - Your messages may be processed by Google's AI services</li>
                 <li><strong>Anthropic (Claude)</strong> - Your messages may be processed by Anthropic's API</li>
                 <li><strong>Meta (Llama)</strong> - Your messages may be processed by Meta's AI models</li>
-                <li><strong>Deepseek</strong> - Your messages may be processed by Deepseek's AI services</li>
+                
                 <li><strong>xAI (Grok)</strong> - Your messages may be processed by xAI's services</li>
                 <li><strong>Perplexity AI</strong> - Your messages may be processed for web-enhanced responses</li>
               </ul>
@@ -170,8 +168,6 @@ const PrivacyPolicy = () => {
           </div>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default PrivacyPolicy;
