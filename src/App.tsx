@@ -21,6 +21,7 @@ import Admin from "./pages/Admin";
 import Payment from "./pages/Payment";
 import Dashboard from "./pages/Dashboard";
 import AdminAnalytics from "./pages/AdminAnalytics";
+import UserManagement from "./pages/UserManagement";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +61,7 @@ const App = () => (
             <Route path="/payment" element={<Payment />} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/admin/analytics" element={<ProtectedRoute><AdminAnalytics /></ProtectedRoute>} />
+            <Route path="/admin/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>

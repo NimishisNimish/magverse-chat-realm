@@ -471,6 +471,21 @@ const Chat = () => {
       }
     }
 
+    // Check image generation access for free users
+    if (!isPro && imageGenerationMode) {
+      toast({
+        title: "Upgrade Required",
+        description: "Image generation is only available for Pro users. Upgrade to create stunning AI images!",
+        variant: "destructive",
+        action: (
+          <Button variant="outline" size="sm" onClick={() => window.location.href = '/payment'}>
+            Upgrade to Pro
+          </Button>
+        ),
+      });
+      return;
+    }
+
     // Warn if web search enabled but no Perplexity selected
     if (webSearchEnabled && !selectedModels.includes('perplexity')) {
       toast({

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Sparkles, LogOut, Zap, User, History, MessageSquare, Settings, LayoutDashboard, BarChart3, Shield, Crown } from "lucide-react";
+import { Sparkles, LogOut, Zap, User, History, MessageSquare, Settings, LayoutDashboard, BarChart3, Shield, Crown, Users } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useState, useEffect } from "react";
@@ -159,6 +159,12 @@ const Navbar = () => {
                         <Link to="/admin/analytics" className="cursor-pointer">
                           <BarChart3 className="w-4 h-4 mr-2" />
                           Analytics
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin/users" className="cursor-pointer">
+                          <Users className="w-4 h-4 mr-2" />
+                          User Management
                         </Link>
                       </DropdownMenuItem>
                     </>
