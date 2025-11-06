@@ -51,21 +51,15 @@ const Home = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <Button 
-              variant="hero" 
-              size="lg" 
-              className="w-full sm:w-auto text-lg px-8"
-              onClick={() => document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth' })}
-            >
+            <Button variant="hero" size="lg" className="w-full sm:w-auto text-lg px-8" onClick={() => document.getElementById('pricing-section')?.scrollIntoView({
+            behavior: 'smooth'
+          })}>
               <Zap className="w-5 h-5" />
               Start Chatting
             </Button>
-            <Button 
-              variant="outline" 
-              size="lg" 
-              className="w-full sm:w-auto text-lg px-8"
-              onClick={() => document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth' })}
-            >
+            <Button variant="outline" size="lg" className="w-full sm:w-auto text-lg px-8" onClick={() => document.getElementById('pricing-section')?.scrollIntoView({
+            behavior: 'smooth'
+          })}>
               <Sparkles className="w-5 h-5" />
               View Pricing
             </Button>
@@ -74,8 +68,7 @@ const Home = () => {
       </section>
 
       {/* Payment Section */}
-      {user && (
-        <section id="payment-section" className="container mx-auto px-4 py-20">
+      {user && <section id="payment-section" className="container mx-auto px-4 py-20">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-12 animate-fade-in">
               <h2 className="text-4xl md:text-5xl font-bold mb-4">
@@ -92,11 +85,7 @@ const Home = () => {
                 <div className="space-y-4">
                   <h3 className="text-2xl font-semibold text-center">Scan QR Code</h3>
                   <div className="flex justify-center">
-                    <img 
-                      src={upiQrCode} 
-                      alt="UPI Payment QR Code" 
-                      className="w-64 h-64 rounded-xl border-2 border-primary/30"
-                    />
+                    <img src={upiQrCode} alt="UPI Payment QR Code" className="w-64 h-64 rounded-xl border-2 border-primary/30" />
                   </div>
                   <p className="text-sm text-muted-foreground text-center">
                     Use any UPI app to scan and pay
@@ -110,15 +99,12 @@ const Home = () => {
                     <div className="glass-card p-6 rounded-xl space-y-3">
                       <p className="text-sm text-muted-foreground">UPI ID</p>
                       <p className="text-2xl font-mono font-bold text-primary">9872021777@fam</p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => {
-                          navigator.clipboard.writeText('9872021777@fam');
-                          toast({ title: "UPI ID copied to clipboard!" });
-                        }}
-                      >
+                      <Button variant="outline" size="sm" className="w-full" onClick={() => {
+                    navigator.clipboard.writeText('9872021777@fam');
+                    toast({
+                      title: "UPI ID copied to clipboard!"
+                    });
+                  }}>
                         Copy UPI ID
                       </Button>
                     </div>
@@ -157,8 +143,7 @@ const Home = () => {
               </div>
             </div>
           </div>
-        </section>
-      )}
+        </section>}
       
       {/* Pricing Section */}
       <section id="pricing-section" className="container mx-auto px-4 py-20">
@@ -177,7 +162,7 @@ const Home = () => {
             <div className="glass-card-hover p-8 rounded-2xl space-y-6 border-accent/20">
               <div className="space-y-2">
                 <h3 className="text-2xl font-bold">Free</h3>
-                <p className="text-muted-foreground">Try out AI Nexus with basic features</p>
+                <p className="text-muted-foreground">Try out MagverseAI with basic features</p>
               </div>
               
               <div className="space-y-1">
@@ -187,19 +172,15 @@ const Home = () => {
                 </div>
               </div>
               
-              {user ? (
-                <Link to="/chat">
+              {user ? <Link to="/chat">
                   <Button variant="outline" size="lg" className="w-full">
                     Start Chatting
                   </Button>
-                </Link>
-              ) : (
-                <Link to="/auth">
+                </Link> : <Link to="/auth">
                   <Button variant="outline" size="lg" className="w-full">
                     Get Started
                   </Button>
-                </Link>
-              )}
+                </Link>}
               
               <ul className="space-y-3 pt-4">
                 <li className="flex items-start gap-3">
@@ -325,7 +306,9 @@ const Home = () => {
           </div>
 
           {/* Feature Comparison Table */}
-          <div className="mt-16 animate-slide-up" style={{ animationDelay: "0.3s" }}>
+          <div className="mt-16 animate-slide-up" style={{
+          animationDelay: "0.3s"
+        }}>
             <h3 className="text-2xl font-bold text-center mb-8">Compare Plans</h3>
             <div className="glass-card rounded-2xl overflow-hidden">
               <div className="overflow-x-auto">
@@ -474,7 +457,9 @@ const Home = () => {
           </div>
 
           {/* Billing FAQ Section */}
-          <div className="mt-16 animate-slide-up" style={{ animationDelay: "0.4s" }}>
+          <div className="mt-16 animate-slide-up" style={{
+          animationDelay: "0.4s"
+        }}>
             <h3 className="text-2xl font-bold text-center mb-8">Billing & Payment FAQ</h3>
             <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
               <div className="glass-card-hover p-6 rounded-xl space-y-3">
