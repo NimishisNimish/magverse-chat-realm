@@ -1,10 +1,11 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Sparkles, LogOut, Zap, User, History, MessageSquare, Settings, LayoutDashboard, BarChart3, Shield } from "lucide-react";
+import { Sparkles, LogOut, Zap, User, History, MessageSquare, Settings, LayoutDashboard, BarChart3, Shield, Crown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +38,33 @@ const Navbar = () => {
     checkAdminAccess();
   }, [user]);
 
+  const getMembershipBadge = () => {
+    if (!profile) return null;
+    
+    if (profile.subscription_type === 'lifetime') {
+      return (
+        <Badge className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 border-0">
+          <Crown className="w-3 h-3 mr-1" />
+          Lifetime Pro
+        </Badge>
+      );
+    } else if (profile.subscription_type === 'monthly') {
+      return (
+        <Badge className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 border-0">
+          <Zap className="w-3 h-3 mr-1" />
+          Pro Monthly
+        </Badge>
+      );
+    } else {
+      return (
+        <Badge variant="outline" className="border-muted-foreground/30">
+          <User className="w-3 h-3 mr-1" />
+          Free Plan
+        </Badge>
+      );
+    }
+  };
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass-card border-b border-glass-border">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -59,6 +87,7 @@ const Navbar = () => {
         
         {user ? (
             <>
+              {getMembershipBadge()}
               <Link to="/chat">
                 <Button variant="ghost" className="text-foreground">
                   Chat

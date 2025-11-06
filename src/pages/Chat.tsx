@@ -40,6 +40,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { generateChatPDF } from "@/utils/pdfGenerator";
 import { Link, useSearchParams } from "react-router-dom";
+import { useCreditAlerts } from "@/hooks/useCreditAlerts";
 import {
   Sheet,
   SheetContent,
@@ -106,6 +107,9 @@ const Chat = () => {
   const { toast } = useToast();
   const { user, profile, refreshProfile } = useAuth();
   const [searchParams] = useSearchParams();
+  
+  // Enable credit alerts
+  useCreditAlerts();
 
   // Auto-resize textarea
   useEffect(() => {
