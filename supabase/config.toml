@@ -58,3 +58,6 @@ verify_jwt = false
 
 [functions.send-contact-email]
 verify_jwt = false
+
+[functions.payment-verification-email]
+verify_jwt = false

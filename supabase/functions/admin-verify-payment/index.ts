@@ -109,6 +109,10 @@ serve(async (req) => {
       // Determine plan type and grant appropriate access
       const planType = transaction.plan_type || 'lifetime';
       
+      // Get user email for notification
+      const { data: userProfile } = await supabase.auth.admin.getUserById(transaction.user_id);
+      const userEmail = userProfile?.user?.email;
+      
       if (planType === 'monthly') {
         // Grant monthly subscription (50 credits/month)
         const subscriptionEnd = new Date();
@@ -149,6 +153,22 @@ serve(async (req) => {
         console.log('✅ Lifetime Pro access granted to user:', transaction.user_id);
       }
 
+      // Send email notification
+      if (userEmail) {
+        try {
+          await supabase.functions.invoke('payment-verification-email', {
+            body: {
+              userEmail,
+              planType,
+              verified: true,
+            },
+          });
+          console.log('✅ Verification email sent to:', userEmail);
+        } catch (emailError) {
+          console.error('⚠️ Failed to send email, but payment was verified:', emailError);
+        }
+      }
+
       return new Response(
         JSON.stringify({
           success: true,
@@ -182,6 +202,26 @@ serve(async (req) => {
       }
 
       console.log('✅ Payment rejected for transaction:', transactionId);
+
+      // Send rejection email
+      const { data: userProfile } = await supabase.auth.admin.getUserById(transaction.user_id);
+      const userEmail = userProfile?.user?.email;
+      
+      if (userEmail) {
+        try {
+          await supabase.functions.invoke('payment-verification-email', {
+            body: {
+              userEmail,
+              planType: transaction.plan_type || 'lifetime',
+              verified: false,
+              rejectionReason,
+            },
+          });
+          console.log('✅ Rejection email sent to:', userEmail);
+        } catch (emailError) {
+          console.error('⚠️ Failed to send email:', emailError);
+        }
+      }
 
       return new Response(
         JSON.stringify({

@@ -189,6 +189,24 @@ const Chat = () => {
   };
 
   const toggleModel = (modelId: string) => {
+    const isPro = profile?.is_pro || profile?.subscription_type === 'monthly' || profile?.subscription_type === 'lifetime';
+    const premiumModels = ['gemini-flash', 'gemini-pro', 'gemini-lite', 'gpt-5', 'gpt-5-nano', 'perplexity', 'claude'];
+    
+    // Check if free user is trying to select premium model
+    if (!isPro && premiumModels.includes(modelId) && !selectedModels.includes(modelId)) {
+      toast({
+        title: "Upgrade to Pro",
+        description: "Free users can only use GPT-5 Mini. Upgrade to access all AI models!",
+        variant: "destructive",
+        action: (
+          <Button variant="outline" size="sm" onClick={() => window.location.href = '/payment'}>
+            View Plans
+          </Button>
+        ),
+      });
+      return;
+    }
+
     setSelectedModels(prev => {
       if (prev.includes(modelId)) {
         // Prevent deselecting if it's the last model
@@ -393,14 +411,60 @@ const Chat = () => {
       return;
     }
 
-    // Check credits for non-pro users
-    if (!profile?.is_pro && (profile?.credits_remaining || 0) <= 0) {
+    // Check if user is free and has selected premium models
+    const isPro = profile?.is_pro || profile?.subscription_type === 'monthly' || profile?.subscription_type === 'lifetime';
+    const premiumModels = ['gemini-flash', 'gemini-pro', 'gemini-lite', 'gpt-5', 'gpt-5-nano', 'perplexity', 'claude'];
+    const selectedPremiumModels = selectedModels.filter(id => premiumModels.includes(id));
+    
+    if (!isPro && selectedPremiumModels.length > 0) {
       toast({
-        title: "No credits remaining",
-        description: "You've used all your free credits for today. Upgrade to Pro for unlimited chats!",
+        title: "Upgrade Required",
+        description: "Free users can only access GPT-5 Mini. Upgrade to Pro to unlock all AI models!",
         variant: "destructive",
+        action: (
+          <Button variant="outline" size="sm" onClick={() => window.location.href = '/payment'}>
+            Upgrade Now
+          </Button>
+        ),
       });
       return;
+    }
+
+    // Check credits for free users (5 messages per day)
+    if (!isPro && (profile?.credits_remaining || 0) <= 0) {
+      toast({
+        title: "Daily Limit Reached",
+        description: "You've used all 5 free messages today. Upgrade to Pro for unlimited messages!",
+        variant: "destructive",
+        action: (
+          <Button variant="outline" size="sm" onClick={() => window.location.href = '/payment'}>
+            Upgrade to Pro
+          </Button>
+        ),
+      });
+      return;
+    }
+
+    // Check deep research limit for free users (2 per day)
+    if (!isPro && deepResearchMode) {
+      const todayDeepResearch = messages.filter(m => 
+        m.timestamp.toDateString() === new Date().toDateString() && 
+        m.webSearchEnabled
+      ).length;
+      
+      if (todayDeepResearch >= 2) {
+        toast({
+          title: "Deep Research Limit Reached",
+          description: "Free users get 2 deep research queries per day. Upgrade for unlimited access!",
+          variant: "destructive",
+          action: (
+            <Button variant="outline" size="sm" onClick={() => window.location.href = '/payment'}>
+              Upgrade to Pro
+            </Button>
+          ),
+        });
+        return;
+      }
     }
 
     // Warn if web search enabled but no Perplexity selected

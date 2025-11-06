@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Copy, CreditCard, Smartphone, Shield, CheckCircle } from "lucide-react";
-import upiQrCode from "@/assets/upi-qr-code.jpg";
+import { Copy, CreditCard, Smartphone, Shield, CheckCircle, X } from "lucide-react";
+import upiQrCode from "@/assets/phonepe-qr-code.png";
 
 declare global {
   interface Window {
@@ -24,6 +24,8 @@ const Payment = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [upiId, setUpiId] = useState("");
   const [paymentNote, setPaymentNote] = useState("");
+  const [paymentProof, setPaymentProof] = useState<File | null>(null);
+  const [uploadingProof, setUploadingProof] = useState(false);
   
   const { user } = useAuth();
   const { toast } = useToast();
@@ -151,13 +153,34 @@ const Payment = () => {
     try {
       setIsProcessing(true);
 
+      // Upload payment proof if provided
+      let proofUrl = "";
+      if (paymentProof) {
+        setUploadingProof(true);
+        const fileExt = paymentProof.name.split('.').pop();
+        const filePath = `${user.id}/payment-proofs/${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('chat-attachments')
+          .upload(filePath, paymentProof);
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = await supabase.storage
+          .from('chat-attachments')
+          .createSignedUrl(filePath, 31536000); // 1 year
+
+        if (urlData) proofUrl = urlData.signedUrl;
+        setUploadingProof(false);
+      }
+
       const { data, error } = await supabase.from("transactions").insert({
         user_id: user.id,
         amount: plans[selectedPlan].amount,
         status: "pending",
         plan_type: selectedPlan,
         payment_method: "upi",
-        payment_reference: `UPI ID: ${upiId}${paymentNote ? ` - Note: ${paymentNote}` : ""}`,
+        payment_reference: `UPI ID: ${upiId}${paymentNote ? ` - Note: ${paymentNote}` : ""}${proofUrl ? ` - Proof: ${proofUrl}` : ""}`,
         verification_status: "pending_verification",
       });
 
@@ -165,11 +188,14 @@ const Payment = () => {
 
       toast({
         title: "Payment Request Submitted",
-        description: "Please complete the payment and send proof to magverse4@gmail.com",
+        description: paymentProof 
+          ? "Payment proof uploaded! We'll verify and activate your account within 24 hours."
+          : "Please send payment proof to magverse4@gmail.com",
       });
 
       setUpiId("");
       setPaymentNote("");
+      setPaymentProof(null);
     } catch (error: any) {
       console.error("Error submitting payment:", error);
       toast({
@@ -179,6 +205,7 @@ const Payment = () => {
       });
     } finally {
       setIsProcessing(false);
+      setUploadingProof(false);
     }
   };
 
@@ -343,11 +370,11 @@ const Payment = () => {
                       <div className="space-y-2">
                         <Label>Or Pay to UPI ID</Label>
                         <div className="flex gap-2">
-                          <Input value="9872021777@fam" readOnly className="font-mono" />
+                          <Input value="9627318010@ibl" readOnly className="font-mono" />
                           <Button
                             variant="outline"
                             size="icon"
-                            onClick={() => copyToClipboard("9872021777@fam", "UPI ID")}
+                            onClick={() => copyToClipboard("9627318010@ibl", "UPI ID")}
                           >
                             <Copy className="w-4 h-4" />
                           </Button>
@@ -380,6 +407,30 @@ const Payment = () => {
                           onChange={(e) => setPaymentNote(e.target.value)}
                         />
                       </div>
+
+                      <div className="space-y-2">
+                        <Label>Upload Payment Proof (Optional)</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            type="file"
+                            accept="image/*,.pdf"
+                            onChange={(e) => setPaymentProof(e.target.files?.[0] || null)}
+                            disabled={uploadingProof}
+                          />
+                          {paymentProof && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setPaymentProof(null)}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Upload screenshot or proof to speed up verification
+                        </p>
+                      </div>
                     </div>
                   </div>
 
@@ -408,11 +459,11 @@ const Payment = () => {
 
                   <Button
                     onClick={handleUpiSubmit}
-                    disabled={isProcessing || !upiId.trim()}
+                    disabled={isProcessing || uploadingProof || !upiId.trim()}
                     className="w-full"
                     size="lg"
                   >
-                    {isProcessing ? "Submitting..." : "I've Completed Payment"}
+                    {uploadingProof ? "Uploading Proof..." : isProcessing ? "Submitting..." : "I've Completed Payment"}
                   </Button>
                 </CardContent>
               </Card>
