@@ -19,6 +19,8 @@ import TermsOfService from "./pages/TermsOfService";
 import ProfileSettings from "./pages/ProfileSettings";
 import Admin from "./pages/Admin";
 import Payment from "./pages/Payment";
+import Dashboard from "./pages/Dashboard";
+import AdminAnalytics from "./pages/AdminAnalytics";
 
 const queryClient = new QueryClient();
 
@@ -56,6 +58,8 @@ const App = () => (
             <Route path="/upgrade" element={<ProtectedRoute><Upgrade /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
             <Route path="/payment" element={<Payment />} />
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/admin/analytics" element={<ProtectedRoute><AdminAnalytics /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>
