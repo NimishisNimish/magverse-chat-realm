@@ -279,10 +279,21 @@ const Admin = () => {
               <h1 className="text-4xl font-bold gradient-text mb-2">Admin Dashboard</h1>
               <p className="text-muted-foreground">Manage payments and subscriptions</p>
             </div>
-            <Button onClick={loadTransactions} variant="outline" size="sm" disabled={loading}>
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={() => navigate('/admin/traffic')} variant="outline" size="sm">
+                Real-Time Traffic
+              </Button>
+              <Button onClick={() => navigate('/admin/activity')} variant="outline" size="sm">
+                User Activity
+              </Button>
+              <Button onClick={() => navigate('/admin/payment-queue')} variant="outline" size="sm">
+                Payment Queue
+              </Button>
+              <Button onClick={loadTransactions} variant="outline" size="sm" disabled={loading}>
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
           </div>
 
           {/* Stats Cards */}

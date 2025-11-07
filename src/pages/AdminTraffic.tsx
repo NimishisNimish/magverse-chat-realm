@@ -80,11 +80,20 @@ const AdminTraffic = () => {
     try {
       setLoading(true);
       
-      // Get all profiles
-      const { data: profiles } = await supabase
+      // Get all profiles - NO FILTER to get ALL users
+      const { data: profiles, error: profileError } = await supabase
         .from('profiles')
         .select('id, username, display_name, subscription_type, created_at')
         .order('created_at', { ascending: false });
+
+      if (profileError) {
+        console.error('Error loading profiles:', profileError);
+        toast({
+          title: "Error",
+          description: "Failed to load user profiles",
+          variant: "destructive",
+        });
+      }
 
       if (!profiles) {
         setTrafficData([]);

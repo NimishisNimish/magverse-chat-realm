@@ -28,6 +28,7 @@ import ProAnalytics from "./pages/ProAnalytics";
 import AdminUserActivity from "./pages/AdminUserActivity";
 import AdminPaymentQueue from "./pages/AdminPaymentQueue";
 import AdminTraffic from "./pages/AdminTraffic";
+import AdminUserDetail from "./pages/AdminUserDetail";
 
 const queryClient = new QueryClient();
 
@@ -71,6 +72,7 @@ const App = () => (
             <Route path="/admin/activity" element={<ProtectedRoute><AdminUserActivity /></ProtectedRoute>} />
             <Route path="/admin/payment-queue" element={<ProtectedRoute><AdminPaymentQueue /></ProtectedRoute>} />
             <Route path="/admin/traffic" element={<ProtectedRoute><AdminTraffic /></ProtectedRoute>} />
+            <Route path="/admin/user/:userId" element={<ProtectedRoute><AdminUserDetail /></ProtectedRoute>} />
             <Route path="/model-comparison" element={<ProtectedRoute><ModelComparison /></ProtectedRoute>} />
             <Route path="/pro-analytics" element={<ProtectedRoute><ProAnalytics /></ProtectedRoute>} />
             <Route path="/support" element={<Support />} />

@@ -57,6 +57,8 @@ const aiModels = [
   { id: "gemini-lite", name: "Gemini Lite", icon: Cpu, color: "text-muted-foreground", model: "google/gemini-2.5-flash-lite" },
   { id: "gpt-5", name: "GPT-5", icon: Bot, color: "text-accent", model: "openai/gpt-5" },
   { id: "gpt-5-nano", name: "GPT-5 Nano", icon: Star, color: "text-blue-400", model: "openai/gpt-5-nano" },
+  { id: "claude", name: "Claude", icon: Bot, color: "text-orange-400", model: "anthropic/claude-3.5-sonnet" },
+  { id: "perplexity", name: "Perplexity", icon: Globe, color: "text-green-400", model: "perplexity/llama-3.1-sonar-large-128k-online" },
 ];
 
 interface Message {

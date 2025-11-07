@@ -174,7 +174,7 @@ const Payment = () => {
         setUploadingProof(false);
       }
 
-      const { data, error } = await supabase.from("transactions").insert({
+      const { data: txData, error } = await supabase.from("transactions").insert({
         user_id: user.id,
         amount: plans[selectedPlan].amount,
         status: "pending",
@@ -182,9 +182,21 @@ const Payment = () => {
         payment_method: "upi",
         payment_reference: `UPI ID: ${upiId}${paymentNote ? ` - Note: ${paymentNote}` : ""}${proofUrl ? ` - Proof: ${proofUrl}` : ""}`,
         verification_status: "pending_verification",
-      });
+      }).select();
 
       if (error) throw error;
+
+      // Notify admin about new payment
+      if (txData && txData.length > 0) {
+        try {
+          await supabase.functions.invoke('notify-admin-payment', {
+            body: { transactionId: txData[0].id }
+          });
+        } catch (notifyError) {
+          console.error('Failed to notify admin:', notifyError);
+          // Don't throw - transaction was still created
+        }
+      }
 
       toast({
         title: "Payment Request Submitted",
@@ -294,181 +306,130 @@ const Payment = () => {
           </Card>
 
           {/* Payment Methods */}
-          <Tabs value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as any)}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="razorpay" className="flex items-center gap-2">
-                <CreditCard className="w-4 h-4" />
-                Razorpay
-              </TabsTrigger>
-              <TabsTrigger value="upi" className="flex items-center gap-2">
-                <Smartphone className="w-4 h-4" />
-                Direct UPI
-              </TabsTrigger>
-            </TabsList>
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Smartphone className="w-5 h-5" />
+                Pay via UPI
+              </CardTitle>
+              <CardDescription>
+                Secure UPI payment • Activation within 24 hours after admin verification
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Scan QR Code</Label>
+                    <img
+                      src={upiQrCode}
+                      alt="UPI QR Code"
+                      className="w-full max-w-xs rounded-lg border"
+                    />
+                  </div>
+                </div>
 
-            <TabsContent value="razorpay" className="space-y-4">
-              <Card className="glass-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="w-5 h-5" />
-                    Pay with Razorpay
-                  </CardTitle>
-                  <CardDescription>
-                    Instant activation • Cards, UPI, Wallets & Net Banking
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Shield className="w-4 h-4 text-green-500" />
-                    Secured by Razorpay • PCI DSS Compliant
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Or Pay to UPI ID</Label>
+                    <div className="flex gap-2">
+                      <Input value="9627318010@ibl" readOnly className="font-mono" />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => copyToClipboard("9627318010@ibl", "UPI ID")}
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                      <span className="text-muted-foreground">Amount to Pay</span>
-                      <span className="text-2xl font-bold">₹{plans[selectedPlan].amount}</span>
-                    </div>
+                    <Label>Amount to Pay</Label>
+                    <Input
+                      value={`₹${plans[selectedPlan].amount}`}
+                      readOnly
+                      className="text-xl font-bold"
+                    />
                   </div>
 
-                  <Button
-                    onClick={handleRazorpayPayment}
-                    disabled={isProcessing}
-                    className="w-full"
-                    size="lg"
-                  >
-                    {isProcessing ? "Processing..." : "Pay Now"}
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="upi" className="space-y-4">
-              <Card className="glass-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Smartphone className="w-5 h-5" />
-                    Pay via UPI
-                  </CardTitle>
-                  <CardDescription>
-                    Manual verification • Activation within 24 hours
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Scan QR Code</Label>
-                        <img
-                          src={upiQrCode}
-                          alt="UPI QR Code"
-                          className="w-full max-w-xs rounded-lg border"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Or Pay to UPI ID</Label>
-                        <div className="flex gap-2">
-                          <Input value="9627318010@ibl" readOnly className="font-mono" />
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => copyToClipboard("9627318010@ibl", "UPI ID")}
-                          >
-                            <Copy className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Amount to Pay</Label>
-                        <Input
-                          value={`₹${plans[selectedPlan].amount}`}
-                          readOnly
-                          className="text-xl font-bold"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Your UPI ID (Required)</Label>
-                        <Input
-                          placeholder="yourname@upi"
-                          value={upiId}
-                          onChange={(e) => setUpiId(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Payment Note (Optional)</Label>
-                        <Input
-                          placeholder="Transaction reference or note"
-                          value={paymentNote}
-                          onChange={(e) => setPaymentNote(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Upload Payment Proof (Optional)</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            type="file"
-                            accept="image/*,.pdf"
-                            onChange={(e) => setPaymentProof(e.target.files?.[0] || null)}
-                            disabled={uploadingProof}
-                          />
-                          {paymentProof && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setPaymentProof(null)}
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Upload screenshot or proof to speed up verification
-                        </p>
-                      </div>
-                    </div>
+                  <div className="space-y-2">
+                    <Label>Your UPI ID (Required)</Label>
+                    <Input
+                      placeholder="yourname@upi"
+                      value={upiId}
+                      onChange={(e) => setUpiId(e.target.value)}
+                    />
                   </div>
 
-                  <div className="space-y-4 p-4 bg-primary/5 rounded-lg border border-primary/20">
-                    <div className="flex items-start gap-2">
-                      <CheckCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                      <div className="space-y-1">
-                        <p className="font-medium">After Payment:</p>
-                        <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                          <li>Take a screenshot of payment confirmation</li>
-                          <li>
-                            Send it to{" "}
-                            <button
-                              onClick={() => copyToClipboard("magverse4@gmail.com", "Email")}
-                              className="text-primary hover:underline"
-                            >
-                              magverse4@gmail.com
-                            </button>
-                          </li>
-                          <li>Include your UPI ID in the email</li>
-                          <li>We'll activate your account within 24 hours</li>
-                        </ol>
-                      </div>
-                    </div>
+                  <div className="space-y-2">
+                    <Label>Payment Note (Optional)</Label>
+                    <Input
+                      placeholder="Transaction reference or note"
+                      value={paymentNote}
+                      onChange={(e) => setPaymentNote(e.target.value)}
+                    />
                   </div>
 
-                  <Button
-                    onClick={handleUpiSubmit}
-                    disabled={isProcessing || uploadingProof || !upiId.trim()}
-                    className="w-full"
-                    size="lg"
-                  >
-                    {uploadingProof ? "Uploading Proof..." : isProcessing ? "Submitting..." : "I've Completed Payment"}
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                  <div className="space-y-2">
+                    <Label>Upload Payment Proof (Optional)</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={(e) => setPaymentProof(e.target.files?.[0] || null)}
+                        disabled={uploadingProof}
+                      />
+                      {paymentProof && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setPaymentProof(null)}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Upload screenshot or proof to speed up verification
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 p-4 bg-primary/5 rounded-lg border border-primary/20">
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-medium">After Payment:</p>
+                    <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                      <li>Take a screenshot of payment confirmation</li>
+                      <li>
+                        Send it to{" "}
+                        <button
+                          onClick={() => copyToClipboard("magverse4@gmail.com", "Email")}
+                          className="text-primary hover:underline"
+                        >
+                          magverse4@gmail.com
+                        </button>
+                      </li>
+                      <li>Include your UPI ID in the email</li>
+                      <li>We'll activate your account within 24 hours</li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                onClick={handleUpiSubmit}
+                disabled={isProcessing || uploadingProof || !upiId.trim()}
+                className="w-full"
+                size="lg"
+              >
+                {uploadingProof ? "Uploading Proof..." : isProcessing ? "Submitting..." : "I've Completed Payment"}
+              </Button>
+            </CardContent>
+          </Card>
 
           {/* Security Notice */}
           <Card className="glass-card border-primary/20">

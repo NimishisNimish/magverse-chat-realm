@@ -242,7 +242,11 @@ const AdminUserActivity = () => {
             </Card>
           ) : (
             filteredActivities.map(activity => (
-              <Card key={activity.user_id} className="glass-card hover:border-primary/30 transition-all">
+              <Card 
+                key={activity.user_id} 
+                className="glass-card hover:border-primary/30 transition-all cursor-pointer"
+                onClick={() => navigate(`/admin/user/${activity.user_id}`)}
+              >
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
