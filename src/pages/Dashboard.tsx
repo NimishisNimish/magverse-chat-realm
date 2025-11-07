@@ -42,6 +42,27 @@ const Dashboard = () => {
       return;
     }
     loadStats();
+
+    // Set up real-time subscription
+    const channel = supabase
+      .channel('user-stats-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          loadStats(); // Reload stats when messages change
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const loadStats = async () => {

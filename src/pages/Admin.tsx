@@ -279,8 +279,8 @@ const Admin = () => {
               <h1 className="text-4xl font-bold gradient-text mb-2">Admin Dashboard</h1>
               <p className="text-muted-foreground">Manage payments and subscriptions</p>
             </div>
-            <Button onClick={loadTransactions} variant="outline" size="sm">
-              <RefreshCw className="w-4 h-4 mr-2" />
+            <Button onClick={loadTransactions} variant="outline" size="sm" disabled={loading}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
           </div>

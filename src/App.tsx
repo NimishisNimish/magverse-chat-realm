@@ -26,6 +26,8 @@ import Support from "./pages/Support";
 import ModelComparison from "./pages/ModelComparison";
 import ProAnalytics from "./pages/ProAnalytics";
 import AdminUserActivity from "./pages/AdminUserActivity";
+import AdminPaymentQueue from "./pages/AdminPaymentQueue";
+import AdminTraffic from "./pages/AdminTraffic";
 
 const queryClient = new QueryClient();
 
@@ -67,6 +69,8 @@ const App = () => (
             <Route path="/admin/analytics" element={<ProtectedRoute><AdminAnalytics /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
             <Route path="/admin/activity" element={<ProtectedRoute><AdminUserActivity /></ProtectedRoute>} />
+            <Route path="/admin/payment-queue" element={<ProtectedRoute><AdminPaymentQueue /></ProtectedRoute>} />
+            <Route path="/admin/traffic" element={<ProtectedRoute><AdminTraffic /></ProtectedRoute>} />
             <Route path="/model-comparison" element={<ProtectedRoute><ModelComparison /></ProtectedRoute>} />
             <Route path="/pro-analytics" element={<ProtectedRoute><ProAnalytics /></ProtectedRoute>} />
             <Route path="/support" element={<Support />} />

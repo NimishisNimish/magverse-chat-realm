@@ -65,7 +65,7 @@ export default function ProfileSettings() {
   };
 
   const handleUpdateProfile = async () => {
-    if (!user) return;
+    if (!user || loading) return;
     
     setLoading(true);
     try {

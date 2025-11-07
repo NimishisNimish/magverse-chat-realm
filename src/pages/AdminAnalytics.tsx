@@ -92,8 +92,8 @@ const AdminAnalytics = () => {
   };
 
   const loadAnalytics = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
 
       // Fetch user statistics
       const { data: profiles } = await supabase

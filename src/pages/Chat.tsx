@@ -51,14 +51,12 @@ import {
 } from "@/components/ui/sheet";
 
 const aiModels = [
+  { id: "gpt-5-mini", name: "GPT-5 Mini", icon: Sparkles, color: "text-purple-400", model: "openai/gpt-5-mini" },
   { id: "gemini-flash", name: "Gemini Flash", icon: Zap, color: "text-primary", model: "google/gemini-2.5-flash" },
   { id: "gemini-pro", name: "Gemini Pro", icon: Brain, color: "text-secondary", model: "google/gemini-2.5-pro" },
   { id: "gemini-lite", name: "Gemini Lite", icon: Cpu, color: "text-muted-foreground", model: "google/gemini-2.5-flash-lite" },
   { id: "gpt-5", name: "GPT-5", icon: Bot, color: "text-accent", model: "openai/gpt-5" },
-  { id: "gpt-5-mini", name: "GPT-5 Mini", icon: Sparkles, color: "text-purple-400", model: "openai/gpt-5-mini" },
   { id: "gpt-5-nano", name: "GPT-5 Nano", icon: Star, color: "text-blue-400", model: "openai/gpt-5-nano" },
-  { id: "perplexity", name: "Perplexity", icon: Globe, color: "text-green-400", model: "perplexity/sonar" },
-  { id: "claude", name: "Claude", icon: Rocket, color: "text-orange-400", model: "anthropic/claude" },
 ];
 
 interface Message {
@@ -78,7 +76,7 @@ interface Message {
 }
 
 const Chat = () => {
-  const [selectedModels, setSelectedModels] = useState<string[]>(["gemini-flash"]);
+  const [selectedModels, setSelectedModels] = useState<string[]>(["gpt-5-mini"]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
@@ -196,7 +194,7 @@ const Chat = () => {
 
   const toggleModel = (modelId: string) => {
     const isPro = profile?.is_pro || profile?.subscription_type === 'monthly' || profile?.subscription_type === 'lifetime';
-    const premiumModels = ['gemini-flash', 'gemini-pro', 'gemini-lite', 'gpt-5', 'gpt-5-nano', 'perplexity', 'claude'];
+    const premiumModels = ['gemini-flash', 'gemini-pro', 'gemini-lite', 'gpt-5', 'gpt-5-nano'];
     
     // Check if free user is trying to select premium model
     if (!isPro && premiumModels.includes(modelId) && !selectedModels.includes(modelId)) {
@@ -853,6 +851,23 @@ const Chat = () => {
 
       await Promise.all([...lovablePromises, ...externalPromises]);
       
+      // Deduct credits for free users after successful responses
+      const isPro = profile?.is_pro || profile?.subscription_type === 'monthly' || profile?.subscription_type === 'lifetime';
+      if (!isPro && user) {
+        try {
+          // Check if function exists and deduct credit
+          const { error: creditError } = await supabase.rpc('check_and_deduct_credit', { p_user_id: user.id });
+          
+          if (!creditError) {
+            // Refresh profile to update credits display
+            await refreshProfile();
+          }
+        } catch (creditErr) {
+          console.log('Credit deduction not available or failed:', creditErr);
+          // Continue anyway - non-critical error
+        }
+      }
+      
       // Save chat to database
       const successfulResponses = allAIResponses.filter(msg => !msg.error && msg.content);
       if (successfulResponses.length > 0) {
@@ -1018,6 +1033,22 @@ const Chat = () => {
         title: "No messages to download",
         description: "Start a conversation first before downloading.",
         variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if free user is trying to export PDF
+    const isPro = profile?.is_pro || profile?.subscription_type === 'monthly' || profile?.subscription_type === 'lifetime';
+    if (!isPro) {
+      toast({
+        title: "Upgrade Required",
+        description: "PDF export is only available for Pro users. Upgrade to save your conversations!",
+        variant: "destructive",
+        action: (
+          <Button variant="outline" size="sm" onClick={() => window.location.href = '/payment'}>
+            Upgrade to Pro
+          </Button>
+        ),
       });
       return;
     }
@@ -1636,6 +1667,35 @@ const Chat = () => {
               Image Gallery ({savedImages.length})
             </span>
           </button>
+          
+          {showGallery && savedImages.length > 0 && (
+            <ScrollArea className="h-[300px] w-full">
+              <div className="grid grid-cols-2 gap-2 p-2">
+                {savedImages.map((img) => (
+                  <div key={img.id} className="relative group">
+                    <img 
+                      src={img.url} 
+                      alt={img.prompt}
+                      className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => window.open(img.url, '_blank')}
+                    />
+                    <Button
+                      size="icon"
+                      variant="destructive"
+                      className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => {
+                        const filtered = savedImages.filter(i => i.id !== img.id);
+                        setSavedImages(filtered);
+                        localStorage.setItem('savedImages', JSON.stringify(filtered));
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
         </div>
         
         <Link to="/history">
