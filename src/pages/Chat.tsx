@@ -1690,21 +1690,22 @@ const Chat = () => {
             </>
           )}
         </div>
-        
-        {/* Image Gallery Button */}
-        <Link to="/image-gallery">
-          <Button variant="outline" className="w-full justify-start">
-            <ImageIcon className="w-5 h-5" />
-            Image Gallery ({savedImages.length})
-          </Button>
-        </Link>
-        
-        <Link to="/history">
-          <Button variant="outline" className="w-full justify-start">
-            <HistoryIcon className="w-5 h-5" />
-            Chat History
-          </Button>
-        </Link>
+      </div>
+      
+      {/* Image Gallery Button */}
+      <Link to="/image-gallery">
+        <Button variant="outline" className="w-full justify-start">
+          <ImageIcon className="w-5 h-5" />
+          Image Gallery ({savedImages.length})
+        </Button>
+      </Link>
+      
+      <Link to="/history">
+        <Button variant="outline" className="w-full justify-start">
+          <HistoryIcon className="w-5 h-5" />
+          Chat History
+        </Button>
+      </Link>
       </>
     );
   };
