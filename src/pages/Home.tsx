@@ -57,30 +57,22 @@ const Home = () => {
               </Button>
             </Link>
             {/* Hide View Pricing for all Pro users (lifetime and monthly) */}
-            {profile?.subscription_type !== 'lifetime' && profile?.subscription_type !== 'monthly' && (
-              <Button variant="outline" size="lg" className="w-full sm:w-auto text-lg px-8" onClick={() => document.getElementById('pricing-section')?.scrollIntoView({
-                behavior: 'smooth'
-              })}>
+            {profile?.subscription_type !== 'lifetime' && profile?.subscription_type !== 'monthly' && <Button variant="outline" size="lg" className="w-full sm:w-auto text-lg px-8" onClick={() => document.getElementById('pricing-section')?.scrollIntoView({
+            behavior: 'smooth'
+          })}>
                 <Sparkles className="w-5 h-5" />
                 View Pricing
-              </Button>
-            )}
+              </Button>}
             {/* Show current plan for Pro users */}
-            {(profile?.subscription_type === 'lifetime' || profile?.subscription_type === 'monthly') && (
-              <div className="flex items-center gap-2 px-6 py-3 rounded-full glass-card border-primary/30">
-                {profile?.subscription_type === 'lifetime' ? (
-                  <>
+            {(profile?.subscription_type === 'lifetime' || profile?.subscription_type === 'monthly') && <div className="flex items-center gap-2 px-6 py-3 rounded-full glass-card border-primary/30">
+                {profile?.subscription_type === 'lifetime' ? <>
                     <Crown className="w-5 h-5 text-amber-500" />
                     <span className="text-sm font-semibold text-amber-500">Your Plan: Lifetime Pro</span>
-                  </>
-                ) : (
-                  <>
+                  </> : <>
                     <Zap className="w-5 h-5 text-purple-500" />
                     <span className="text-sm font-semibold text-purple-500">Your Plan: Pro Yearly</span>
-                  </>
-                )}
-              </div>
-            )}
+                  </>}
+              </div>}
           </div>
         </div>
       </section>
@@ -214,7 +206,7 @@ const Home = () => {
               
               <div className="space-y-1">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-bold">₹799</span>
+                  <span className="text-4xl font-bold">₹699</span>
                   <span className="text-muted-foreground">/forever</span>
                 </div>
               </div>
@@ -389,7 +381,7 @@ const Home = () => {
                       <td className="p-4 text-muted-foreground font-semibold">Price</td>
                       <td className="text-center p-4 font-bold">₹0</td>
                       <td className="text-center p-4 bg-primary/5 font-bold text-primary">₹299/year</td>
-                      <td className="text-center p-4 font-bold">₹799</td>
+                      <td className="text-center p-4 font-bold">₹699</td>
                     </tr>
                   </tbody>
                 </table>
