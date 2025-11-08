@@ -109,6 +109,57 @@ export type Database = {
         }
         Relationships: []
       }
+      invoices: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          invoice_number: string
+          issue_date: string
+          plan_type: string
+          status: string
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          invoice_number: string
+          issue_date?: string
+          plan_type: string
+          status?: string
+          transaction_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          invoice_number?: string
+          issue_date?: string
+          plan_type?: string
+          status?: string
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       password_reset_attempts: {
         Row: {
           created_at: string | null
@@ -198,6 +249,7 @@ export type Database = {
           phone_number: string | null
           phone_verified: boolean | null
           phone_verified_at: string | null
+          recovery_email: string | null
           subscription_expires_at: string | null
           subscription_type: string | null
           username: string | null
@@ -219,6 +271,7 @@ export type Database = {
           phone_number?: string | null
           phone_verified?: boolean | null
           phone_verified_at?: string | null
+          recovery_email?: string | null
           subscription_expires_at?: string | null
           subscription_type?: string | null
           username?: string | null
@@ -240,6 +293,7 @@ export type Database = {
           phone_number?: string | null
           phone_verified?: boolean | null
           phone_verified_at?: string | null
+          recovery_email?: string | null
           subscription_expires_at?: string | null
           subscription_type?: string | null
           username?: string | null

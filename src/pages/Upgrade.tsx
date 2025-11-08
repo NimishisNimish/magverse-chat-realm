@@ -356,7 +356,7 @@ const Upgrade = () => {
               
               <div className="space-y-1">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-bold">₹799</span>
+                  <span className="text-4xl font-bold">₹699</span>
                   <span className="text-muted-foreground">/forever</span>
                 </div>
               </div>
@@ -433,7 +433,7 @@ const Upgrade = () => {
             <DialogDescription>
               {selectedPlan === 'monthly' 
                 ? "Pay ₹299 for yearly subscription (unlimited for 1 year)"
-                : "Pay ₹799 for lifetime Pro access (unlimited forever)"
+                : "Pay ₹699 for lifetime Pro access (unlimited forever)"
               }
             </DialogDescription>
           </DialogHeader>

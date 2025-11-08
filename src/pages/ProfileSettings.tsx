@@ -5,12 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Upload, Mail, Lock, Phone, User, Shield } from 'lucide-react';
+import { Loader2, Upload, Mail, Lock, User, Shield, FileText, Download } from 'lucide-react';
 
 export default function ProfileSettings() {
   const { user, profile, refreshProfile } = useAuth();
@@ -29,11 +31,12 @@ export default function ProfileSettings() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
-  // Phone State
-  const [phoneNumber, setPhoneNumber] = useState(profile?.phone_number || '');
-  const [newPhoneNumber, setNewPhoneNumber] = useState('');
-  const [phoneOtp, setPhoneOtp] = useState('');
-  const [showPhoneOtp, setShowPhoneOtp] = useState(false);
+  // Recovery email state
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  
+  // Invoices state
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -41,12 +44,36 @@ export default function ProfileSettings() {
       setDisplayName(profile.display_name || '');
       setBio(profile.bio || '');
       setAvatarPreview(profile.avatar_url || null);
-      setPhoneNumber(profile.phone_number || '');
+      // Don't set recovery email from profile as the type doesn't exist yet
     }
     if (user) {
       setCurrentEmail(user.email || '');
     }
   }, [profile, user]);
+
+  const loadInvoices = async () => {
+    if (!user) return;
+    
+    setInvoicesLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setInvoices(data || []);
+    } catch (error: any) {
+      console.error('Error loading invoices:', error);
+    } finally {
+      setInvoicesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadInvoices();
+  }, [user]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -204,107 +231,53 @@ export default function ProfileSettings() {
     }
   };
 
-  const handleSendPhoneOtp = async () => {
-    if (!newPhoneNumber) {
-      toast.error('Please enter a phone number');
+  const handleUpdateRecoveryEmail = async () => {
+    if (!recoveryEmail) {
+      toast.error('Please enter a recovery email');
       return;
-    }
-
-    // Normalize to E.164 format
-    let normalizedPhone = newPhoneNumber.replace(/\s+/g, '').replace(/-/g, '');
-    if (!normalizedPhone.startsWith('+')) {
-      if (normalizedPhone.length === 10) {
-        normalizedPhone = `+91${normalizedPhone}`;
-      } else if (!normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
-        normalizedPhone = `+${normalizedPhone}`;
-      }
     }
 
     setLoading(true);
     try {
-      const session = await supabase.auth.getSession();
-      const { error } = await supabase.functions.invoke('change-phone', {
-        body: { action: 'send_otp', phoneNumber: normalizedPhone },
-        headers: {
-          Authorization: `Bearer ${session.data.session?.access_token}`
-        }
-      });
+      const { error } = await supabase
+        .from('profiles')
+        .update({ recovery_email: recoveryEmail })
+        .eq('id', user!.id);
 
       if (error) throw error;
 
-      setShowPhoneOtp(true);
-      toast.success('OTP sent to your phone!');
+      await refreshProfile();
+      toast.success('Recovery email updated successfully!');
     } catch (error: any) {
-      console.error('Error sending OTP:', error);
-      const errorMsg = error.message || 'Failed to send OTP';
-      
-      if (errorMsg.includes('Unauthorized') || errorMsg.includes('authorization')) {
-        toast.error('Session expired. Please refresh and try again.');
-      } else if (errorMsg.includes('24 hours')) {
-        toast.error('You can only change your phone number once per 24 hours.');
-      } else if (errorMsg.includes('Invalid phone')) {
-        toast.error('Invalid phone number. Use format: +91 9876543210');
-      } else {
-        toast.error(errorMsg);
-      }
+      console.error('Error updating recovery email:', error);
+      toast.error(error.message || 'Failed to update recovery email');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerifyPhoneOtp = async () => {
-    if (!phoneOtp) {
-      toast.error('Please enter the OTP');
-      return;
-    }
+  const downloadInvoice = (invoice: any) => {
+    const invoiceData = `
+Invoice #${invoice.invoice_number}
+Date: ${new Date(invoice.issue_date).toLocaleDateString()}
+Amount: ₹${invoice.amount}
+Plan: ${invoice.plan_type}
+Status: ${invoice.status}
+    `.trim();
 
-    // Normalize to E.164 format
-    let normalizedPhone = newPhoneNumber.replace(/\s+/g, '').replace(/-/g, '');
-    if (!normalizedPhone.startsWith('+')) {
-      if (normalizedPhone.length === 10) {
-        normalizedPhone = `+91${normalizedPhone}`;
-      } else if (!normalizedPhone.startsWith('91') && normalizedPhone.length === 12) {
-        normalizedPhone = `+${normalizedPhone}`;
-      }
-    }
+    const blob = new Blob([invoiceData], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${invoice.invoice_number}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
-    setLoading(true);
-    try {
-      const session = await supabase.auth.getSession();
-      const { error } = await supabase.functions.invoke('change-phone', {
-        body: { 
-          action: 'verify_otp', 
-          phoneNumber: normalizedPhone,
-          otp: phoneOtp 
-        },
-        headers: {
-          Authorization: `Bearer ${session.data.session?.access_token}`
-        }
-      });
-
-      if (error) throw error;
-
-      await refreshProfile();
-      toast.success('Phone number updated successfully!');
-      setNewPhoneNumber('');
-      setPhoneOtp('');
-      setShowPhoneOtp(false);
-    } catch (error: any) {
-      console.error('Error verifying OTP:', error);
-      const errorMsg = error.message || 'Invalid OTP';
-      
-      if (errorMsg.includes('expired')) {
-        toast.error('OTP has expired. Please request a new code.');
-      } else if (errorMsg.includes('does not match')) {
-        toast.error('Phone number does not match. Please try again.');
-      } else if (errorMsg.includes('Invalid OTP')) {
-        toast.error('Invalid OTP code. Please check and try again.');
-      } else {
-        toast.error(errorMsg);
-      }
-    } finally {
-      setLoading(false);
-    }
+  const handleSendPhoneOtp = async () => {
+    // Removed phone functionality
   };
 
   return (
@@ -317,7 +290,7 @@ export default function ProfileSettings() {
         </div>
 
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8">
+          <TabsList className="grid w-full grid-cols-4 mb-8">
             <TabsTrigger value="profile" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               Profile
@@ -326,9 +299,13 @@ export default function ProfileSettings() {
               <Shield className="h-4 w-4" />
               Security
             </TabsTrigger>
-            <TabsTrigger value="phone" className="flex items-center gap-2">
-              <Phone className="h-4 w-4" />
-              Phone
+            <TabsTrigger value="recovery" className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              Recovery
+            </TabsTrigger>
+            <TabsTrigger value="invoices" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Invoices
             </TabsTrigger>
           </TabsList>
 
@@ -482,79 +459,94 @@ export default function ProfileSettings() {
             </div>
           </TabsContent>
 
-          {/* Phone Tab */}
-          <TabsContent value="phone">
+          {/* Recovery Tab */}
+          <TabsContent value="recovery">
             <Card className="p-6 space-y-6">
               <div className="flex items-center gap-2 mb-4">
-                <Phone className="h-5 w-5" />
-                <h3 className="text-lg font-semibold">Phone Number</h3>
+                <Shield className="h-5 w-5" />
+                <h3 className="text-lg font-semibold">Recovery Email</h3>
               </div>
 
-              {phoneNumber && (
-                <div className="space-y-2">
-                  <Label>Current Phone Number</Label>
-                  <Input value={phoneNumber} disabled />
-                </div>
-              )}
-
               <div className="space-y-2">
-                <Label htmlFor="newPhone">
-                  {phoneNumber ? 'New Phone Number' : 'Phone Number'}
-                </Label>
+                <Label htmlFor="recoveryEmail">Recovery Email</Label>
                 <Input
-                  id="newPhone"
-                  type="tel"
-                  value={newPhoneNumber}
-                  onChange={(e) => setNewPhoneNumber(e.target.value)}
-                  placeholder="+91 9876543210"
+                  id="recoveryEmail"
+                  type="email"
+                  value={recoveryEmail}
+                  onChange={(e) => setRecoveryEmail(e.target.value)}
+                  placeholder="Enter recovery email"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Enter with country code (e.g., +91 9876543210)
+                  This email will be used to recover your account if you forget your primary email
                 </p>
               </div>
 
-              {!showPhoneOtp ? (
-                <Button
-                  onClick={handleSendPhoneOtp}
-                  disabled={loading || !newPhoneNumber}
-                  className="w-full"
-                >
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Send OTP
-                </Button>
-              ) : (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="otp">Enter OTP</Label>
-                    <Input
-                      id="otp"
-                      value={phoneOtp}
-                      onChange={(e) => setPhoneOtp(e.target.value)}
-                      placeholder="Enter 6-digit OTP"
-                      maxLength={6}
-                    />
-                  </div>
+              <Button
+                onClick={handleUpdateRecoveryEmail}
+                disabled={loading || !recoveryEmail}
+                className="w-full"
+              >
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Update Recovery Email
+              </Button>
+            </Card>
+          </TabsContent>
 
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={handleVerifyPhoneOtp}
-                      disabled={loading || !phoneOtp}
-                      className="flex-1"
-                    >
-                      {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Verify OTP
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setShowPhoneOtp(false);
-                        setPhoneOtp('');
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
+          {/* Invoices Tab */}
+          <TabsContent value="invoices">
+            <Card className="p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <FileText className="h-5 w-5" />
+                <h3 className="text-lg font-semibold">Your Invoices</h3>
+              </div>
+
+              {invoicesLoading ? (
+                <div className="text-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                  <p className="text-muted-foreground mt-2">Loading invoices...</p>
                 </div>
+              ) : invoices.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No invoices found</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Invoice #</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Plan</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {invoices.map((invoice) => (
+                      <TableRow key={invoice.id}>
+                        <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
+                        <TableCell>{new Date(invoice.issue_date).toLocaleDateString()}</TableCell>
+                        <TableCell className="capitalize">{invoice.plan_type}</TableCell>
+                        <TableCell>₹{invoice.amount}</TableCell>
+                        <TableCell>
+                          <Badge variant={invoice.status === 'paid' ? 'default' : 'secondary'}>
+                            {invoice.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => downloadInvoice(invoice)}
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            Download
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </Card>
           </TabsContent>
