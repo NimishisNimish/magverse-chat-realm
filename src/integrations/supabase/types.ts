@@ -369,6 +369,10 @@ export type Database = {
     }
     Functions: {
       check_and_deduct_credit: { Args: { p_user_id: string }; Returns: boolean }
+      check_and_deduct_yearly_credit: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
       check_phone_reset_rate_limit: {
         Args: { p_phone: string }
         Returns: boolean

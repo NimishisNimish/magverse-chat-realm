@@ -144,7 +144,7 @@ const Dashboard = () => {
     if (profile?.subscription_type === 'lifetime') {
       return <Badge className="bg-gradient-to-r from-amber-500 to-amber-600"><Crown className="w-3 h-3 mr-1" />Lifetime Pro</Badge>;
     } else if (profile?.subscription_type === 'monthly') {
-      return <Badge className="bg-gradient-to-r from-primary to-secondary"><Zap className="w-3 h-3 mr-1" />Pro Monthly</Badge>;
+      return <Badge className="bg-gradient-to-r from-purple-500 to-purple-600"><Zap className="w-3 h-3 mr-1" />Pro Yearly</Badge>;
     } else {
       return <Badge variant="outline">Free Plan</Badge>;
     }

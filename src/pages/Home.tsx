@@ -71,12 +71,12 @@ const Home = () => {
                 {profile?.subscription_type === 'lifetime' ? (
                   <>
                     <Crown className="w-5 h-5 text-amber-500" />
-                    <span className="text-sm font-semibold">Your Plan: Lifetime Pro</span>
+                    <span className="text-sm font-semibold text-amber-500">Your Plan: Lifetime Pro</span>
                   </>
                 ) : (
                   <>
-                    <Zap className="w-5 h-5 text-primary" />
-                    <span className="text-sm font-semibold">Your Plan: Pro Yearly</span>
+                    <Zap className="w-5 h-5 text-purple-500" />
+                    <span className="text-sm font-semibold text-purple-500">Your Plan: Pro Yearly</span>
                   </>
                 )}
               </div>

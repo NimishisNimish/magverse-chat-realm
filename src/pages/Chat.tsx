@@ -451,6 +451,24 @@ const Chat = () => {
       return;
     }
 
+    // Check credits for Yearly Pro users (50 messages per day)
+    if (profile?.subscription_type === 'monthly') {
+      const creditsUsed = profile?.monthly_credits_used || 0;
+      if (creditsUsed >= 50) {
+        toast({
+          title: "Daily Limit Reached",
+          description: "You've used all 50 messages today. Your credits will reset tomorrow or upgrade to Lifetime Pro for unlimited access!",
+          variant: "destructive",
+          action: (
+            <Button variant="outline" size="sm" onClick={() => window.location.href = '/payment'}>
+              Upgrade to Lifetime
+            </Button>
+          ),
+        });
+        return;
+      }
+    }
+
     // Check deep research limit for free users (2 per day)
     if (!isPro && deepResearchMode) {
       const todayDeepResearch = messages.filter(m => 
@@ -853,20 +871,38 @@ const Chat = () => {
 
       await Promise.all([...lovablePromises, ...externalPromises]);
       
-      // Deduct credits for free users after successful responses
+      // Deduct credits after successful responses
       const isPro = profile?.is_pro || profile?.subscription_type === 'monthly' || profile?.subscription_type === 'lifetime';
-      if (!isPro && user) {
+      
+      if (user) {
         try {
-          // Check if function exists and deduct credit
-          const { error: creditError } = await supabase.rpc('check_and_deduct_credit', { p_user_id: user.id });
-          
-          if (!creditError) {
-            // Refresh profile to update credits display
-            await refreshProfile();
+          if (profile?.subscription_type === 'monthly') {
+            // Yearly Pro: Check and deduct daily credits (50 per day)
+            const { data: hasCredit, error: creditError } = await supabase.rpc('check_and_deduct_yearly_credit', { p_user_id: user.id });
+            
+            if (creditError) {
+              console.error('Credit check error:', creditError);
+            } else if (hasCredit === false) {
+              toast({
+                title: "Daily Limit Reached",
+                description: "You've used all 50 messages today. Your credits will reset tomorrow or upgrade to Lifetime Pro for unlimited access!",
+                variant: "destructive",
+                duration: 8000,
+              });
+            }
+          } else if (!isPro) {
+            // Free users: Deduct from 5 daily credits
+            const { error: creditError } = await supabase.rpc('check_and_deduct_credit', { p_user_id: user.id });
+            
+            if (!creditError) {
+              await refreshProfile();
+            }
           }
+          // Lifetime Pro: No credit deduction needed (unlimited)
+          
+          await refreshProfile();
         } catch (creditErr) {
-          console.log('Credit deduction not available or failed:', creditErr);
-          // Continue anyway - non-critical error
+          console.log('Credit deduction error:', creditErr);
         }
       }
       
@@ -1455,22 +1491,23 @@ const Chat = () => {
   };
 
   // Sidebar content component to reuse in both desktop and mobile
-  const SidebarContent = () => (
-    <>
-      <Button 
-        variant="hero" 
-        className="w-full justify-start"
-        onClick={() => {
-          setMessages([]);
-          setCurrentChatId(null);
-          setMobileSheetOpen(false);
-        }}
-      >
-        <MessageSquarePlus className="w-5 h-5" />
-        New Chat
-      </Button>
-      
-      <div className="space-y-4">
+  const SidebarContent = () => {
+    return (
+      <>
+        <Button
+          variant="hero" 
+          className="w-full justify-start"
+          onClick={() => {
+            setMessages([]);
+            setCurrentChatId(null);
+            setMobileSheetOpen(false);
+          }}
+        >
+          <MessageSquarePlus className="w-5 h-5" />
+          New Chat
+        </Button>
+        
+        <div className="space-y-4">
         {/* AI Models Selection */}
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
@@ -1652,53 +1689,15 @@ const Chat = () => {
               </div>
             </>
           )}
-          
-          {/* Image Gallery Button */}
-          <button
-            onClick={() => setShowGallery(!showGallery)}
-            className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
-              showGallery 
-                ? 'glass-card border-accent/50' 
-                : 'hover:bg-muted/20'
-            }`}
-          >
-            <div className={`w-8 h-8 rounded-lg ${showGallery ? 'bg-accent/20' : 'bg-muted/20'} flex items-center justify-center`}>
-              <ImageIcon className={`w-4 h-4 ${showGallery ? 'text-accent' : 'text-muted-foreground'}`} />
-            </div>
-            <span className={`font-medium ${showGallery ? 'text-foreground' : 'text-muted-foreground'}`}>
-              Image Gallery ({savedImages.length})
-            </span>
-          </button>
-          
-          {showGallery && savedImages.length > 0 && (
-            <ScrollArea className="h-[300px] w-full">
-              <div className="grid grid-cols-2 gap-2 p-2">
-                {savedImages.map((img) => (
-                  <div key={img.id} className="relative group">
-                    <img 
-                      src={img.url} 
-                      alt={img.prompt}
-                      className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => window.open(img.url, '_blank')}
-                    />
-                    <Button
-                      size="icon"
-                      variant="destructive"
-                      className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => {
-                        const filtered = savedImages.filter(i => i.id !== img.id);
-                        setSavedImages(filtered);
-                        localStorage.setItem('savedImages', JSON.stringify(filtered));
-                      }}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          )}
         </div>
+        
+        {/* Image Gallery Button */}
+        <Link to="/image-gallery">
+          <Button variant="outline" className="w-full justify-start">
+            <ImageIcon className="w-5 h-5" />
+            Image Gallery ({savedImages.length})
+          </Button>
+        </Link>
         
         <Link to="/history">
           <Button variant="outline" className="w-full justify-start">
@@ -1706,9 +1705,9 @@ const Chat = () => {
             Chat History
           </Button>
         </Link>
-      </div>
-    </>
-  );
+      </>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
