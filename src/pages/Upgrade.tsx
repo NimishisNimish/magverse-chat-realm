@@ -304,15 +304,17 @@ const Upgrade = () => {
               
               <div className="space-y-1">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-bold gradient-text">₹299</span>
+                  <span className="text-4xl font-bold gradient-text">₹199</span>
+                  <span className="text-sm line-through text-muted-foreground">₹299</span>
                   <span className="text-muted-foreground">/per year</span>
                 </div>
+                <p className="text-xs text-green-500 font-semibold">Limited Time Offer - Save ₹100!</p>
               </div>
               
               <ul className="space-y-3">
                 <li className="flex items-start gap-3">
                   <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Unlimited messages</span>
+                  <span className="text-foreground">500 messages/day</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
@@ -320,15 +322,15 @@ const Upgrade = () => {
                 </li>
                 <li className="flex items-start gap-3">
                   <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <span className="text-foreground">Deep research mode</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <span className="text-foreground">Image generation</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                   <span className="text-foreground">Priority support</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Fastest response times</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Advanced features</span>
                 </li>
               </ul>
               
@@ -432,7 +434,7 @@ const Upgrade = () => {
             <DialogTitle>Choose Payment Method</DialogTitle>
             <DialogDescription>
               {selectedPlan === 'monthly' 
-                ? "Pay ₹299 for yearly subscription (unlimited for 1 year)"
+                ? "Pay ₹199 for yearly subscription (500 messages/day for 1 year) - Limited Offer!"
                 : "Pay ₹699 for lifetime Pro access (unlimited forever)"
               }
             </DialogDescription>

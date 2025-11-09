@@ -6,14 +6,17 @@ import Navbar from "@/components/Navbar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 import { 
   TrendingUp, 
   Users, 
   DollarSign, 
   MessageSquare,
   BarChart3,
-  Activity
+  Activity,
+  Download
 } from "lucide-react";
+import { generateChatPDF } from "@/utils/pdfGenerator";
 import { 
   LineChart, 
   Line, 
@@ -214,6 +217,91 @@ const AdminAnalytics = () => {
 
   const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--muted))'];
 
+  const exportToCSV = () => {
+    if (!analytics) return;
+
+    const csvData = [
+      ['Metric', 'Value'],
+      ['Total Users', analytics.totalUsers],
+      ['Free Users', analytics.freeUsers],
+      ['Pro Users', analytics.proUsers],
+      ['Lifetime Users', analytics.lifetimeUsers],
+      ['Total Revenue', `₹${analytics.totalRevenue}`],
+      ['Completed Payments', analytics.completedPayments],
+      ['Pending Payments', analytics.pendingPayments],
+      ['Rejected Payments', analytics.rejectedPayments],
+      ['Total Messages', analytics.totalMessages],
+      ['Total Chats', analytics.totalChats],
+      [''],
+      ['Model Usage'],
+      ['Model', 'Count'],
+      ...analytics.modelUsage.map(m => [m.name, m.value]),
+    ];
+
+    const csvContent = csvData.map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `analytics-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "CSV Exported",
+      description: "Analytics data has been exported to CSV",
+    });
+  };
+
+  const exportToPDF = () => {
+    if (!analytics) return;
+
+    const reportData = {
+      title: 'MagVerse AI - Analytics Report',
+      date: new Date().toISOString().split('T')[0],
+      stats: [
+        { label: 'Total Users', value: analytics.totalUsers.toString() },
+        { label: 'Free Users', value: analytics.freeUsers.toString() },
+        { label: 'Pro Users', value: analytics.proUsers.toString() },
+        { label: 'Lifetime Users', value: analytics.lifetimeUsers.toString() },
+        { label: 'Total Revenue', value: `₹${analytics.totalRevenue}` },
+        { label: 'Completed Payments', value: analytics.completedPayments.toString() },
+        { label: 'Pending Payments', value: analytics.pendingPayments.toString() },
+        { label: 'Total Messages', value: analytics.totalMessages.toString() },
+        { label: 'Total Chats', value: analytics.totalChats.toString() },
+      ],
+      models: analytics.modelUsage.slice(0, 5).map(m => `${m.name}: ${m.value} messages`),
+    };
+
+    // Simple text-based PDF generation
+    const content = `
+Analytics Report - ${reportData.date}
+
+=== OVERVIEW ===
+${reportData.stats.map(s => `${s.label}: ${s.value}`).join('\n')}
+
+=== TOP AI MODELS ===
+${reportData.models.join('\n')}
+    `;
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `analytics-report-${reportData.date}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Report Exported",
+      description: "Analytics report has been exported",
+    });
+  };
+
   if (!isAdmin) {
     return (
       <div className="min-h-screen gradient-bg">
@@ -245,9 +333,21 @@ const AdminAnalytics = () => {
     <div className="min-h-screen gradient-bg">
       <Navbar />
       <div className="container mx-auto px-4 pt-24 pb-12">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold gradient-text mb-2">Admin Analytics</h1>
-          <p className="text-muted-foreground">Track platform performance and user engagement</p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold gradient-text mb-2">Admin Analytics</h1>
+            <p className="text-muted-foreground">Track platform performance and user engagement</p>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={exportToCSV} variant="outline">
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV
+            </Button>
+            <Button onClick={exportToPDF} variant="outline">
+              <Download className="w-4 h-4 mr-2" />
+              Export Report
+            </Button>
+          </div>
         </div>
 
         {/* Stats Overview */}

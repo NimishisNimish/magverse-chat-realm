@@ -34,12 +34,12 @@ const Payment = () => {
   const plans = {
     monthly: {
       name: "Pro Yearly",
-      amount: 299,
-      description: "50 messages/day for 1 year"
+      amount: 199,
+      description: "500 messages/day for 1 year"
     },
     lifetime: {
       name: "Lifetime Pro",
-      amount: 799,
+      amount: 699,
       description: "Unlimited access forever"
     }
   };
@@ -257,9 +257,14 @@ const Payment = () => {
             <CardContent className="grid md:grid-cols-2 gap-4">
               <button onClick={() => setSelectedPlan("monthly")} className={`p-6 rounded-lg border-2 transition-all text-left ${selectedPlan === "monthly" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}>
                 <div className="space-y-2">
-                  <h3 className="text-xl font-bold">Pro Yearly</h3>
-                  <div className="text-3xl font-bold">₹299</div>
-                  <p className="text-sm text-muted-foreground">50 messages/day for 1 year</p>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xl font-bold">Pro Yearly</h3>
+                    <span className="text-xs bg-green-500 text-white px-2 py-1 rounded">
+                      Limited Offer
+                    </span>
+                  </div>
+                  <div className="text-3xl font-bold">₹199</div>
+                  <p className="text-sm text-muted-foreground">500 messages/day for 1 year</p>
                 </div>
               </button>
 

@@ -32,6 +32,7 @@ interface Profile {
   id: string;
   username: string;
   display_name: string;
+  email?: string;
 }
 
 const AdminPaymentQueue = () => {
@@ -111,6 +112,9 @@ const AdminPaymentQueue = () => {
         setTransactions(txData);
 
         const userIds = [...new Set(txData.map(tx => tx.user_id))];
+        
+        // Get user profiles with emails from auth.users
+        const { data: usersData } = await supabase.auth.admin.listUsers();
         const { data: profilesData } = await supabase
           .from('profiles')
           .select('id, username, display_name')
@@ -118,7 +122,11 @@ const AdminPaymentQueue = () => {
 
         if (profilesData) {
           const profileMap = new Map();
-          profilesData.forEach(p => profileMap.set(p.id, p));
+          profilesData.forEach(p => {
+            // Find matching email from auth users
+            const userEmail = usersData?.users?.find((u: any) => u.id === p.id)?.email;
+            profileMap.set(p.id, { ...p, email: userEmail });
+          });
           setProfiles(profileMap);
         }
       }
@@ -394,6 +402,10 @@ const AdminPaymentQueue = () => {
                   <CardContent className="space-y-4">
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">Registered Email</p>
+                        <p className="text-sm font-medium">{profile?.email || 'N/A'}</p>
+                      </div>
+                      <div className="space-y-2">
                         <p className="text-sm text-muted-foreground">Created</p>
                         <p className="text-sm">{format(new Date(tx.created_at), 'PPp')}</p>
                       </div>
@@ -403,6 +415,31 @@ const AdminPaymentQueue = () => {
                           <p className="text-sm">{tx.payment_reference}</p>
                         </div>
                       )}
+                    </div>
+                    <div className="flex gap-2 justify-end mt-4">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700"
+                        onClick={() => {
+                          setSelectedIds(new Set([tx.id]));
+                          handleBulkAction('approve');
+                        }}
+                      >
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Accept
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedIds(new Set([tx.id]));
+                          setShowBulkRejectDialog(true);
+                        }}
+                      >
+                        <XCircle className="w-4 h-4 mr-2" />
+                        Reject
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>

@@ -451,13 +451,13 @@ const Chat = () => {
       return;
     }
 
-    // Check credits for Yearly Pro users (50 messages per day)
+    // Check credits for Yearly Pro users (500 messages per day)
     if (profile?.subscription_type === 'monthly') {
       const creditsUsed = profile?.monthly_credits_used || 0;
-      if (creditsUsed >= 50) {
+      if (creditsUsed >= 500) {
         toast({
           title: "Daily Limit Reached",
-          description: "You've used all 50 messages today. Your credits will reset tomorrow or upgrade to Lifetime Pro for unlimited access!",
+          description: "You've used all 500 messages today. Your credits will reset tomorrow or upgrade to Lifetime Pro for unlimited access!",
           variant: "destructive",
           action: (
             <Button variant="outline" size="sm" onClick={() => window.location.href = '/payment'}>
@@ -877,7 +877,7 @@ const Chat = () => {
       if (user) {
         try {
           if (profile?.subscription_type === 'monthly') {
-            // Yearly Pro: Check and deduct daily credits (50 per day)
+            // Yearly Pro: Check and deduct daily credits (500 per day)
             const { data: hasCredit, error: creditError } = await supabase.rpc('check_and_deduct_yearly_credit', { p_user_id: user.id });
             
             if (creditError) {
@@ -885,7 +885,7 @@ const Chat = () => {
             } else if (hasCredit === false) {
               toast({
                 title: "Daily Limit Reached",
-                description: "You've used all 50 messages today. Your credits will reset tomorrow or upgrade to Lifetime Pro for unlimited access!",
+                description: "You've used all 500 messages today. Your credits will reset tomorrow or upgrade to Lifetime Pro for unlimited access!",
                 variant: "destructive",
                 duration: 8000,
               });
