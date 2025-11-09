@@ -150,25 +150,35 @@ const Home = () => {
               
               <div className="space-y-1">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-bold gradient-text">₹299</span>
+                  <span className="text-4xl font-bold gradient-text">₹199</span>
+                  <span className="text-sm line-through text-muted-foreground">₹299</span>
                   <span className="text-muted-foreground">/per year</span>
                 </div>
+                <p className="text-xs text-green-500 font-semibold">Limited Time Offer - Save ₹100!</p>
               </div>
               
               <Link to={user ? "/payment" : "/auth"}>
                 <Button variant="hero" size="lg" className="w-full">
-                  Start Free Trial
+                  Get Pro Access
                 </Button>
               </Link>
               
               <ul className="space-y-3 pt-4">
                 <li className="flex items-start gap-3">
                   <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Unlimited messages</span>
+                  <span className="text-foreground">500 messages/day</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">All 6+ premium AI models</span>
+                  <span className="text-foreground">All 7+ premium AI models</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <span className="text-foreground">Deep research mode</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <span className="text-foreground">Image generation</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
@@ -176,23 +186,7 @@ const Home = () => {
                 </li>
                 <li className="flex items-start gap-3">
                   <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Fastest response times</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Advanced features</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Team collaboration (up to 3)</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                   <span className="text-foreground">Chat history & export</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">API access</span>
                 </li>
               </ul>
             </div>
@@ -334,26 +328,6 @@ const Home = () => {
                       </td>
                     </tr>
                     <tr className="border-b border-glass-border/50">
-                      <td className="p-4 text-muted-foreground">Team collaboration</td>
-                      <td className="text-center p-4">
-                        <X className="w-5 h-5 text-muted-foreground mx-auto" />
-                      </td>
-                      <td className="text-center p-4 bg-primary/5">Up to 3</td>
-                      <td className="text-center p-4">Up to 3</td>
-                    </tr>
-                    <tr className="border-b border-glass-border/50">
-                      <td className="p-4 text-muted-foreground">API access</td>
-                      <td className="text-center p-4">
-                        <X className="w-5 h-5 text-muted-foreground mx-auto" />
-                      </td>
-                      <td className="text-center p-4 bg-primary/5">
-                        <Check className="w-5 h-5 text-primary mx-auto" />
-                      </td>
-                      <td className="text-center p-4">
-                        <Check className="w-5 h-5 text-primary mx-auto" />
-                      </td>
-                    </tr>
-                    <tr className="border-b border-glass-border/50">
                       <td className="p-4 text-muted-foreground">Priority support</td>
                       <td className="text-center p-4">
                         <X className="w-5 h-5 text-muted-foreground mx-auto" />
@@ -380,7 +354,12 @@ const Home = () => {
                     <tr>
                       <td className="p-4 text-muted-foreground font-semibold">Price</td>
                       <td className="text-center p-4 font-bold">₹0</td>
-                      <td className="text-center p-4 bg-primary/5 font-bold text-primary">₹299/year</td>
+                      <td className="text-center p-4 bg-primary/5 font-bold text-primary">
+                        <div className="flex flex-col items-center">
+                          <span>₹199/year</span>
+                          <span className="text-xs line-through text-muted-foreground">₹299</span>
+                        </div>
+                      </td>
                       <td className="text-center p-4 font-bold">₹699</td>
                     </tr>
                   </tbody>
