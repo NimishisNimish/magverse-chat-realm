@@ -397,6 +397,9 @@ serve(async (req) => {
     // Auto-enable web search for Deep Research mode
     const effectiveWebSearchEnabled = deepResearchMode ? true : webSearchEnabled;
     
+    // Image generation mode is not yet supported in this version
+    const imageGenerationMode = false;
+    
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
       return new Response(

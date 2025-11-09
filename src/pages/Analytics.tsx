@@ -37,6 +37,42 @@ import {
 import { format, subDays, startOfDay, differenceInDays } from "date-fns";
 import { toast } from "sonner";
 
+// CSV Export utility function
+const exportToCSV = (data: any[], filename: string) => {
+  if (data.length === 0) {
+    toast.error("No data to export");
+    return;
+  }
+
+  const headers = Object.keys(data[0]);
+  const csvContent = [
+    headers.join(','),
+    ...data.map(row => 
+      headers.map(header => {
+        const value = row[header];
+        // Escape commas and quotes in values
+        if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+          return `"${value.replace(/"/g, '""')}"`;
+        }
+        return value;
+      }).join(',')
+    )
+  ].join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute('href', url);
+  link.setAttribute('download', `${filename}_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  toast.success(`CSV exported successfully: ${filename}`);
+};
+
 interface RetentionData {
   date: string;
   activeUsers: number;
@@ -461,6 +497,16 @@ export default function Analytics() {
 
           {/* Retention Tab */}
           <TabsContent value="retention" className="space-y-4">
+            <div className="flex justify-end mb-4">
+              <Button
+                onClick={() => exportToCSV(retentionData, 'retention_data')}
+                variant="outline"
+                size="sm"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
+            </div>
             <Card>
               <CardHeader>
                 <CardTitle>User Retention Metrics</CardTitle>
@@ -538,6 +584,16 @@ export default function Analytics() {
 
           {/* Active Users Tab */}
           <TabsContent value="active" className="space-y-4">
+            <div className="flex justify-end mb-4">
+              <Button
+                onClick={() => exportToCSV(activeUsersData, 'active_users_data')}
+                variant="outline"
+                size="sm"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
+            </div>
             <Card>
               <CardHeader>
                 <CardTitle>Daily, Weekly & Monthly Active Users</CardTitle>
@@ -615,6 +671,16 @@ export default function Analytics() {
 
           {/* Revenue Tab */}
           <TabsContent value="revenue" className="space-y-4">
+            <div className="flex justify-end mb-4">
+              <Button
+                onClick={() => exportToCSV(revenueData, 'revenue_data')}
+                variant="outline"
+                size="sm"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
+            </div>
             <Card>
               <CardHeader>
                 <CardTitle>Revenue Growth</CardTitle>

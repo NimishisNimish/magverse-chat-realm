@@ -8,6 +8,7 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveCo
 import { Users, TrendingUp, DollarSign, Zap, Activity } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import AdminActivityFeed from "@/components/AdminActivityFeed";
 
 interface UserData {
   id: string;
@@ -360,7 +361,10 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Users Grid */}
+      {/* Activity Feed */}
+      <AdminActivityFeed />
+
+          {/* Users Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filteredUsers.map((user) => (
           <Card key={user.id} className="hover:shadow-lg transition-shadow">

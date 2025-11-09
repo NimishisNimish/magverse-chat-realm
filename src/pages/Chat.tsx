@@ -32,7 +32,8 @@ import {
   Heart,
   Trash2,
   Image as ImageIcon,
-  Palette
+  Palette,
+  MessageCircle
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +43,7 @@ import { generateChatPDF } from "@/utils/pdfGenerator";
 import { Link, useSearchParams } from "react-router-dom";
 import { useCreditAlerts } from "@/hooks/useCreditAlerts";
 import { usePaymentNotifications } from "@/hooks/usePaymentNotifications";
+import FilePreview from "@/components/FilePreview";
 import {
   Sheet,
   SheetContent,
@@ -103,6 +105,8 @@ const Chat = () => {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState("");
   const [upscalingImageId, setUpscalingImageId] = useState<string | null>(null);
+  const [messageCount, setMessageCount] = useState(0);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
@@ -177,6 +181,7 @@ const Chat = () => {
           role: msg.role as 'user' | 'assistant',
         }));
         setMessages(loadedMessages);
+        setMessageCount(loadedMessages.filter(m => m.role === 'user').length);
         toast({
           title: "Chat history loaded",
           description: `Loaded ${loadedMessages.length} messages`,
@@ -246,6 +251,9 @@ const Chat = () => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
+    // First, set the pending file for preview
+    setPendingFile(file);
+    
     setUploading(true);
     setUploadStatus('uploading');
     
@@ -556,6 +564,7 @@ const Chat = () => {
     };
     
     setMessages(prev => [...prev, userMessage]);
+    setMessageCount(prev => prev + 1);
     setInput("");
 
     // Frontend timeout (slightly longer than backend to avoid race conditions)
@@ -636,6 +645,9 @@ const Chat = () => {
       );
 
       const allAIResponses: Message[] = [];
+
+      // Clear pending file after sending
+      setPendingFile(null);
 
       // Process Lovable AI models (streaming)
       const lovablePromises = lovableAIModels.map(async (modelId) => {
