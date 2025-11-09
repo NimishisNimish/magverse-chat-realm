@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,43 @@ const AdminAnalytics = () => {
   useEffect(() => {
     if (isAdmin) {
       loadAnalytics();
+      
+      // Set up real-time subscriptions for automatic updates
+      const transactionsChannel = supabase
+        .channel('admin-transactions-updates')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => {
+          console.log('Transaction updated, reloading analytics...');
+          loadAnalytics();
+        })
+        .subscribe();
+
+      const messagesChannel = supabase
+        .channel('admin-messages-updates')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => {
+          console.log('New message, reloading analytics...');
+          loadAnalytics();
+        })
+        .subscribe();
+
+      const profilesChannel = supabase
+        .channel('admin-profiles-updates')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+          console.log('Profile updated, reloading analytics...');
+          loadAnalytics();
+        })
+        .subscribe();
+
+      // Auto-refresh every 30 seconds as backup
+      const interval = setInterval(() => {
+        loadAnalytics();
+      }, 30000);
+
+      return () => {
+        supabase.removeChannel(transactionsChannel);
+        supabase.removeChannel(messagesChannel);
+        supabase.removeChannel(profilesChannel);
+        clearInterval(interval);
+      };
     }
   }, [isAdmin]);
 
@@ -108,16 +146,16 @@ const AdminAnalytics = () => {
       const proUsers = profiles?.filter(p => p.subscription_type === 'monthly').length || 0;
       const lifetimeUsers = profiles?.filter(p => p.subscription_type === 'lifetime').length || 0;
 
-      // Fetch payment statistics
-      const { data: transactions } = await supabase
+      // Fetch payment statistics - all transactions
+      const { data: allTransactions } = await supabase
         .from('transactions')
         .select('*');
 
-      const completedPayments = transactions?.filter(t => t.status === 'completed').length || 0;
-      const pendingPayments = transactions?.filter(t => t.status === 'pending').length || 0;
-      const rejectedPayments = transactions?.filter(t => t.status === 'failed').length || 0;
-      const totalRevenue = transactions
-        ?.filter(t => t.status === 'completed')
+      const completedPayments = allTransactions?.filter(t => t.status === 'completed' || t.status === 'verified').length || 0;
+      const pendingPayments = allTransactions?.filter(t => t.status === 'pending' && t.verification_status === 'pending_verification').length || 0;
+      const rejectedPayments = allTransactions?.filter(t => t.status === 'failed' || t.status === 'rejected').length || 0;
+      const totalRevenue = allTransactions
+        ?.filter(t => t.status === 'completed' || t.status === 'verified')
         .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
 
       // Fetch message statistics
@@ -146,7 +184,7 @@ const AdminAnalytics = () => {
       const totalChats = chats?.length || 0;
 
       // Calculate payment trends (last 7 days)
-      const paymentTrends = calculatePaymentTrends(transactions || []);
+      const paymentTrends = calculatePaymentTrends(allTransactions || []);
       
       // Calculate user growth (last 7 days)
       const userGrowth = calculateUserGrowth(profiles || []);
@@ -187,7 +225,7 @@ const AdminAnalytics = () => {
 
     return last7Days.map(date => {
       const dayTransactions = transactions.filter(t => 
-        t.created_at?.startsWith(date) && t.status === 'completed'
+        t.created_at?.startsWith(date) && (t.status === 'completed' || t.status === 'verified')
       );
       return {
         date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
@@ -335,8 +373,13 @@ ${reportData.models.join('\n')}
       <div className="container mx-auto px-4 pt-24 pb-12">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-bold gradient-text mb-2">Admin Analytics</h1>
-            <p className="text-muted-foreground">Track platform performance and user engagement</p>
+            <h1 className="text-4xl font-bold gradient-text mb-2 flex items-center gap-2">
+              Admin Analytics 
+              <Badge variant="outline" className="text-xs">
+                Live
+              </Badge>
+            </h1>
+            <p className="text-muted-foreground">Real-time platform performance and user engagement tracking</p>
           </div>
           <div className="flex gap-2">
             <Button onClick={exportToCSV} variant="outline">
@@ -346,6 +389,10 @@ ${reportData.models.join('\n')}
             <Button onClick={exportToPDF} variant="outline">
               <Download className="w-4 h-4 mr-2" />
               Export Report
+            </Button>
+            <Button onClick={loadAnalytics} variant="outline" disabled={loading}>
+              <Activity className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
             </Button>
           </div>
         </div>

@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Upload, Mail, Lock, User, Shield, FileText, Download } from 'lucide-react';
+import { generateInvoicePDF } from "@/utils/invoiceGenerator";
 
 export default function ProfileSettings() {
   const { user, profile, refreshProfile } = useAuth();
@@ -257,23 +258,20 @@ export default function ProfileSettings() {
   };
 
   const downloadInvoice = (invoice: any) => {
-    const invoiceData = `
-Invoice #${invoice.invoice_number}
-Date: ${new Date(invoice.issue_date).toLocaleDateString()}
-Amount: ₹${invoice.amount}
-Plan: ${invoice.plan_type}
-Status: ${invoice.status}
-    `.trim();
+    generateInvoicePDF({
+      invoice_number: invoice.invoice_number,
+      issue_date: invoice.issue_date,
+      amount: invoice.amount,
+      plan_type: invoice.plan_type,
+      status: invoice.status,
+      user: {
+        name: profile?.display_name || profile?.username || 'User',
+        email: user?.email || 'N/A',
+        username: profile?.username || 'user',
+      },
+    });
 
-    const blob = new Blob([invoiceData], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${invoice.invoice_number}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    toast.success("Invoice downloaded successfully!");
   };
 
   const handleSendPhoneOtp = async () => {

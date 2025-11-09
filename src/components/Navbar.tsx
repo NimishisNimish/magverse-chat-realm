@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, LogOut, Zap, User, History, MessageSquare, Settings, LayoutDashboard, BarChart3, Shield, Crown, Users, Activity, GitCompare, TrendingUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import AdminNotifications from "@/components/AdminNotifications";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -90,6 +91,8 @@ const Navbar = () => {
         </div>
         
         <ThemeToggle />
+        
+        {isAdmin && user && <AdminNotifications />}
         
         {user ? (
             <>
