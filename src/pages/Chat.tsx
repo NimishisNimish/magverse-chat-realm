@@ -2066,6 +2066,40 @@ const Chat = () => {
           {/* Input Area */}
           <div className="border-t border-glass-border glass-card p-6">
             <div className="max-w-4xl mx-auto">
+              {/* Credit cost indicator */}
+              {profile && (
+                <div className="mb-3 flex items-center justify-between text-sm bg-muted/30 px-3 py-2 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-primary" />
+                    <span className="text-muted-foreground">
+                      This {deepResearchMode ? 'deep research query' : imageGenerationMode ? 'image generation' : 'message'} costs{' '}
+                      <span className="font-bold text-foreground">
+                        {deepResearchMode ? '2' : imageGenerationMode ? '3' : '1'} credit{(deepResearchMode || imageGenerationMode) ? 's' : ''}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    {profile.subscription_type === 'lifetime' ? (
+                      <span className="text-sm text-green-500 font-semibold">∞ Unlimited</span>
+                    ) : profile.subscription_type === 'monthly' ? (
+                      <span className="text-sm">
+                        <span className={`font-semibold ${(500 - (profile.monthly_credits_used || 0)) < 50 ? 'text-destructive' : 'text-foreground'}`}>
+                          {500 - (profile.monthly_credits_used || 0)}
+                        </span>
+                        <span className="text-muted-foreground">/500 daily</span>
+                      </span>
+                    ) : (
+                      <span className="text-sm">
+                        <span className={`font-semibold ${(profile.credits_remaining || 0) < 2 ? 'text-destructive' : 'text-foreground'}`}>
+                          {profile.credits_remaining || 0}
+                        </span>
+                        <span className="text-muted-foreground">/5 daily</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+              
               {/* Image Generation Mode Indicator */}
               {imageGenerationMode && (
                 <div className="mb-3 flex items-center gap-2 text-xs bg-purple-500/20 text-purple-300 px-3 py-1.5 rounded-md w-fit">
@@ -2169,7 +2203,12 @@ const Chat = () => {
                   size="icon" 
                   className="shrink-0"
                   onClick={handleSend}
-                  disabled={!input.trim() || loading}
+                  disabled={!input.trim() || loading || 
+                    (profile?.subscription_type !== 'lifetime' && 
+                      ((profile?.subscription_type === 'monthly' && (profile?.monthly_credits_used || 0) >= 500) || 
+                      (profile?.subscription_type === 'free' && (profile?.credits_remaining || 0) < (deepResearchMode ? 2 : imageGenerationMode ? 3 : 1)))
+                    )
+                  }
                 >
                   <Send className="w-5 h-5" />
                 </Button>

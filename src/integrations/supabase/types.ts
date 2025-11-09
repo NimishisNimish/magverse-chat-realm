@@ -423,6 +423,10 @@ export type Database = {
     }
     Functions: {
       check_and_deduct_credit: { Args: { p_user_id: string }; Returns: boolean }
+      check_and_deduct_credits: {
+        Args: { p_credits_to_deduct: number; p_user_id: string }
+        Returns: Json
+      }
       check_and_deduct_yearly_credit: {
         Args: { p_user_id: string }
         Returns: boolean

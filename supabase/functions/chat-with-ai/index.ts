@@ -419,6 +419,66 @@ serve(async (req) => {
       },
     });
 
+    // ====== CREDIT DEDUCTION SYSTEM ======
+    // Determine credit cost based on mode
+    const creditCost = deepResearchMode ? 2 : 
+                       imageGenerationMode ? 3 : 
+                       1; // Normal message costs 1 credit
+
+    console.log(`💳 Credit deduction check: Mode=${deepResearchMode ? 'Deep Research (2)' : imageGenerationMode ? 'Image Generation (3)' : 'Normal (1)'}, User=${user.id}`);
+
+    // Call database function to check and deduct credits
+    const { data: creditResult, error: creditError } = await supabase
+      .rpc('check_and_deduct_credits', {
+        p_user_id: user.id,
+        p_credits_to_deduct: creditCost
+      });
+
+    if (creditError) {
+      console.error('❌ Credit deduction error:', creditError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to verify credits. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!creditResult?.success) {
+      const errorMessage = creditResult?.error || 'Insufficient credits';
+      const subscriptionType = creditResult?.subscription_type || 'free';
+      const creditsRemaining = creditResult?.credits_remaining || 0;
+      const dailyLimit = creditResult?.daily_limit || 5;
+
+      console.log(`⚠️ Insufficient credits:`, {
+        subscriptionType,
+        creditsRemaining,
+        requiredCredits: creditCost,
+        dailyLimit,
+        mode: deepResearchMode ? 'deep_research' : imageGenerationMode ? 'image_generation' : 'normal'
+      });
+
+      return new Response(
+        JSON.stringify({ 
+          error: subscriptionType === 'monthly' 
+            ? `Daily limit reached! You've used all 500 daily messages. Upgrade to Lifetime Pro for unlimited messages.`
+            : `Insufficient credits! This ${deepResearchMode ? 'deep research query' : imageGenerationMode ? 'image generation' : 'message'} requires ${creditCost} credit${creditCost > 1 ? 's' : ''}, but you only have ${creditsRemaining}. ${subscriptionType === 'free' ? 'Upgrade to Pro for more credits!' : 'Credits reset daily at midnight.'}`,
+          creditsRequired: creditCost,
+          creditsRemaining,
+          subscriptionType,
+          dailyLimit,
+          upgradeUrl: '/payment'
+        }),
+        { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`✅ Credits deducted successfully:`, {
+      creditCost,
+      creditsRemaining: creditResult.credits_remaining,
+      subscriptionType: creditResult.subscription_type,
+      unlimited: creditResult.unlimited || false
+    });
+    // ====== END CREDIT DEDUCTION ======
+
     // Process attachment if present with size validation
     let processedMessages = [...messages];
     if (attachmentUrl) {
@@ -633,10 +693,26 @@ serve(async (req) => {
           modelId === 'llama' ? 'LLAMA_NVIDIA_NIM_API_KEY' :
           modelId === 'gemini' ? 'GOOGLE_AI_API_KEY' :
           modelId === 'perplexity' ? 'PERPLEXITY_API_KEY' :
+          modelId === 'claude' ? 'OPENROUTER_API_KEY (for Claude)' :
+          modelId === 'grok' ? 'OPENROUTER_API_KEY (for Grok)' :
           'OPENROUTER_API_KEY'
         }`);
-        return { success: false, model: modelId, error: 'Missing API key' };
+        console.error(`   📋 API Key Status:`, {
+          model: modelId,
+          provider: config.provider,
+          hasKey: false,
+          endpoint: config.endpoint,
+          model: config.model
+        });
+        return { success: false, model: modelId, error: `Missing API key. Please configure the required secret in Supabase Edge Function settings.` };
       }
+
+      console.log(`✅ API key validated for ${modelId}:`, {
+        provider: config.provider,
+        model: config.model,
+        endpoint: config.endpoint,
+        hasKey: true
+      });
 
       // Check if model supports vision
       const visionModels = ['chatgpt', 'claude', 'gemini'];

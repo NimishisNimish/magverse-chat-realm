@@ -15,9 +15,12 @@ import {
   TrendingUp,
   Crown,
   Calendar,
-  BarChart3
+  BarChart3,
+  AlertTriangle
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
+import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface UsageStats {
   totalMessages: number;
@@ -26,6 +29,11 @@ interface UsageStats {
   chatsThisMonth: number;
   favoriteModel: string | null;
   accountAgeDays: number;
+  dailyUsage: Array<{ date: string; messages: number }>;
+  modelUsage: Array<{ model: string; count: number }>;
+  creditsUsedToday: number;
+  creditsUsedThisWeek: number;
+  creditsUsedThisMonth: number;
 }
 
 const Dashboard = () => {
@@ -120,6 +128,43 @@ const Dashboard = () => {
       });
       const favoriteModel = Object.entries(modelCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 
+      // Calculate daily usage for chart (last 30 days)
+      const dailyUsage: { [key: string]: number } = {};
+      const last30Days = Array.from({ length: 30 }, (_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        return date.toISOString().split('T')[0];
+      });
+
+      last30Days.forEach(date => { dailyUsage[date] = 0; });
+      messages?.forEach(msg => {
+        const date = new Date(msg.created_at).toISOString().split('T')[0];
+        if (dailyUsage[date] !== undefined) {
+          dailyUsage[date]++;
+        }
+      });
+
+      const dailyUsageData = last30Days.reverse().map(date => ({
+        date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        messages: dailyUsage[date]
+      }));
+
+      // Model usage for pie chart
+      const modelUsageData = Object.entries(modelCounts).map(([model, count]) => ({
+        model: model.split('/').pop() || model,
+        count
+      }));
+
+      // Calculate credits used (1 credit per message as baseline)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const thisWeek = new Date();
+      thisWeek.setDate(thisWeek.getDate() - 7);
+      
+      const creditsUsedToday = messages?.filter(m => new Date(m.created_at) >= today).length || 0;
+      const creditsUsedThisWeek = messages?.filter(m => new Date(m.created_at) >= thisWeek).length || 0;
+      const creditsUsedThisMonth = messagesThisMonth;
+
       setStats({
         totalMessages,
         totalChats,
@@ -127,6 +172,11 @@ const Dashboard = () => {
         chatsThisMonth,
         favoriteModel,
         accountAgeDays,
+        dailyUsage: dailyUsageData,
+        modelUsage: modelUsageData,
+        creditsUsedToday,
+        creditsUsedThisWeek,
+        creditsUsedThisMonth
       });
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -175,6 +225,14 @@ const Dashboard = () => {
   };
 
   const isFreeUser = profile?.subscription_type === 'free';
+  const isYearlyUser = profile?.subscription_type === 'monthly';
+  
+  // Calculate days until renewal for yearly users
+  const daysUntilRenewal = isYearlyUser && profile?.subscription_expires_at
+    ? differenceInDays(new Date(profile.subscription_expires_at), new Date())
+    : null;
+
+  const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--muted))'];
 
   if (loading) {
     return (
@@ -195,6 +253,37 @@ const Dashboard = () => {
           <h1 className="text-4xl font-bold gradient-text mb-2">Dashboard</h1>
           <p className="text-muted-foreground">Welcome back, {profile?.display_name || profile?.username || 'User'}!</p>
         </div>
+
+        {/* Renewal Reminder for Yearly Users */}
+        {isYearlyUser && daysUntilRenewal !== null && daysUntilRenewal <= 7 && (
+          <Alert className={`mb-6 ${daysUntilRenewal <= 3 ? 'border-destructive' : 'border-yellow-500'}`}>
+            <AlertTriangle className={`h-4 w-4 ${daysUntilRenewal <= 3 ? 'text-destructive' : 'text-yellow-500'}`} />
+            <AlertDescription>
+              {daysUntilRenewal <= 0 ? (
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">Your subscription has expired!</span>
+                  <Link to="/payment">
+                    <Button size="sm" variant="destructive">Renew Now</Button>
+                  </Link>
+                </div>
+              ) : daysUntilRenewal <= 3 ? (
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">Urgent: Your subscription expires in {daysUntilRenewal} {daysUntilRenewal === 1 ? 'day' : 'days'}!</span>
+                  <Link to="/payment">
+                    <Button size="sm" variant="destructive">Renew Now</Button>
+                  </Link>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <span>Your subscription renews in {daysUntilRenewal} days</span>
+                  <Link to="/payment">
+                    <Button size="sm" variant="outline">Renew Early</Button>
+                  </Link>
+                </div>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Current Plan */}
         <Card className="glass-card mb-8">
@@ -301,6 +390,110 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Credit Usage Analytics & Model Usage Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle>Daily Message Activity (Last 30 Days)</CardTitle>
+              <CardDescription>Track your messaging patterns</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={stats?.dailyUsage || []}>
+                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
+                  <YAxis stroke="hsl(var(--muted-foreground))" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--background))', 
+                      border: '1px solid hsl(var(--border))' 
+                    }} 
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="messages" 
+                    stroke="hsl(var(--primary))" 
+                    strokeWidth={2}
+                    dot={{ fill: 'hsl(var(--primary))' }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle>Model Usage Distribution</CardTitle>
+              <CardDescription>Your favorite AI models</CardDescription>
+            </CardHeader>
+            <CardContent className="flex justify-center">
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={stats?.modelUsage || []}
+                    dataKey="count"
+                    nameKey="model"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    label
+                  >
+                    {(stats?.modelUsage || []).map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--background))', 
+                      border: '1px solid hsl(var(--border))' 
+                    }} 
+                  />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Credit Usage Stats */}
+        {profile?.subscription_type !== 'lifetime' && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <Card className="glass-card">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Credits Used Today</CardTitle>
+                <Zap className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats?.creditsUsedToday || 0}</div>
+                <p className="text-xs text-muted-foreground">
+                  {isYearlyUser ? 'Out of 500 daily' : 'Out of 5 daily'}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-card">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Credits This Week</CardTitle>
+                <TrendingUp className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats?.creditsUsedThisWeek || 0}</div>
+                <p className="text-xs text-muted-foreground">Last 7 days</p>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-card">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Credits This Month</CardTitle>
+                <Calendar className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats?.creditsUsedThisMonth || 0}</div>
+                <p className="text-xs text-muted-foreground">Current month</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Features Access */}
         {isFreeUser && (
