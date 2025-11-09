@@ -824,7 +824,7 @@ const Chat = () => {
             'perplexity': 'perplexity',
           };
 
-          const { data, error } = await supabase.functions.invoke('chat-with-ai', {
+              const { data, error } = await supabase.functions.invoke('chat-with-ai', {
             body: {
               messages: conversationHistory.map(m => ({ role: m.role, content: m.content })),
               selectedModels: [modelMapping[modelId]],
@@ -832,6 +832,7 @@ const Chat = () => {
               searchMode,
               deepResearchMode,
               attachmentUrl: attachmentToSend || undefined,
+              attachmentExtension: attachmentToSend ? attachmentToSend.split('.').pop()?.toLowerCase() : undefined,
             },
           });
 

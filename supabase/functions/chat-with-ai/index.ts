@@ -107,10 +107,17 @@ const providerConfig: Record<string, any> = {
     apiKey: perplexityApiKey,
     endpoint: 'https://api.perplexity.ai/chat/completions',
     model: 'sonar-pro',
-    headers: () => ({
-      'Authorization': `Bearer ${perplexityApiKey}`,
-      'Content-Type': 'application/json',
-    }),
+    headers: () => {
+      console.log('🔑 Perplexity headers generated:', {
+        hasApiKey: !!perplexityApiKey,
+        keyLength: perplexityApiKey?.length,
+        keyStart: perplexityApiKey?.substring(0, 8) + '...'
+      });
+      return {
+        'Authorization': `Bearer ${perplexityApiKey}`,
+        'Content-Type': 'application/json',
+      };
+    },
     bodyTemplate: (messages: any[], webSearchEnabled?: boolean, searchMode?: string) => {
       const baseConfig: any = {
         model: 'sonar-pro',
@@ -149,12 +156,19 @@ const providerConfig: Record<string, any> = {
     apiKey: openRouterApiKey,
     endpoint: 'https://openrouter.ai/api/v1/chat/completions',
     model: 'anthropic/claude-3.5-sonnet',
-    headers: () => ({
-      'Authorization': `Bearer ${openRouterApiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://pqdgpxetysqcdcjwormb.supabase.co',
-      'X-Title': 'MagVerse AI Chat',
-    }),
+    headers: () => {
+      console.log('🔑 OpenRouter (Claude) headers generated:', {
+        hasApiKey: !!openRouterApiKey,
+        keyLength: openRouterApiKey?.length,
+        keyStart: openRouterApiKey?.substring(0, 8) + '...'
+      });
+      return {
+        'Authorization': `Bearer ${openRouterApiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://pqdgpxetysqcdcjwormb.supabase.co',
+        'X-Title': 'MagVerse AI Chat',
+      };
+    },
     bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
       model: 'anthropic/claude-3.5-sonnet',
       messages,

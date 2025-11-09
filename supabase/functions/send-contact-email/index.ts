@@ -47,12 +47,20 @@ serve(async (req) => {
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     const adminEmail = Deno.env.get('ADMIN_EMAIL');
 
+    console.log('🔑 Checking environment variables:', {
+      hasResendKey: !!resendApiKey,
+      hasAdminEmail: !!adminEmail,
+      adminEmailValue: adminEmail || 'NOT SET'
+    });
+
     if (!resendApiKey) {
-      throw new Error('Resend API key not configured');
+      console.error('❌ RESEND_API_KEY is not configured in Supabase secrets');
+      throw new Error('Email service not configured - RESEND_API_KEY missing');
     }
 
     if (!adminEmail) {
-      throw new Error('Admin email not configured');
+      console.error('❌ ADMIN_EMAIL is not configured in Supabase secrets');
+      throw new Error('Email service not configured - ADMIN_EMAIL missing');
     }
 
     const resend = new Resend(resendApiKey);

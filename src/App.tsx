@@ -31,6 +31,7 @@ import AdminPaymentQueue from "./pages/AdminPaymentQueue";
 import AdminTraffic from "./pages/AdminTraffic";
 import AdminUserDetail from "./pages/AdminUserDetail";
 import AdminDashboard from "./pages/AdminDashboard";
+import Analytics from "./pages/Analytics";
 
 const queryClient = new QueryClient();
 
@@ -67,10 +68,11 @@ const App = () => (
             <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
             <Route path="/upgrade" element={<ProtectedRoute><Upgrade /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-            <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-            <Route path="/payment" element={<Payment />} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/admin/analytics" element={<ProtectedRoute><AdminAnalytics /></ProtectedRoute>} />
+          <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+          <Route path="/payment" element={<Payment />} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/admin/old-analytics" element={<ProtectedRoute><AdminAnalytics /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
             <Route path="/admin/activity" element={<ProtectedRoute><AdminUserActivity /></ProtectedRoute>} />
             <Route path="/admin/payment-queue" element={<ProtectedRoute><AdminPaymentQueue /></ProtectedRoute>} />
