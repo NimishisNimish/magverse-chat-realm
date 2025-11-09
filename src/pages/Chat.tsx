@@ -571,11 +571,13 @@ const Chat = () => {
       // Send full conversation history for better context awareness
       // Only limit if conversation becomes extremely long (>50 messages)
       const MAX_CONTEXT_MESSAGES = 50;
-      const conversationHistory = messages.length > MAX_CONTEXT_MESSAGES 
-        ? messages.slice(-MAX_CONTEXT_MESSAGES)
-        : messages;
+      // Include the new user message in the conversation history
+      const allMessages = [...messages, userMessage];
+      const conversationHistory = allMessages.length > MAX_CONTEXT_MESSAGES 
+        ? allMessages.slice(-MAX_CONTEXT_MESSAGES)
+        : allMessages;
       
-      console.log(`Sending ${conversationHistory.length} messages for full context (${messages.length} total in history)`);
+      console.log(`Sending ${conversationHistory.length} messages for full context (${allMessages.length} total in history)`);
 
       // Helper function for retry with exponential backoff
       const fetchWithRetry = async (
