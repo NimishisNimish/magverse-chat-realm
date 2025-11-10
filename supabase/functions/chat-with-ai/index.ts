@@ -106,14 +106,12 @@ const providerConfig: Record<string, any> = {
     provider: 'perplexity',
     apiKey: perplexityApiKey,
     endpoint: 'https://api.perplexity.ai/chat/completions',
-    model: 'llama-3.1-sonar-large-128k-online',
+    model: 'sonar-pro',
     headers: () => {
-      if (!perplexityApiKey) {
-        console.error('❌ Perplexity API key missing');
-      }
-      console.log('🔑 Perplexity headers:', {
+      console.log('🔑 Perplexity headers generated:', {
         hasApiKey: !!perplexityApiKey,
-        keyLength: perplexityApiKey?.length || 0
+        keyLength: perplexityApiKey?.length,
+        keyStart: perplexityApiKey?.substring(0, 8) + '...'
       });
       return {
         'Authorization': `Bearer ${perplexityApiKey}`,
@@ -122,11 +120,11 @@ const providerConfig: Record<string, any> = {
     },
     bodyTemplate: (messages: any[], webSearchEnabled?: boolean, searchMode?: string) => {
       const baseConfig: any = {
-        model: 'llama-3.1-sonar-large-128k-online',
+        model: 'sonar-pro',
         messages,
         stream: false,
-        temperature: 0.7,
-        max_tokens: 4000,
+        temperature: 0.5,
+        max_tokens: 2000,
       };
       
       // Add web search parameters if enabled

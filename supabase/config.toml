@@ -71,12 +71,6 @@ verify_jwt = false
 [functions.email-campaigns]
 verify_jwt = false
 
-[functions.voice-chat]
-verify_jwt = true
-
-[functions.generate-video]
-verify_jwt = true
-
 [functions.cron-scheduler]
 verify_jwt = false
 

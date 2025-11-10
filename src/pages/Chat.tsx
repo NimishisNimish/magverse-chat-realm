@@ -33,9 +33,7 @@ import {
   Trash2,
   Image as ImageIcon,
   Palette,
-  MessageCircle,
-  Mic,
-  Film
+  MessageCircle
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
@@ -49,9 +47,6 @@ import FilePreview from "@/components/FilePreview";
 import { FeedbackButtons } from "@/components/FeedbackButtons";
 import { CustomInstructionsButton } from "@/components/CustomInstructionsDialog";
 import { ModelABTesting } from "@/components/ModelABTesting";
-import { AIModelRecommendations } from "@/components/AIModelRecommendations";
-import { VoiceChat } from "@/components/VoiceChat";
-import { VideoGeneration } from "@/components/VideoGeneration";
 import {
   Sheet,
   SheetContent,
@@ -61,13 +56,14 @@ import {
 } from "@/components/ui/sheet";
 
 const aiModels = [
-  { id: "chatgpt", name: "ChatGPT", icon: Sparkles, color: "text-purple-400", model: "chatgpt" },
-  { id: "gemini", name: "Gemini", icon: Zap, color: "text-primary", model: "gemini" },
-  { id: "grok", name: "Grok", icon: Brain, color: "text-secondary", model: "grok" },
-  { id: "llama", name: "Llama", icon: Cpu, color: "text-muted-foreground", model: "llama" },
-  { id: "deepseek", name: "DeepSeek", icon: Bot, color: "text-accent", model: "deepseek" },
-  { id: "claude", name: "Claude", icon: Star, color: "text-orange-400", model: "claude" },
-  { id: "perplexity", name: "Perplexity", icon: Globe, color: "text-green-400", model: "perplexity" },
+  { id: "gpt-5-mini", name: "GPT-5 Mini", icon: Sparkles, color: "text-purple-400", model: "openai/gpt-5-mini" },
+  { id: "gemini-flash", name: "Gemini Flash", icon: Zap, color: "text-primary", model: "google/gemini-2.5-flash" },
+  { id: "gemini-pro", name: "Gemini Pro", icon: Brain, color: "text-secondary", model: "google/gemini-2.5-pro" },
+  { id: "gemini-lite", name: "Gemini Lite", icon: Cpu, color: "text-muted-foreground", model: "google/gemini-2.5-flash-lite" },
+  { id: "gpt-5", name: "GPT-5", icon: Bot, color: "text-accent", model: "openai/gpt-5" },
+  { id: "gpt-5-nano", name: "GPT-5 Nano", icon: Star, color: "text-blue-400", model: "openai/gpt-5-nano" },
+  { id: "claude", name: "Claude", icon: Bot, color: "text-orange-400", model: "anthropic/claude-3.5-sonnet" },
+  { id: "perplexity", name: "Perplexity", icon: Globe, color: "text-green-400", model: "perplexity/llama-3.1-sonar-large-128k-online" },
 ];
 
 interface Message {
@@ -87,7 +83,7 @@ interface Message {
 }
 
 const Chat = () => {
-  const [selectedModels, setSelectedModels] = useState<string[]>(["chatgpt"]);
+  const [selectedModels, setSelectedModels] = useState<string[]>(["gpt-5-mini"]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
@@ -116,7 +112,6 @@ const Chat = () => {
   const [upscalingImageId, setUpscalingImageId] = useState<string | null>(null);
   const [messageCount, setMessageCount] = useState(0);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [chatMode, setChatMode] = useState<'text' | 'voice' | 'video'>('text');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
@@ -236,13 +231,13 @@ const Chat = () => {
 
   const toggleModel = (modelId: string) => {
     const isPro = profile?.is_pro || profile?.subscription_type === 'monthly' || profile?.subscription_type === 'lifetime';
-    const premiumModels = ['gemini', 'claude', 'perplexity', 'grok'];
+    const premiumModels = ['gemini-flash', 'gemini-pro', 'gemini-lite', 'gpt-5', 'gpt-5-nano'];
     
     // Check if free user is trying to select premium model
     if (!isPro && premiumModels.includes(modelId) && !selectedModels.includes(modelId)) {
       toast({
         title: "Upgrade to Pro",
-        description: "Free users can only use ChatGPT, Llama, and DeepSeek. Upgrade to access all AI models!",
+        description: "Free users can only use GPT-5 Mini. Upgrade to access all AI models!",
         variant: "destructive",
         action: (
           <Button variant="outline" size="sm" onClick={() => window.location.href = '/payment'}>
@@ -462,13 +457,13 @@ const Chat = () => {
 
     // Check if user is free and has selected premium models
     const isPro = profile?.is_pro || profile?.subscription_type === 'monthly' || profile?.subscription_type === 'lifetime';
-    const premiumModels = ['gemini', 'claude', 'perplexity', 'grok'];
+    const premiumModels = ['gemini-flash', 'gemini-pro', 'gemini-lite', 'gpt-5', 'gpt-5-nano', 'perplexity', 'claude'];
     const selectedPremiumModels = selectedModels.filter(id => premiumModels.includes(id));
     
     if (!isPro && selectedPremiumModels.length > 0) {
       toast({
         title: "Upgrade Required",
-        description: "Free users can only access ChatGPT, Llama, and DeepSeek. Upgrade to Pro to unlock all AI models!",
+        description: "Free users can only access GPT-5 Mini. Upgrade to Pro to unlock all AI models!",
         variant: "destructive",
         action: (
           <Button variant="outline" size="sm" onClick={() => window.location.href = '/payment'}>
@@ -1755,9 +1750,6 @@ const Chat = () => {
         </Button>
       </Link>
       
-      {/* AI Model Recommendations */}
-      <AIModelRecommendations />
-      
       {/* Custom Instructions */}
       <CustomInstructionsButton 
         onInstructionsUpdate={setCustomInstructions}
@@ -1806,50 +1798,7 @@ const Chat = () => {
         
         {/* Main Chat Area */}
         <main className="flex-1 flex flex-col">
-          {/* Mode Switcher */}
-          <div className="border-b border-glass-border glass-card px-6 py-3">
-            <div className="max-w-4xl mx-auto flex gap-2">
-              <Button
-                variant={chatMode === 'text' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setChatMode('text')}
-              >
-                <MessageCircle className="w-4 h-4 mr-2" />
-                Text Chat
-              </Button>
-              <Button
-                variant={chatMode === 'voice' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setChatMode('voice')}
-              >
-                <Mic className="w-4 h-4 mr-2" />
-                Voice Chat
-              </Button>
-              <Button
-                variant={chatMode === 'video' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setChatMode('video')}
-              >
-                <Film className="w-4 h-4 mr-2" />
-                Video Generation
-              </Button>
-            </div>
-          </div>
-
-          {chatMode === 'voice' ? (
-            <div className="flex-1 p-6 flex items-center justify-center">
-              <div className="max-w-2xl w-full">
-                <VoiceChat />
-              </div>
-            </div>
-          ) : chatMode === 'video' ? (
-            <div className="flex-1 p-6">
-              <div className="max-w-4xl mx-auto">
-                <VideoGeneration />
-              </div>
-            </div>
-          ) : (
-            <ScrollArea className="flex-1 p-6">
+          <ScrollArea className="flex-1 p-6">
             {messages.length === 0 ? (
               <div className="h-full flex items-center justify-center">
                 <div className="text-center space-y-4 max-w-md">
@@ -1895,43 +1844,36 @@ const Chat = () => {
                         </span>
                       )}
                     </div>
-                     
-                     {/* Message content or edit mode */}
-                     {editingMessageId === message.id ? (
-                       <div className="space-y-2">
-                         <Textarea
-                           value={editedContent}
-                           onChange={(e) => setEditedContent(e.target.value)}
-                           className="min-h-[100px]"
-                           placeholder="Edit your message..."
-                         />
-                         <div className="flex gap-2">
-                           <Button
-                             size="sm"
-                             onClick={() => handleSaveEdit(message.id)}
-                           >
-                             <Save className="w-3 h-3 mr-1" />
-                             Save
-                           </Button>
-                           <Button
-                             size="sm"
-                             variant="outline"
-                             onClick={handleCancelEdit}
-                           >
-                             <Ban className="w-3 h-3 mr-1" />
-                             Cancel
-                           </Button>
-                         </div>
-                       </div>
-                     ) : (
-                       <>
-                         {/* Show uploaded files for user messages */}
-                         {message.role === 'user' && pendingFile && index === messages.length - 1 && (
-                           <div className="mb-3">
-                             <FilePreview file={pendingFile} onRemove={() => {}} />
-                           </div>
-                         )}
-                         
+                    
+                    {/* Message content or edit mode */}
+                    {editingMessageId === message.id ? (
+                      <div className="space-y-2">
+                        <Textarea
+                          value={editedContent}
+                          onChange={(e) => setEditedContent(e.target.value)}
+                          className="min-h-[100px]"
+                          placeholder="Edit your message..."
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleSaveEdit(message.id)}
+                          >
+                            <Save className="w-3 h-3 mr-1" />
+                            Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleCancelEdit}
+                          >
+                            <Ban className="w-3 h-3 mr-1" />
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
                          <p className="text-foreground leading-relaxed whitespace-pre-wrap">{message.content}</p>
                         
                         {/* Feedback buttons for AI responses */}
@@ -2221,10 +2163,8 @@ const Chat = () => {
               </div>
             )}
           </ScrollArea>
-          )}
           
-          {/* Input Area - Only show for text mode */}
-          {chatMode === 'text' && (
+          {/* Input Area */}
           <div className="border-t border-glass-border glass-card p-6">
             <div className="max-w-4xl mx-auto">
               {/* Credit cost indicator */}
@@ -2412,11 +2352,10 @@ const Chat = () => {
                 >
                   <Send className="w-5 h-5" />
                 </Button>
-               </div>
-             </div>
-           </div>
-           )}
-         </main>
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
 
       {/* Image Gallery Modal */}
