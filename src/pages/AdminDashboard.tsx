@@ -13,6 +13,10 @@ import UserEngagementScoring from "@/components/UserEngagementScoring";
 import AdminChatHistory from "@/components/AdminChatHistory";
 import AdminRealTimeNotifications from "@/components/AdminRealTimeNotifications";
 import AdminFeedbackAnalytics from "@/components/AdminFeedbackAnalytics";
+import UserSegmentationDashboard from "@/components/UserSegmentationDashboard";
+import EmailCampaignAnalytics from "@/components/EmailCampaignAnalytics";
+import { ModelComparisonAnalytics } from "@/components/ModelABTesting";
+import CronSchedulerAdmin from "@/components/CronSchedulerAdmin";
 
 interface UserData {
   id: string;
@@ -438,6 +442,20 @@ export default function AdminDashboard() {
 
       <div className="mt-6">
         <AdminChatHistory />
+      </div>
+
+      {/* New Advanced Analytics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        <ModelComparisonAnalytics />
+        <CronSchedulerAdmin />
+      </div>
+
+      <div className="mt-6">
+        <UserSegmentationDashboard />
+      </div>
+
+      <div className="mt-6">
+        <EmailCampaignAnalytics />
       </div>
     </div>
   );

@@ -71,5 +71,8 @@ verify_jwt = false
 [functions.email-campaigns]
 verify_jwt = false
 
+[functions.cron-scheduler]
+verify_jwt = false
+
 [functions.notify-admin-payment]
 verify_jwt = true

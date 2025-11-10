@@ -748,6 +748,7 @@ export type Database = {
         Returns: boolean
       }
       reset_daily_credits: { Args: never; Returns: undefined }
+      update_all_user_segments: { Args: never; Returns: undefined }
       update_user_segments: { Args: { p_user_id: string }; Returns: undefined }
     }
     Enums: {

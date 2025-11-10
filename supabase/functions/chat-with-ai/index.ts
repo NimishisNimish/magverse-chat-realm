@@ -436,6 +436,25 @@ serve(async (req) => {
       },
     });
 
+    // ====== FETCH USER CUSTOM INSTRUCTIONS ======
+    let customInstructions: string | null = null;
+    try {
+      const { data: instructionsData } = await supabase
+        .from('ai_custom_instructions')
+        .select('instructions')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+      
+      if (instructionsData) {
+        customInstructions = instructionsData.instructions;
+        console.log(`📝 Custom instructions loaded for user ${user.id}`);
+      }
+    } catch (error) {
+      console.log('No custom instructions found, using defaults');
+    }
+    // ====== END CUSTOM INSTRUCTIONS ======
+
     // ====== CREDIT DEDUCTION SYSTEM ======
     // Determine credit cost based on mode
     const creditCost = deepResearchMode ? 2 : 
@@ -867,10 +886,8 @@ Please synthesize the above web information with your knowledge to provide a com
       
       // Add Deep Research system prompt if enabled
       if (deepResearchMode && finalMessages.length > 0) {
-        const deepResearchPrompt = {
-          role: 'system' as const,
-          content: effectiveWebSearchEnabled
-            ? `You are in Deep Research mode with real-time web search enabled. Web search results have been injected into the user's query. Provide comprehensive, detailed explanations combining:
+        const basePrompt = effectiveWebSearchEnabled
+          ? `You are in Deep Research mode with real-time web search enabled. Web search results have been injected into the user's query. Provide comprehensive, detailed explanations combining:
 - Current web information (provided in the query)
 - Your extensive training knowledge
 - Multiple perspectives and expert opinions
@@ -880,17 +897,30 @@ Please synthesize the above web information with your knowledge to provide a com
 - Citations from web sources when referencing them
 
 Make complex topics accessible and engaging.`
-            : `You are in Deep Research mode. Provide comprehensive, detailed explanations using your extensive training data. Include:
+          : `You are in Deep Research mode. Provide comprehensive, detailed explanations using your extensive training data. Include:
 - Multiple perspectives and approaches
 - Real-world examples and case studies
 - Step-by-step reasoning with clear explanations
 - Practical applications and actionable insights
 
-Make complex topics accessible and engaging.`
+Make complex topics accessible and engaging.`;
+
+        const deepResearchPrompt = {
+          role: 'system' as const,
+          content: customInstructions 
+            ? `${basePrompt}\n\n--- User's Custom Instructions ---\n${customInstructions}`
+            : basePrompt
         };
         
         // Insert system message at the beginning
         finalMessages = [deepResearchPrompt, ...finalMessages];
+      } else if (customInstructions) {
+        // Add custom instructions even for normal mode
+        const customPrompt = {
+          role: 'system' as const,
+          content: `You are a helpful AI assistant. Follow these custom instructions from the user:\n\n${customInstructions}`
+        };
+        finalMessages = [customPrompt, ...finalMessages];
       }
 
       // Use longer timeout for Deep Research mode (8 minutes vs 4 minutes)

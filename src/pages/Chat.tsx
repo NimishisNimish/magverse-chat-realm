@@ -46,6 +46,7 @@ import { usePaymentNotifications } from "@/hooks/usePaymentNotifications";
 import FilePreview from "@/components/FilePreview";
 import { FeedbackButtons } from "@/components/FeedbackButtons";
 import { CustomInstructionsButton } from "@/components/CustomInstructionsDialog";
+import { ModelABTesting } from "@/components/ModelABTesting";
 import {
   Sheet,
   SheetContent,
@@ -156,6 +157,31 @@ const Chat = () => {
       }
     }
   }, []);
+
+  // Load custom instructions
+  useEffect(() => {
+    const loadCustomInstructions = async () => {
+      if (!user) return;
+      
+      try {
+        const { data } = await supabase
+          .from('ai_custom_instructions')
+          .select('instructions')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .single();
+        
+        if (data) {
+          setCustomInstructions(data.instructions);
+        }
+      } catch (error) {
+        // No custom instructions set
+        console.log('No custom instructions found');
+      }
+    };
+    
+    loadCustomInstructions();
+  }, [user]);
 
   const loadChatMessages = async (chatId: string) => {
     try {
@@ -2070,6 +2096,43 @@ const Chat = () => {
                         <Loader2 className="w-3 h-3 animate-spin" />
                         Retrying {message.model}...
                       </div>
+                    )}
+                    
+                    {/* A/B Testing Vote - Show after AI responses when there are exactly 2 models */}
+                    {message.role === 'assistant' && !message.error && index < messages.length - 1 && (
+                      (() => {
+                        // Find the previous user message
+                        const prevMessages = messages.slice(0, index + 1);
+                        const lastUserMsgIndex = [...prevMessages].reverse().findIndex(m => m.role === 'user');
+                        if (lastUserMsgIndex === -1) return null;
+                        
+                        const userMsgIndex = prevMessages.length - 1 - lastUserMsgIndex;
+                        const userMessage = messages[userMsgIndex];
+                        
+                        // Count AI responses after this user message
+                        const aiResponses = messages
+                          .slice(userMsgIndex + 1)
+                          .filter(m => m.role === 'assistant' && !m.error);
+                        
+                        // Only show on the last AI response if exactly 2 responses
+                        const isLastAIResponse = aiResponses[aiResponses.length - 1]?.id === message.id;
+                        
+                        if (aiResponses.length === 2 && isLastAIResponse && currentChatId) {
+                          return (
+                            <div className="mt-4">
+                              <ModelABTesting
+                                prompt={userMessage.content}
+                                responses={aiResponses.map(r => ({
+                                  model: r.model,
+                                  content: r.content
+                                }))}
+                                chatId={currentChatId}
+                              />
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()
                     )}
                   </div>
                 ))}
