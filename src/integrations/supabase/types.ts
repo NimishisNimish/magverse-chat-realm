@@ -193,35 +193,50 @@ export type Database = {
       email_campaigns: {
         Row: {
           campaign_type: string
+          click_tracking_id: string | null
           clicked_at: string | null
+          conversion_value: number | null
+          converted: boolean | null
           email_type: string
           id: string
+          ip_address: string | null
           metadata: Json | null
           opened_at: string | null
           sent_at: string | null
           status: string | null
+          user_agent: string | null
           user_id: string
         }
         Insert: {
           campaign_type: string
+          click_tracking_id?: string | null
           clicked_at?: string | null
+          conversion_value?: number | null
+          converted?: boolean | null
           email_type: string
           id?: string
+          ip_address?: string | null
           metadata?: Json | null
           opened_at?: string | null
           sent_at?: string | null
           status?: string | null
+          user_agent?: string | null
           user_id: string
         }
         Update: {
           campaign_type?: string
+          click_tracking_id?: string | null
           clicked_at?: string | null
+          conversion_value?: number | null
+          converted?: boolean | null
           email_type?: string
           id?: string
+          ip_address?: string | null
           metadata?: Json | null
           opened_at?: string | null
           sent_at?: string | null
           status?: string | null
+          user_agent?: string | null
           user_id?: string
         }
         Relationships: []
@@ -255,6 +270,41 @@ export type Database = {
           verified?: boolean | null
         }
         Relationships: []
+      }
+      email_clicks: {
+        Row: {
+          campaign_id: string
+          clicked_at: string | null
+          id: string
+          ip_address: string | null
+          link_url: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          campaign_id: string
+          clicked_at?: string | null
+          id?: string
+          ip_address?: string | null
+          link_url?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          clicked_at?: string | null
+          id?: string
+          ip_address?: string | null
+          link_url?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_clicks_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invoices: {
         Row: {
@@ -303,6 +353,50 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      model_comparison_votes: {
+        Row: {
+          chat_id: string | null
+          created_at: string | null
+          id: string
+          model_a: string
+          model_b: string
+          prompt: string
+          reason: string | null
+          user_id: string
+          winner: string | null
+        }
+        Insert: {
+          chat_id?: string | null
+          created_at?: string | null
+          id?: string
+          model_a: string
+          model_b: string
+          prompt: string
+          reason?: string | null
+          user_id: string
+          winner?: string | null
+        }
+        Update: {
+          chat_id?: string | null
+          created_at?: string | null
+          id?: string
+          model_a?: string
+          model_b?: string
+          prompt?: string
+          reason?: string | null
+          user_id?: string
+          winner?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "model_comparison_votes_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chat_history"
             referencedColumns: ["id"]
           },
         ]
@@ -534,6 +628,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_segments: {
+        Row: {
+          assigned_at: string | null
+          id: string
+          metadata: Json | null
+          segment_type: string
+          segment_value: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          id?: string
+          metadata?: Json | null
+          segment_type: string
+          segment_value: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          id?: string
+          metadata?: Json | null
+          segment_type?: string
+          segment_value?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       verification_codes: {
         Row: {
           code: string
@@ -592,6 +713,25 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: string
       }
+      get_campaign_analytics: {
+        Args: {
+          p_campaign_type?: string
+          p_end_date?: string
+          p_start_date?: string
+        }
+        Returns: {
+          campaign_type: string
+          click_rate: number
+          conversion_rate: number
+          open_rate: number
+          roi: number
+          total_clicked: number
+          total_converted: number
+          total_opened: number
+          total_revenue: number
+          total_sent: number
+        }[]
+      }
       get_inactive_users: {
         Args: { days?: number }
         Returns: {
@@ -608,6 +748,7 @@ export type Database = {
         Returns: boolean
       }
       reset_daily_credits: { Args: never; Returns: undefined }
+      update_user_segments: { Args: { p_user_id: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"
