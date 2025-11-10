@@ -719,7 +719,7 @@ serve(async (req) => {
           provider: config.provider,
           hasKey: false,
           endpoint: config.endpoint,
-          model: config.model
+          actualModel: config.model
         });
         return { success: false, model: modelId, error: `Missing API key. Please configure the required secret in Supabase Edge Function settings.` };
       }
