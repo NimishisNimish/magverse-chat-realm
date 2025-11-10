@@ -98,6 +98,7 @@ const Chat = () => {
   const [isDeepResearching, setIsDeepResearching] = useState(false);
   const [imageGenerationMode, setImageGenerationMode] = useState(false);
   const [imageStyle, setImageStyle] = useState<'realistic' | 'artistic' | 'cartoon' | 'anime' | 'photographic'>('realistic');
+  const [uploadAbortController, setUploadAbortController] = useState<AbortController | null>(null);
   const [editingImageId, setEditingImageId] = useState<string | null>(null);
   const [imageEditPrompt, setImageEditPrompt] = useState("");
   const [savedImages, setSavedImages] = useState<Array<{id: string, url: string, prompt: string, timestamp: Date}>>([]);
@@ -885,6 +886,11 @@ const Chat = () => {
       });
 
       await Promise.all([...lovablePromises, ...externalPromises]);
+      
+      // Clear loading and processing states
+      setLoading(false);
+      setProcessingFile(false);
+      setIsDeepResearching(false);
       
       // Deduct credits after successful responses
       const isPro = profile?.is_pro || profile?.subscription_type === 'monthly' || profile?.subscription_type === 'lifetime';
@@ -2123,7 +2129,22 @@ const Chat = () => {
                 </div>
               )}
               
-              {/* Show attached file preview */}
+              {/* Message counter */}
+              {messageCount > 0 && (
+                <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+                  <MessageCircle className="w-3 h-3" />
+                  <span>{messageCount} messages in conversation</span>
+                </div>
+              )}
+
+              {/* File preview before upload */}
+              {pendingFile && (
+                <div className="mb-3">
+                  <FilePreview file={pendingFile} onRemove={() => setPendingFile(null)} />
+                </div>
+              )}
+
+              {/* Show attached file ready to send */}
               {attachmentUrl && (
                 <div className="glass-card p-3 rounded-lg border border-accent/30 flex items-center gap-3 mb-3 animate-fade-in">
                   {attachmentUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
@@ -2157,6 +2178,30 @@ const Chat = () => {
                     className="shrink-0 hover:bg-destructive/10 hover:text-destructive"
                   >
                     <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+
+              {/* Show cancel button during upload */}
+              {uploading && (
+                <div className="mb-3 flex items-center gap-2 text-sm">
+                  <Loader2 className="w-4 h-4 animate-spin text-accent" />
+                  <span className="text-muted-foreground">Uploading file...</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      uploadAbortController?.abort();
+                      setUploading(false);
+                      setUploadStatus('idle');
+                      setPendingFile(null);
+                      toast({
+                        title: "Upload cancelled",
+                        description: "File upload has been cancelled.",
+                      });
+                    }}
+                  >
+                    Cancel
                   </Button>
                 </div>
               )}

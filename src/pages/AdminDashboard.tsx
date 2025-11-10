@@ -9,6 +9,8 @@ import { Users, TrendingUp, DollarSign, Zap, Activity } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import AdminActivityFeed from "@/components/AdminActivityFeed";
+import UserEngagementScoring from "@/components/UserEngagementScoring";
+import AdminChatHistory from "@/components/AdminChatHistory";
 
 interface UserData {
   id: string;
@@ -420,6 +422,16 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      {/* New Admin Components */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        <AdminActivityFeed />
+        <UserEngagementScoring />
+      </div>
+
+      <div className="mt-6">
+        <AdminChatHistory />
       </div>
     </div>
   );

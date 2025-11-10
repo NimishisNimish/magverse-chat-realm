@@ -3,8 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDistanceToNow } from "date-fns";
-import { MessageSquare, Upload, Sparkles, User, Clock } from "lucide-react";
+import { MessageSquare, Upload, Sparkles, User, Clock, Search } from "lucide-react";
 
 interface ActivityEvent {
   id: string;
@@ -18,7 +20,10 @@ interface ActivityEvent {
 
 export default function AdminActivityFeed() {
   const [activities, setActivities] = useState<ActivityEvent[]>([]);
+  const [filteredActivities, setFilteredActivities] = useState<ActivityEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterType, setFilterType] = useState<string>("all");
 
   useEffect(() => {
     loadRecentActivity();
@@ -110,12 +115,35 @@ export default function AdminActivityFeed() {
       });
 
       setActivities(activitiesData);
+      setFilteredActivities(activitiesData);
       setLoading(false);
     } catch (error) {
       console.error('Error loading activity:', error);
       setLoading(false);
     }
   };
+
+  // Filter and search activities
+  useEffect(() => {
+    let filtered = [...activities];
+
+    // Apply type filter
+    if (filterType !== "all") {
+      filtered = filtered.filter(a => a.type === filterType);
+    }
+
+    // Apply search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(a => 
+        a.user_name.toLowerCase().includes(query) ||
+        a.details.toLowerCase().includes(query) ||
+        a.model?.toLowerCase().includes(query)
+      );
+    }
+
+    setFilteredActivities(filtered);
+  }, [activities, filterType, searchQuery]);
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -167,12 +195,38 @@ export default function AdminActivityFeed() {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {/* Search and Filter */}
+        <div className="flex gap-3 mb-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by user name, action, or model..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Activities</SelectItem>
+              <SelectItem value="message">Messages</SelectItem>
+              <SelectItem value="file_upload">File Uploads</SelectItem>
+              <SelectItem value="model_selection">Model Selections</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <ScrollArea className="h-[500px] pr-4">
           <div className="space-y-3">
-            {activities.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No recent activity</p>
+            {filteredActivities.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                {searchQuery || filterType !== "all" ? "No matching activities" : "No recent activity"}
+              </p>
             ) : (
-              activities.map((activity) => (
+              filteredActivities.map((activity) => (
                 <div
                   key={activity.id}
                   className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/5 transition-colors"
