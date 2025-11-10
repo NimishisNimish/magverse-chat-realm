@@ -32,6 +32,7 @@ import AdminTraffic from "./pages/AdminTraffic";
 import AdminUserDetail from "./pages/AdminUserDetail";
 import AdminDashboard from "./pages/AdminDashboard";
 import Analytics from "./pages/Analytics";
+import AdminAnalyticsDashboard from "./pages/AdminAnalyticsDashboard";
 
 const queryClient = new QueryClient();
 
@@ -70,6 +71,7 @@ const App = () => (
             <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
           <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+          <Route path="/admin/advanced-analytics" element={<ProtectedRoute><AdminAnalyticsDashboard /></ProtectedRoute>} />
           <Route path="/payment" element={<Payment />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/admin/old-analytics" element={<ProtectedRoute><AdminAnalytics /></ProtectedRoute>} />

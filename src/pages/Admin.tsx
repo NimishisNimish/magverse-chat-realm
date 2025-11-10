@@ -280,6 +280,9 @@ const Admin = () => {
               <p className="text-muted-foreground">Manage payments and subscriptions</p>
             </div>
             <div className="flex gap-2">
+              <Button onClick={() => navigate('/admin/advanced-analytics')} variant="outline" size="sm">
+                Advanced Analytics
+              </Button>
               <Button onClick={() => navigate('/admin/traffic')} variant="outline" size="sm">
                 Real-Time Traffic
               </Button>
