@@ -758,6 +758,72 @@ serve(async (req) => {
         hasKey: true
       });
 
+      // Retry logic with exponential backoff
+      const makeAPICall = async (retries = 3, delay = 1000): Promise<any> => {
+        for (let attempt = 0; attempt <= retries; attempt++) {
+          try {
+            const timeout = deepResearchMode ? DEEP_RESEARCH_TIMEOUT_MS : API_TIMEOUT_MS;
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Request timeout')), timeout)
+            );
+
+            const requestBody = config.bodyTemplate(finalMessages, effectiveWebSearchEnabled, searchMode);
+            console.log(`🔄 Attempt ${attempt + 1}/${retries + 1} for ${modelId}`);
+
+            const fetchPromise = fetch(config.endpoint, {
+              method: 'POST',
+              headers: config.headers(),
+              body: JSON.stringify(requestBody),
+            });
+
+            const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
+
+            if (response.ok) {
+              const data = await response.json();
+              return { success: true, data };
+            }
+
+            // Handle specific error codes
+            const errorText = await response.text();
+            console.error(`❌ ${modelId} API error (${response.status}):`, errorText);
+
+            if (response.status === 401 || response.status === 403) {
+              throw new Error(`API authentication failed for ${modelId}. Please check your API key configuration.`);
+            }
+
+            if (response.status === 429 && attempt < retries) {
+              const backoffDelay = delay * Math.pow(2, attempt);
+              console.log(`⏳ Rate limited, waiting ${backoffDelay}ms before retry...`);
+              await new Promise(resolve => setTimeout(resolve, backoffDelay));
+              continue;
+            }
+
+            if (response.status === 402) {
+              throw new Error('Payment required. Please add credits to your API account.');
+            }
+
+            if (response.status >= 500 && attempt < retries) {
+              const backoffDelay = delay * Math.pow(2, attempt);
+              console.log(`⏳ Server error (${response.status}), retrying in ${backoffDelay}ms...`);
+              await new Promise(resolve => setTimeout(resolve, backoffDelay));
+              continue;
+            }
+
+            throw new Error(`API returned ${response.status}: ${errorText.substring(0, 200)}`);
+          } catch (error: any) {
+            if (attempt === retries || error.message.includes('authentication') || error.message.includes('Payment required')) {
+              throw error;
+            }
+            console.error(`❌ Attempt ${attempt + 1} failed:`, error.message);
+            if (attempt < retries) {
+              const backoffDelay = delay * Math.pow(2, attempt);
+              await new Promise(resolve => setTimeout(resolve, backoffDelay));
+            }
+          }
+        }
+        throw new Error(`All retry attempts failed for ${modelId}`);
+      };
+
       // Check if model supports vision
       const visionModels = ['chatgpt', 'claude', 'gemini'];
       const supportsVision = visionModels.includes(modelId);
@@ -1065,30 +1131,50 @@ Make complex topics accessible and engaging.`;
     console.log(`🚀 Processing ${selectedModels.length} model(s) in parallel...`);
     const results = await Promise.allSettled(modelPromises);
     
-    // Extract successful responses
-    const responses = results
-      .filter(r => r.status === 'fulfilled' && r.value.success)
-      .map(r => ({
-        model: (r as PromiseFulfilledResult<any>).value.model,
-        content: (r as PromiseFulfilledResult<any>).value.content,
-        sources: (r as PromiseFulfilledResult<any>).value.sources || [], // Include sources
-      }));
+    // Extract both successful and failed responses
+    const responses = results.map(r => {
+      if (r.status === 'fulfilled') {
+        if (r.value.success) {
+          return {
+            model: r.value.model,
+            response: r.value.content,
+            sources: r.value.sources || [],
+            success: true
+          };
+        } else {
+          return {
+            model: r.value.model,
+            response: r.value.error || 'Unknown error occurred',
+            success: false,
+            error: true
+          };
+        }
+      } else {
+        // Promise rejected
+        return {
+          model: 'unknown',
+          response: 'Request failed unexpectedly',
+          success: false,
+          error: true
+        };
+      }
+    });
 
-    // Check if we got any responses
-    if (responses.length === 0) {
+    // Check if we got any successful responses
+    const successfulResponses = responses.filter(r => r.success);
+    if (successfulResponses.length === 0) {
       console.error('⚠️ All models failed to respond');
       
       // Provide specific guidance based on failure type
-      const timeoutFailures = results.filter(r => 
-        r.status === 'fulfilled' && r.value.error?.includes('Timeout')
-      );
+      const hasTimeoutFailures = responses.some(r => r.response?.includes('too long'));
       
-      if (timeoutFailures.length > 0) {
+      if (hasTimeoutFailures) {
         return new Response(
           JSON.stringify({ 
             error: deepResearchMode 
-              ? 'Deep Research timed out after 8 minutes. Try breaking your query into smaller parts or disabling web search.'
-              : 'Request timed out after 4 minutes. For complex queries, enable Deep Research mode.',
+              ? 'Deep Research timed out after 5 minutes. Try breaking your query into smaller parts or disabling web search.'
+              : 'Request timed out. For complex queries, enable Deep Research mode.',
+            responses, // Include error responses for debugging
             failedModels: selectedModels,
             suggestion: 'Try selecting fewer AI models or simplifying your question.'
           }),
@@ -1099,6 +1185,7 @@ Make complex topics accessible and engaging.`;
       return new Response(
         JSON.stringify({ 
           error: 'All AI models failed to respond. This may be due to rate limits or API issues. Please try again in a few moments.',
+          responses, // Include error responses so user can see what went wrong
           failedModels: selectedModels 
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -1109,20 +1196,22 @@ Make complex topics accessible and engaging.`;
     const responseToSend = {
       responses,
       chatId: currentChatId,
-      partialSuccess: responses.length < selectedModels.length
+      partialSuccess: successfulResponses.length < selectedModels.length,
+      successCount: successfulResponses.length,
+      totalRequested: selectedModels.length
     };
 
-    // Save AI responses to database in background (non-blocking)
+    // Save only successful AI responses to database in background (non-blocking)
     (async () => {
       try {
         await Promise.all(
-          responses.map(r => 
+          successfulResponses.map(r => 
             supabase.from('chat_messages').insert({
               chat_id: currentChatId,
               user_id: user.id,
               model: r.model,
               role: 'assistant',
-              content: r.content,
+              content: r.response,
             })
           )
         );

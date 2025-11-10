@@ -56,21 +56,31 @@ export function CustomInstructionsDialog({ open, onOpenChange, onInstructionsUpd
     setLoading(true);
     try {
       if (instructions.trim()) {
-        // Save or update instructions
-        const { error } = await supabase
+        // Delete existing active instructions first, then insert new one
+        // This avoids issues with unique constraints
+        const { error: deleteError } = await supabase
           .from('ai_custom_instructions')
-          .upsert({
+          .delete()
+          .eq('user_id', user.id)
+          .eq('is_active', true);
+
+        if (deleteError) {
+          console.error('Error deleting old instructions:', deleteError);
+        }
+
+        // Insert new instructions
+        const { error: insertError } = await supabase
+          .from('ai_custom_instructions')
+          .insert({
             user_id: user.id,
             instructions: instructions.trim(),
             is_active: true,
-            updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'user_id,is_active'
           });
 
-        if (error) throw error;
+        if (insertError) throw insertError;
         
         toast.success('Custom instructions saved successfully');
+        setHasInstructions(true);
         onInstructionsUpdate?.(instructions.trim());
       } else {
         // Delete instructions if empty
@@ -82,13 +92,14 @@ export function CustomInstructionsDialog({ open, onOpenChange, onInstructionsUpd
         if (error) throw error;
         
         toast.success('Custom instructions cleared');
+        setHasInstructions(false);
         onInstructionsUpdate?.(null);
       }
 
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving instructions:', error);
-      toast.error('Failed to save instructions');
+      toast.error(error.message || 'Failed to save instructions. Please try again.');
     } finally {
       setLoading(false);
     }

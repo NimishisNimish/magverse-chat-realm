@@ -33,7 +33,8 @@ import {
   Trash2,
   Image as ImageIcon,
   Palette,
-  MessageCircle
+  MessageCircle,
+  FileText
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
@@ -80,6 +81,7 @@ interface Message {
   retrying?: boolean; // Track if currently retrying
   sources?: Array<{url: string, title: string, snippet?: string}>; // Source citations
   images?: Array<{image_url: {url: string}}>; // Generated images
+  attachmentFile?: { name: string; type: string; url: string; }; // Attached file metadata
 }
 
 const Chat = () => {
@@ -591,6 +593,11 @@ const Chat = () => {
       role: 'user',
       webSearchEnabled,
       searchMode,
+      attachmentFile: pendingFile ? {
+        name: pendingFile.name,
+        type: pendingFile.type,
+        url: attachmentToSend || '',
+      } : undefined,
     };
     
     setMessages(prev => [...prev, userMessage]);
@@ -1875,6 +1882,35 @@ const Chat = () => {
                     ) : (
                       <>
                          <p className="text-foreground leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                        
+                        {/* Display attached file preview for user messages */}
+                        {message.role === 'user' && message.attachmentFile && (
+                          <div className="mt-3 p-3 rounded-lg bg-muted/30 border border-border">
+                            <div className="flex items-start gap-3">
+                              {message.attachmentFile.type.startsWith('image/') ? (
+                                <div className="relative w-16 h-16 rounded overflow-hidden border border-border shrink-0">
+                                  <img
+                                    src={message.attachmentFile.url}
+                                    alt={message.attachmentFile.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-16 h-16 rounded bg-muted flex items-center justify-center border border-border shrink-0">
+                                  <FileText className="h-8 w-8 text-muted-foreground" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{message.attachmentFile.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {message.attachmentFile.type === 'application/pdf' ? 'PDF Document' : 
+                                   message.attachmentFile.type.startsWith('image/') ? 'Image File' : 
+                                   'Attachment'}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                         
                         {/* Feedback buttons for AI responses */}
                         {message.role === 'assistant' && currentChatId && (
