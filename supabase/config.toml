@@ -68,5 +68,8 @@ verify_jwt = false
 [functions.send-credit-alert]
 verify_jwt = false
 
+[functions.email-campaigns]
+verify_jwt = false
+
 [functions.notify-admin-payment]
 verify_jwt = true

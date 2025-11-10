@@ -945,7 +945,7 @@ Make complex topics accessible and engaging.`
               continue; // Retry
             }
             
-            // Handle other errors
+            // Handle other errors with user-friendly messages
             console.error(`❌ Error from ${modelId} (${config.provider}):`, {
               status: response.status,
               statusText: response.statusText,
@@ -954,18 +954,31 @@ Make complex topics accessible and engaging.`
               model: config.model,
             });
             
+            let userMessage = '';
             if (response.status === 429) {
               console.error(`   ⚠️ Rate limit/quota exceeded for ${modelId}`);
+              userMessage = `${modelId} is currently experiencing high demand. Please try again in a moment.`;
             } else if (response.status === 402) {
               console.error(`   ⚠️ Payment required - credits exhausted for ${modelId}`);
+              userMessage = `${modelId} service temporarily unavailable. Please try another model.`;
             } else if (response.status === 401) {
               console.error(`   ⚠️ Invalid API key for ${modelId}`);
+              userMessage = `${modelId} authentication failed. Please contact support.`;
             } else if (response.status === 404) {
               console.error(`   ⚠️ Model not found: ${config.model}`);
+              userMessage = `${modelId} model not found. Please try another model.`;
+            } else if (response.status === 500 || response.status === 503) {
+              userMessage = `${modelId} is temporarily unavailable. Please try again shortly.`;
+            } else {
+              userMessage = `${modelId} encountered an error. Please try another model or retry.`;
             }
             
-            lastError = new Error(`API error: ${response.status}`);
-            break; // Don't retry non-rate-limit errors
+            // Return user-friendly error instead of throwing
+            return {
+              success: false,
+              model: modelId,
+              error: userMessage
+            };
           }
 
           const data = await response.json();
@@ -1006,11 +1019,15 @@ Make complex topics accessible and engaging.`
         }
       }
 
-      // All retries exhausted
+      // All retries exhausted - return user-friendly message
+      const timeoutMsg = lastError?.name === 'AbortError' 
+        ? `${modelId} took too long to respond. Try again or use another model.`
+        : `${modelId} is currently unavailable. Please try another model.`;
+      
       return { 
         success: false, 
         model: modelId, 
-        error: lastError?.message || 'Unknown error' 
+        error: timeoutMsg
       };
     });
 

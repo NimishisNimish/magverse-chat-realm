@@ -44,6 +44,8 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useCreditAlerts } from "@/hooks/useCreditAlerts";
 import { usePaymentNotifications } from "@/hooks/usePaymentNotifications";
 import FilePreview from "@/components/FilePreview";
+import { FeedbackButtons } from "@/components/FeedbackButtons";
+import { CustomInstructionsButton } from "@/components/CustomInstructionsDialog";
 import {
   Sheet,
   SheetContent,
@@ -98,6 +100,7 @@ const Chat = () => {
   const [isDeepResearching, setIsDeepResearching] = useState(false);
   const [imageGenerationMode, setImageGenerationMode] = useState(false);
   const [imageStyle, setImageStyle] = useState<'realistic' | 'artistic' | 'cartoon' | 'anime' | 'photographic'>('realistic');
+  const [customInstructions, setCustomInstructions] = useState<string | null>(null);
   const [uploadAbortController, setUploadAbortController] = useState<AbortController | null>(null);
   const [editingImageId, setEditingImageId] = useState<string | null>(null);
   const [imageEditPrompt, setImageEditPrompt] = useState("");
@@ -1721,6 +1724,11 @@ const Chat = () => {
         </Button>
       </Link>
       
+      {/* Custom Instructions */}
+      <CustomInstructionsButton 
+        onInstructionsUpdate={setCustomInstructions}
+      />
+      
       <Link to="/history">
         <Button variant="outline" className="w-full justify-start">
           <HistoryIcon className="w-5 h-5" />
@@ -1840,7 +1848,16 @@ const Chat = () => {
                       </div>
                     ) : (
                       <>
-                        <p className="text-foreground leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                         <p className="text-foreground leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                        
+                        {/* Feedback buttons for AI responses */}
+                        {message.role === 'assistant' && currentChatId && (
+                          <FeedbackButtons
+                            messageId={message.id}
+                            chatId={currentChatId}
+                            model={message.model}
+                          />
+                        )}
                         
                         {/* Action buttons */}
                         <div className="flex gap-2 mt-3">

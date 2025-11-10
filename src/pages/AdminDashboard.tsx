@@ -11,6 +11,8 @@ import { formatDistanceToNow } from "date-fns";
 import AdminActivityFeed from "@/components/AdminActivityFeed";
 import UserEngagementScoring from "@/components/UserEngagementScoring";
 import AdminChatHistory from "@/components/AdminChatHistory";
+import AdminRealTimeNotifications from "@/components/AdminRealTimeNotifications";
+import AdminFeedbackAnalytics from "@/components/AdminFeedbackAnalytics";
 
 interface UserData {
   id: string;
@@ -426,8 +428,12 @@ export default function AdminDashboard() {
 
       {/* New Admin Components */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        <AdminActivityFeed />
+        <AdminRealTimeNotifications />
         <UserEngagementScoring />
+      </div>
+
+      <div className="mt-6">
+        <AdminFeedbackAnalytics />
       </div>
 
       <div className="mt-6">

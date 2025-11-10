@@ -14,6 +14,117 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          metadata: Json | null
+          notification_type: string
+          title: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          metadata?: Json | null
+          notification_type: string
+          title: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          metadata?: Json | null
+          notification_type?: string
+          title?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      ai_custom_instructions: {
+        Row: {
+          created_at: string | null
+          id: string
+          instructions: string
+          is_active: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          instructions: string
+          is_active?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          instructions?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_response_feedback: {
+        Row: {
+          chat_id: string | null
+          comment: string | null
+          created_at: string | null
+          id: string
+          message_id: string | null
+          model: string | null
+          rating: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          chat_id?: string | null
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          message_id?: string | null
+          model?: string | null
+          rating?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          chat_id?: string | null
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          message_id?: string | null
+          model?: string | null
+          rating?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_response_feedback_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chat_history"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_response_feedback_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_history: {
         Row: {
           created_at: string | null
@@ -78,6 +189,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      email_campaigns: {
+        Row: {
+          campaign_type: string
+          clicked_at: string | null
+          email_type: string
+          id: string
+          metadata: Json | null
+          opened_at: string | null
+          sent_at: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          campaign_type: string
+          clicked_at?: string | null
+          email_type: string
+          id?: string
+          metadata?: Json | null
+          opened_at?: string | null
+          sent_at?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          campaign_type?: string
+          clicked_at?: string | null
+          email_type?: string
+          id?: string
+          metadata?: Json | null
+          opened_at?: string | null
+          sent_at?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       email_change_requests: {
         Row: {
@@ -431,6 +578,7 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: boolean
       }
+      check_high_activity: { Args: never; Returns: undefined }
       check_phone_reset_rate_limit: {
         Args: { p_phone: string }
         Returns: boolean
