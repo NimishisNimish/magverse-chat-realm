@@ -592,6 +592,14 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: string
       }
+      get_inactive_users: {
+        Args: { days?: number }
+        Returns: {
+          created_at: string
+          display_name: string
+          id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
