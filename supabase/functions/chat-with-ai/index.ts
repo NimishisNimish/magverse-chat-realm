@@ -577,33 +577,41 @@ serve(async (req) => {
               content: `${lastMessage.content}\n\n--- PDF Document Analysis ---\nExtracted ${wordCount} words (${charCount} characters)${extractResult.wasTruncated ? ' - document was truncated for length' : ''}\n\n${extractResult.text}\n\n--- End of PDF Content ---`
             };
           } else if (extractResult?.isEmpty) {
-            console.warn('⚠️ PDF is empty or contains only images');
-            processedMessages[processedMessages.length - 1] = {
-              ...lastMessage,
-              content: `${lastMessage.content}\n\n[❌ PDF Processing Failed: This PDF appears to be a scanned document or image-based PDF with no extractable text. To analyze this file:\n• Convert to text using OCR software (like Adobe Acrobat or online OCR tools)\n• Upload as individual images instead\n• Or describe the content manually in your message]`
-            };
+            // Return error immediately for scanned/image-based PDFs
+            console.error('❌ PDF is scanned or image-based - no extractable text');
+            return new Response(
+              JSON.stringify({ 
+                error: 'This PDF appears to be a scanned document or image-based PDF with no extractable text. Please convert it to a text-based PDF using OCR software, or upload the pages as individual images instead.' 
+              }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
           } else {
-            console.warn('⚠️ PDF extraction returned no text');
-            processedMessages[processedMessages.length - 1] = {
-              ...lastMessage,
-              content: `${lastMessage.content}\n\n[❌ PDF Processing Failed: Could not extract text from this PDF. Possible reasons:\n• Scanned/image-based PDF (needs OCR)\n• Password-protected file\n• Corrupted PDF file\n• File format incompatibility\n\nPlease try a different file or upload as images.]`
-            };
+            // Return error for other PDF processing failures
+            console.error('❌ PDF processing failed - no text extracted');
+            return new Response(
+              JSON.stringify({ 
+                error: 'Could not extract text from this PDF. Possible reasons: scanned/image-based PDF (needs OCR), password-protected file, corrupted PDF, or incompatible format. Please try a different file or upload as images.' 
+              }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
           }
         } catch (error: any) {
           console.error('❌ Error extracting PDF:', error);
           
-          let errorNote = '[Note: A PDF was attached but could not be processed.';
+          // Return error immediately instead of proceeding
+          let errorMessage = 'PDF processing failed: ';
           if (error.message?.includes('timeout')) {
-            errorNote += ' Extraction timed out - the PDF may be too large or complex.';
+            errorMessage += 'Extraction timed out - the PDF may be too large or complex. Try a smaller file.';
           } else if (error.message?.includes('expired')) {
-            errorNote += ' File access expired - please re-upload the PDF.';
+            errorMessage += 'File access expired - please re-upload the PDF.';
+          } else {
+            errorMessage += error.message || 'Unknown error occurred while processing PDF.';
           }
-          errorNote += ']';
           
-          processedMessages[processedMessages.length - 1] = {
-            ...lastMessage,
-            content: `${lastMessage.content}\n\n${errorNote}`
-          };
+          return new Response(
+            JSON.stringify({ error: errorMessage }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
       } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension || '')) {
         console.log('🖼️ Image attachment detected for multiple models');

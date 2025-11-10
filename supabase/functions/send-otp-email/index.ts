@@ -1,10 +1,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { Resend } from "https://esm.sh/resend@4.0.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -80,23 +83,90 @@ serve(async (req) => {
 
     if (otpError) throw otpError;
 
-    // Send email using Supabase's built-in email service
-    // Note: This uses the auth.email.template for custom OTP emails
-    // For now, we'll use a simple approach - send via admin API
-    const { error: emailError } = await supabase.auth.admin.generateLink({
-      type: 'recovery',
-      email: email,
-      options: {
-        redirectTo: `${Deno.env.get('SUPABASE_URL')}/auth/v1/verify`,
+    // Send OTP email using Resend
+    try {
+      const { error: emailError } = await resend.emails.send({
+        from: 'Magverse AI <onboarding@resend.dev>',
+        to: [email],
+        subject: 'Your Password Reset Code - Magverse AI',
+        html: `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+                .container { max-width: 600px; margin: 40px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; text-align: center; color: white; }
+                .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+                .content { padding: 40px 30px; }
+                .otp-box { background: #f8f9fa; border: 2px solid #667eea; border-radius: 8px; padding: 30px; margin: 30px 0; text-align: center; }
+                .otp-code { font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #667eea; font-family: 'Courier New', monospace; }
+                .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px; }
+                .footer { background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; }
+                .button { display: inline-block; padding: 12px 30px; background: #667eea; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: 600; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="header">
+                  <h1>🔐 Password Reset Code</h1>
+                </div>
+                <div class="content">
+                  <p>Hello,</p>
+                  <p>You requested to reset your password for your Magverse AI account. Use the verification code below:</p>
+                  
+                  <div class="otp-box">
+                    <div style="font-size: 14px; color: #666; margin-bottom: 10px;">Your 6-digit code:</div>
+                    <div class="otp-code">${otp}</div>
+                    <div style="font-size: 12px; color: #666; margin-top: 15px;">Valid for 10 minutes</div>
+                  </div>
+                  
+                  <div class="warning">
+                    <strong>⏰ Important:</strong> This code will expire in <strong>10 minutes</strong> for security reasons.
+                  </div>
+                  
+                  <p style="margin-top: 30px;">Enter this code on the password reset page to continue.</p>
+                  
+                  <div style="margin-top: 30px; padding-top: 30px; border-top: 1px solid #e0e0e0;">
+                    <p style="font-size: 14px; color: #666; margin: 5px 0;">
+                      <strong>🔒 Security Notice:</strong>
+                    </p>
+                    <ul style="font-size: 13px; color: #666; padding-left: 20px;">
+                      <li>Never share this code with anyone</li>
+                      <li>Our support team will never ask for this code</li>
+                      <li>If you didn't request this reset, please ignore this email</li>
+                    </ul>
+                  </div>
+                </div>
+                <div class="footer">
+                  <p>This is an automated message from <strong>Magverse AI</strong></p>
+                  <p style="color: #999; margin-top: 10px;">© ${new Date().getFullYear()} Magverse AI. All rights reserved.</p>
+                </div>
+              </div>
+            </body>
+          </html>
+        `,
+      });
+
+      if (emailError) {
+        console.error('Resend email error:', emailError);
+        throw new Error('Failed to send email: ' + emailError.message);
       }
-    });
 
-    if (emailError) {
-      console.error('Email send error:', emailError);
-      // Don't throw - OTP is stored, user can still use it
+      console.log(`✅ OTP email sent to ${email}: ${otp} (expires in 10 minutes)`);
+    } catch (emailSendError: any) {
+      console.error('Failed to send OTP email:', emailSendError);
+      // Delete the OTP from database if email failed
+      await supabase
+        .from('verification_codes')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('code', otp);
+      
+      throw new Error('Failed to send OTP email. Please check your email configuration.');
     }
-
-    console.log(`OTP generated for ${email}: ${otp} (expires in 10 minutes)`);
 
     return new Response(
       JSON.stringify({ 
