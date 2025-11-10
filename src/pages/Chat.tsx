@@ -83,6 +83,7 @@ interface Message {
   retrying?: boolean; // Track if currently retrying
   sources?: Array<{url: string, title: string, snippet?: string}>; // Source citations
   images?: Array<{image_url: {url: string}}>; // Generated images
+  videos?: Array<{videoUrl: string, prompt: string}>; // Generated videos
   attachmentFile?: { name: string; type: string; url: string; }; // Attached file metadata
 }
 
@@ -235,7 +236,7 @@ const Chat = () => {
   };
 
   const toggleModel = (modelId: string) => {
-    const isPro = profile?.is_pro || profile?.subscription_type === 'monthly' || profile?.subscription_type === 'lifetime';
+    const isPro = profile?.is_pro || profile?.subscription_type === 'monthly' || profile?.subscription_type === 'lifetime' || profile?.subscription_type === 'yearly';
     const premiumModels = ['gemini-flash', 'gemini-pro', 'gemini-lite', 'gpt-5', 'gpt-5-nano'];
     
     // Check if free user is trying to select premium model
@@ -1769,12 +1770,24 @@ const Chat = () => {
           
           {videoGenerationMode && (
             <div className="pl-2 animate-fade-in">
-              <VideoGenerator onVideoGenerated={(url) => {
-                toast({
-                  title: "Video Generated!",
-                  description: "Your video has been created successfully.",
-                });
-              }} />
+              <VideoGenerator 
+                profile={profile}
+                onVideoGenerated={(url, prompt) => {
+                  const videoMessage: Message = {
+                    id: crypto.randomUUID(),
+                    model: 'RunwayML Video',
+                    content: prompt,
+                    timestamp: new Date(),
+                    role: 'assistant',
+                    videos: [{ videoUrl: url, prompt }]
+                  };
+                  setMessages(prev => [...prev, videoMessage]);
+                  toast({
+                    title: "Video Generated!",
+                    description: "Your video has been created successfully.",
+                  });
+                }} 
+              />
             </div>
           )}
         </div>
@@ -2142,6 +2155,51 @@ const Chat = () => {
                             </div>
                           );
                         })}
+                      </div>
+                    )}
+                    
+                    {/* Display generated videos */}
+                    {message.role === 'assistant' && message.videos && message.videos.length > 0 && (
+                      <div className="mt-4 space-y-4">
+                        {message.videos.map((vid, idx) => (
+                          <div key={idx} className="relative group">
+                            <video 
+                              src={vid.videoUrl} 
+                              controls 
+                              className="w-full rounded-lg border border-border shadow-lg"
+                            />
+                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                              <Button 
+                                size="sm" 
+                                variant="secondary"
+                                onClick={async () => {
+                                  try {
+                                    const a = document.createElement('a');
+                                    a.href = vid.videoUrl;
+                                    a.download = `video-${Date.now()}-${idx}.mp4`;
+                                    a.click();
+                                    toast({
+                                      title: "Download started",
+                                      description: "Your video is being downloaded",
+                                    });
+                                  } catch (error) {
+                                    console.error('Error downloading video:', error);
+                                    toast({
+                                      title: "Download failed",
+                                      description: "Could not download the video",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                }}
+                                className="shadow-lg"
+                                title="Download Video"
+                              >
+                                <Download className="w-4 h-4" />
+                              </Button>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-2">{vid.prompt}</p>
+                          </div>
+                        ))}
                       </div>
                     )}
                     

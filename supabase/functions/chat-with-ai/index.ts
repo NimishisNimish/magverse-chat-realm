@@ -875,6 +875,48 @@ Please synthesize the above web information with your knowledge to provide a com
         }
       }
       
+      // Handle PDF attachments - extract text using extract-pdf-text function
+      if (attachmentUrl?.match(/\.pdf$/i)) {
+        try {
+          console.log(`📄 Extracting PDF text for ${modelId}...`);
+          
+          // Call the extract-pdf-text function
+          const pdfExtractResponse = await fetch(`${supabaseUrl}/functions/v1/extract-pdf-text`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseAnonKey}`,
+            },
+            body: JSON.stringify({ url: attachmentUrl }),
+          });
+          
+          if (!pdfExtractResponse.ok) {
+            throw new Error('Failed to extract PDF text');
+          }
+          
+          const pdfData = await pdfExtractResponse.json();
+          
+          if (pdfData.success && pdfData.text) {
+            const lastMsg = finalMessages[finalMessages.length - 1];
+            const baseContent = typeof lastMsg.content === 'string' ? lastMsg.content : '';
+            
+            finalMessages = [
+              ...finalMessages.slice(0, -1),
+              {
+                role: 'user',
+                content: `${baseContent}\n\n📄 **PDF Document Content** (${pdfData.wordCount} words):\n\n${pdfData.text}`
+              }
+            ];
+            console.log(`✅ PDF content extracted for ${modelId} (${pdfData.wordCount} words)`);
+          } else {
+            console.warn(`⚠️ PDF extraction returned no text for ${modelId}`);
+          }
+        } catch (error) {
+          console.error(`Failed to extract PDF for ${modelId}:`, error);
+          // Continue without PDF text - don't fail the entire request
+        }
+      }
+      
       // Handle image attachments (this needs to merge with web search if both are present)
       if (attachmentUrl?.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
         // Get the base content (either from web search enhanced prompt or original message)
