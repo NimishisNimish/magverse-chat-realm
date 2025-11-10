@@ -28,6 +28,7 @@ import {
   Edit2,
   GitBranch,
   Save,
+  Video,
   Ban,
   Heart,
   Trash2,
@@ -48,6 +49,7 @@ import FilePreview from "@/components/FilePreview";
 import { FeedbackButtons } from "@/components/FeedbackButtons";
 import { CustomInstructionsButton } from "@/components/CustomInstructionsDialog";
 import { ModelABTesting } from "@/components/ModelABTesting";
+import VideoGenerator from "@/components/VideoGenerator";
 import {
   Sheet,
   SheetContent,
@@ -103,6 +105,7 @@ const Chat = () => {
   const [isDeepResearching, setIsDeepResearching] = useState(false);
   const [imageGenerationMode, setImageGenerationMode] = useState(false);
   const [imageStyle, setImageStyle] = useState<'realistic' | 'artistic' | 'cartoon' | 'anime' | 'photographic'>('realistic');
+  const [videoGenerationMode, setVideoGenerationMode] = useState(false);
   const [customInstructions, setCustomInstructions] = useState<string | null>(null);
   const [uploadAbortController, setUploadAbortController] = useState<AbortController | null>(null);
   const [editingImageId, setEditingImageId] = useState<string | null>(null);
@@ -1699,7 +1702,7 @@ const Chat = () => {
         {/* Image Generation Settings */}
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            Image Generation
+            AI Generation
           </h3>
           
           <button
@@ -1745,6 +1748,34 @@ const Chat = () => {
                 </div>
               </div>
             </>
+          )}
+          
+          <button
+            onClick={() => setVideoGenerationMode(!videoGenerationMode)}
+            className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
+              videoGenerationMode 
+                ? 'glass-card border-blue-500/50 shadow-lg shadow-blue-500/20' 
+                : 'hover:bg-muted/20'
+            }`}
+          >
+            <div className={`w-8 h-8 rounded-lg ${videoGenerationMode ? 'bg-blue-500/20' : 'bg-muted/20'} flex items-center justify-center`}>
+              <Video className={`w-4 h-4 ${videoGenerationMode ? 'text-blue-400' : 'text-muted-foreground'}`} />
+            </div>
+            <span className={`font-medium ${videoGenerationMode ? 'text-foreground' : 'text-muted-foreground'}`}>
+              Generate Videos
+            </span>
+            {videoGenerationMode && <Circle className="w-2 h-2 ml-auto fill-blue-400 text-blue-400" />}
+          </button>
+          
+          {videoGenerationMode && (
+            <div className="pl-2 animate-fade-in">
+              <VideoGenerator onVideoGenerated={(url) => {
+                toast({
+                  title: "Video Generated!",
+                  description: "Your video has been created successfully.",
+                });
+              }} />
+            </div>
           )}
         </div>
       </div>

@@ -76,3 +76,7 @@ verify_jwt = false
 
 [functions.notify-admin-payment]
 verify_jwt = true
+
+[functions.generate-video]
+verify_jwt = true
+request_timeout = 200
