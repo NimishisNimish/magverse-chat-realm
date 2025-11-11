@@ -152,40 +152,50 @@ const providerConfig: Record<string, any> = {
       return baseConfig;
     },
     responseTransform: (data: any) => {
-      return data.choices[0]?.message?.content || 'No response';
+      console.log('🔍 Perplexity raw response:', JSON.stringify(data));
+      const content = data.choices?.[0]?.message?.content;
+      if (!content) {
+        console.error('❌ No content in Perplexity response:', data);
+        return 'No response';
+      }
+      return content;
     },
   },
   claude: {
-    provider: 'openrouter',
-    apiKey: openRouterApiKey,
-    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-    model: 'anthropic/claude-3.5-sonnet',
-    supportsStreaming: true,
+    provider: 'nvidia-nim',
+    apiKey: llamaNvidiaApiKey,
+    endpoint: 'https://integrate.api.nvidia.com/v1/chat/completions',
+    model: 'meta/llama-3.3-70b-instruct',
+    supportsStreaming: false,
     headers: () => {
-      if (!openRouterApiKey) {
-        throw new Error('OpenRouter API key is not configured. Please add your API key in Settings.');
+      if (!llamaNvidiaApiKey) {
+        throw new Error('NVIDIA NIM API key is not configured. Please add your API key in Settings.');
       }
-      console.log('🔑 OpenRouter (Claude) headers generated:', {
-        hasApiKey: !!openRouterApiKey,
-        keyLength: openRouterApiKey?.length,
-        keyStart: openRouterApiKey?.substring(0, 8) + '...'
+      console.log('🔑 NVIDIA NIM (Claude replacement) headers generated:', {
+        hasApiKey: !!llamaNvidiaApiKey,
+        keyLength: llamaNvidiaApiKey?.length,
+        keyStart: llamaNvidiaApiKey?.substring(0, 8) + '...'
       });
       return {
-        'Authorization': `Bearer ${openRouterApiKey}`,
+        'Authorization': `Bearer ${llamaNvidiaApiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://pqdgpxetysqcdcjwormb.supabase.co',
-        'X-Title': 'MagVerse AI Chat',
       };
     },
-    bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string, stream?: boolean) => ({
-      model: 'anthropic/claude-3.5-sonnet',
+    bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
+      model: 'meta/llama-3.3-70b-instruct',
       messages,
       temperature: 0.7,
       max_tokens: 4000,
-      stream: stream || false,
+      stream: false,
     }),
     responseTransform: (data: any) => {
-      return data.choices[0]?.message?.content || 'No response';
+      console.log('🔍 Claude (NVIDIA NIM) raw response:', JSON.stringify(data));
+      const content = data.choices?.[0]?.message?.content;
+      if (!content) {
+        console.error('❌ No content in Claude response:', data);
+        return 'No response';
+      }
+      return content;
     },
   },
   llama: {
