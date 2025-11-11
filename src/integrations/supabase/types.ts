@@ -467,6 +467,60 @@ export type Database = {
           },
         ]
       }
+      message_annotations: {
+        Row: {
+          annotation_type: string
+          content: string | null
+          created_at: string | null
+          highlighted_text: string | null
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          annotation_type: string
+          content?: string | null
+          created_at?: string | null
+          highlighted_text?: string | null
+          id?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          annotation_type?: string
+          content?: string | null
+          created_at?: string | null
+          highlighted_text?: string | null
+          id?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      message_reactions: {
+        Row: {
+          created_at: string | null
+          emoji: string
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          emoji: string
+          id?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          emoji?: string
+          id?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       model_comparison_votes: {
         Row: {
           chat_id: string | null

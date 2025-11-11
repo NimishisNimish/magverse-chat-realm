@@ -35,7 +35,7 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
   
   const isProYearlyOrLifetime = profile?.subscription_type === 'yearly' || profile?.subscription_type === 'lifetime';
 
-  // Check admin status
+  // Check admin status using RPC function (more secure than client-side check)
   useEffect(() => {
     const checkAdminStatus = async () => {
       try {
@@ -44,17 +44,22 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
         
         if (!user) {
           setCheckingAdmin(false);
+          setIsAdmin(false);
           return;
         }
         
-        const { data } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .eq('role', 'admin')
-          .single();
+        // Use has_role function for secure admin check
+        const { data, error } = await supabase.rpc('has_role', {
+          _user_id: user.id,
+          _role: 'admin'
+        });
         
-        setIsAdmin(!!data);
+        if (error) {
+          console.error('Error checking admin role:', error);
+          setIsAdmin(false);
+        } else {
+          setIsAdmin(data === true);
+        }
       } catch (error) {
         console.error('Error checking admin status:', error);
         setIsAdmin(false);

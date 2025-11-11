@@ -53,6 +53,10 @@ import { PromptLibrary } from "@/components/PromptLibrary";
 import { ChatExportDialog } from "@/components/ChatExportDialog";
 import { CollaborativeChatPresence } from "@/components/CollaborativeChatPresence";
 import { ConversationBranching } from "@/components/ConversationBranching";
+import { MessageReactions } from "@/components/MessageReactions";
+import { MessageAnnotations } from "@/components/MessageAnnotations";
+import { TypingIndicator } from "@/components/TypingIndicator";
+import { RealtimeMessageSync } from "@/components/RealtimeMessageSync";
 import { ModelABTesting } from "@/components/ModelABTesting";
 import VideoGenerator from "@/components/VideoGenerator";
 import VideoEditor from "@/components/VideoEditor";
@@ -97,6 +101,7 @@ const Chat = () => {
   const [selectedModels, setSelectedModels] = useState<string[]>(["gpt-5-mini"]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -2033,7 +2038,27 @@ const Chat = () => {
         <main className="flex-1 flex flex-col">
           {/* Collaborative Presence Indicator */}
           {currentChatId && (
-            <CollaborativeChatPresence conversationId={currentChatId} />
+            <>
+              <CollaborativeChatPresence conversationId={currentChatId} />
+              <TypingIndicator conversationId={currentChatId} />
+              
+              {/* Real-time message sync */}
+              <RealtimeMessageSync
+                conversationId={currentChatId}
+                onNewMessage={(newMessage) => {
+                  setMessages(prev => [...prev, newMessage]);
+                  toast({ title: "New message", description: `From ${newMessage.model}` });
+                }}
+                onMessageUpdate={(messageId, updates) => {
+                  setMessages(prev => prev.map(msg =>
+                    msg.id === messageId ? { ...msg, ...updates } : msg
+                  ));
+                }}
+                onMessageDelete={(messageId) => {
+                  setMessages(prev => prev.filter(msg => msg.id !== messageId));
+                }}
+              />
+            </>
           )}
           
           <ScrollArea className="flex-1 p-6">
@@ -2152,6 +2177,12 @@ const Chat = () => {
                           />
                         )}
                         
+                        {/* Message Reactions */}
+                        <MessageReactions 
+                          messageId={message.id}
+                          conversationId={currentChatId || undefined}
+                        />
+                        
                         {/* Action buttons */}
                         <div className="flex gap-2 mt-3">
                           {message.role === 'user' && (
@@ -2179,6 +2210,13 @@ const Chat = () => {
                             </Button>
                           )}
                         </div>
+                        
+                        {/* Message Annotations */}
+                        <MessageAnnotations 
+                          messageId={message.id}
+                          messageContent={message.content}
+                          conversationId={currentChatId || undefined}
+                        />
                       </>
                     )}
                     
@@ -2693,11 +2731,34 @@ const Chat = () => {
                 <Textarea
                   ref={textareaRef}
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    
+                    // Broadcast typing status
+                    if (typingTimeout) clearTimeout(typingTimeout);
+                    
+                    if ((window as any).broadcastTyping) {
+                      (window as any).broadcastTyping(true);
+                      
+                      // Stop typing after 2 seconds of inactivity
+                      const timeout = setTimeout(() => {
+                        if ((window as any).broadcastTyping) {
+                          (window as any).broadcastTyping(false);
+                        }
+                      }, 2000);
+                      
+                      setTypingTimeout(timeout);
+                    }
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
                       handleSend();
+                      
+                      // Clear typing indicator on send
+                      if ((window as any).broadcastTyping) {
+                        (window as any).broadcastTyping(false);
+                      }
                     }
                   }}
                   placeholder="Type your message... (Shift+Enter for new line)"
