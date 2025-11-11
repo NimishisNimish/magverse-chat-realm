@@ -110,6 +110,7 @@ const Chat = () => {
   const [imageGenerationMode, setImageGenerationMode] = useState(false);
   const [imageStyle, setImageStyle] = useState<'realistic' | 'artistic' | 'cartoon' | 'anime' | 'photographic'>('realistic');
   const [videoGenerationMode, setVideoGenerationMode] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [editingVideoUrl, setEditingVideoUrl] = useState<string | null>(null);
   const [customInstructions, setCustomInstructions] = useState<string | null>(null);
   const [uploadAbortController, setUploadAbortController] = useState<AbortController | null>(null);
@@ -239,6 +240,16 @@ const Chat = () => {
     }
   };
 
+  // Auto-select model when entering image or video generation mode
+  useEffect(() => {
+    if (imageGenerationMode && !selectedModels.includes('gemini-flash')) {
+      setSelectedModels(['gemini-flash']);
+    }
+    if (videoGenerationMode) {
+      setSelectedModels([]);
+    }
+  }, [imageGenerationMode, videoGenerationMode]);
+
   const toggleModel = (modelId: string) => {
     const isPro = profile?.is_pro || profile?.subscription_type === 'monthly' || profile?.subscription_type === 'lifetime' || profile?.subscription_type === 'yearly';
     const premiumModels = ['gemini-flash', 'gemini-pro', 'gemini-lite', 'gpt-5', 'gpt-5-nano'];
@@ -287,8 +298,7 @@ const Chat = () => {
     });
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const processFileUpload = async (file: File) => {
     if (!file || !user) return;
 
     // Store original filename for clean display
@@ -389,6 +399,59 @@ const Chat = () => {
         fileInputRef.current.value = '';
       }
     }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) await processFileUpload(file);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    const file = e.dataTransfer.files?.[0];
+    if (file) await processFileUpload(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const exportChatAsJSON = () => {
+    const chatData = {
+      exportDate: new Date().toISOString(),
+      messageCount: messages.length,
+      messages: messages.map(m => ({
+        model: m.model,
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp,
+        sources: m.sources,
+      }))
+    };
+    
+    const blob = new Blob([JSON.stringify(chatData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chat-export-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Chat exported as JSON",
+      description: "Download started successfully",
+    });
   };
 
   const saveChatToDatabase = async (userMsg: Message, aiResponses: Message[]) => {
@@ -912,9 +975,13 @@ const Chat = () => {
 
           if (error) throw error;
 
+          console.log(`✅ ${modelConfig.name} response data:`, data);
+          
           // Extract response for this model
           const modelResponse = data.responses?.find((r: any) => r.model === modelMapping[modelId]);
-          if (modelResponse?.response) {
+          console.log(`🔍 Found response for ${modelConfig.name}:`, modelResponse);
+          
+          if (modelResponse && modelResponse.response && !modelResponse.error) {
             setMessages(prev => prev.map(msg => 
               msg.id === assistantMessageId 
                 ? { 
@@ -925,7 +992,9 @@ const Chat = () => {
                 : msg
             ));
           } else {
-            throw new Error('No response from model');
+            const errorMsg = modelResponse?.response || 'No response received from model';
+            console.error(`❌ ${modelConfig.name} error:`, errorMsg);
+            throw new Error(errorMsg);
           }
         } catch (err: any) {
           console.error(`Error with ${modelConfig.name}:`, err);
@@ -2422,6 +2491,43 @@ const Chat = () => {
                 </div>
               )}
               
+              {/* Input area with drag-and-drop support */}
+              <div 
+                className={`relative ${isDragging ? 'ring-2 ring-accent ring-offset-2 ring-offset-background rounded-lg' : ''}`}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+              >
+                {isDragging && (
+                  <div className="absolute inset-0 bg-accent/10 border-2 border-dashed border-accent rounded-lg flex items-center justify-center z-10 pointer-events-none">
+                    <div className="text-center">
+                      <Upload className="w-12 h-12 mx-auto text-accent mb-2" />
+                      <p className="text-accent font-medium">Drop file here</p>
+                    </div>
+                  </div>
+                )}
+              
+              {/* Video Generator */}
+              {videoGenerationMode && (
+                <div className="mb-4">
+                  <VideoGenerator 
+                    profile={profile} 
+                    onVideoGenerated={(videoUrl, prompt) => {
+                      const videoMessage: Message = {
+                        id: Date.now().toString(),
+                        model: 'Video AI',
+                        content: prompt,
+                        timestamp: new Date(),
+                        role: 'assistant',
+                        videos: [{ videoUrl, prompt }]
+                      };
+                      setMessages(prev => [...prev, videoMessage]);
+                      toast({ title: "Video added to chat", description: "Your generated video is now in the conversation" });
+                    }}
+                  />
+                </div>
+              )}
+              
               {/* Image Generation Mode Indicator */}
               {imageGenerationMode && (
                 <div className="mb-3 flex items-center gap-2 text-xs bg-purple-500/20 text-purple-300 px-3 py-1.5 rounded-md w-fit">
@@ -2565,6 +2671,16 @@ const Chat = () => {
                     <Download className="w-5 h-5" />
                   )}
                 </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={exportChatAsJSON}
+                  disabled={messages.length === 0}
+                  className="shrink-0"
+                  title="Export chat as JSON"
+                >
+                  <FileText className="w-5 h-5" />
+                </Button>
                 <Button 
                   variant="hero" 
                   size="icon" 
@@ -2579,6 +2695,7 @@ const Chat = () => {
                 >
                   <Send className="w-5 h-5" />
                 </Button>
+              </div>
               </div>
             </div>
           </div>
