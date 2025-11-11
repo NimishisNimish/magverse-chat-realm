@@ -43,13 +43,16 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { generateChatPDF } from "@/utils/pdfGenerator";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useCreditAlerts } from "@/hooks/useCreditAlerts";
 import { usePaymentNotifications } from "@/hooks/usePaymentNotifications";
 import FilePreview from "@/components/FilePreview";
 import { FeedbackButtons } from "@/components/FeedbackButtons";
 import { CustomInstructionsButton } from "@/components/CustomInstructionsDialog";
 import { PromptLibrary } from "@/components/PromptLibrary";
+import { ChatExportDialog } from "@/components/ChatExportDialog";
+import { CollaborativeChatPresence } from "@/components/CollaborativeChatPresence";
+import { ConversationBranching } from "@/components/ConversationBranching";
 import { ModelABTesting } from "@/components/ModelABTesting";
 import VideoGenerator from "@/components/VideoGenerator";
 import VideoEditor from "@/components/VideoEditor";
@@ -129,6 +132,7 @@ const Chat = () => {
   const { toast } = useToast();
   const { user, profile, refreshProfile } = useAuth();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   
   // Enable credit alerts and payment notifications
   useCreditAlerts();
@@ -1966,6 +1970,24 @@ const Chat = () => {
       {/* Prompt Library */}
       <PromptLibrary onSelectPrompt={(prompt) => setInput(prompt)} />
       
+      {/* Export Chat */}
+      <ChatExportDialog 
+        messages={messages}
+        chatTitle={currentChatId ? 'Chat Export' : 'New Chat'}
+      />
+      
+      {/* Conversation Branching */}
+      {currentChatId && messages.length > 0 && (
+        <ConversationBranching
+          currentChatId={currentChatId}
+          messages={messages}
+          onBranchSelect={(branchId) => {
+            navigate(`/chat?id=${branchId}`);
+            toast({ title: "Switched to branch", description: "You are now viewing the branched conversation" });
+          }}
+        />
+      )}
+      
       <Link to="/history">
         <Button variant="outline" className="w-full justify-start">
           <HistoryIcon className="w-5 h-5" />
@@ -2009,6 +2031,11 @@ const Chat = () => {
         
         {/* Main Chat Area */}
         <main className="flex-1 flex flex-col">
+          {/* Collaborative Presence Indicator */}
+          {currentChatId && (
+            <CollaborativeChatPresence conversationId={currentChatId} />
+          )}
+          
           <ScrollArea className="flex-1 p-6">
             {messages.length === 0 ? (
               <div className="h-full flex items-center justify-center">
