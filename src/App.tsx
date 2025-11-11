@@ -25,6 +25,7 @@ import UserManagement from "./pages/UserManagement";
 import Support from "./pages/Support";
 import ModelComparison from "./pages/ModelComparison";
 import ImageGallery from "./pages/ImageGallery";
+import VideoGallery from "./pages/VideoGallery";
 import ProAnalytics from "./pages/ProAnalytics";
 import AdminUserActivity from "./pages/AdminUserActivity";
 import AdminPaymentQueue from "./pages/AdminPaymentQueue";
@@ -82,6 +83,7 @@ const App = () => (
             <Route path="/admin/user/:userId" element={<ProtectedRoute><AdminUserDetail /></ProtectedRoute>} />
             <Route path="/model-comparison" element={<ProtectedRoute><ModelComparison /></ProtectedRoute>} />
             <Route path="/image-gallery" element={<ProtectedRoute><ImageGallery /></ProtectedRoute>} />
+            <Route path="/video-gallery" element={<ProtectedRoute><VideoGallery /></ProtectedRoute>} />
             <Route path="/pro-analytics" element={<ProtectedRoute><ProAnalytics /></ProtectedRoute>} />
             <Route path="/support" element={<Support />} />
             <Route path="*" element={<NotFound />} />

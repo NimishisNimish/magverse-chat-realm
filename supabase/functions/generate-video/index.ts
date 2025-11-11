@@ -28,7 +28,7 @@ serve(async (req) => {
     console.log('🎬 Generating video with Runway ML:', { prompt, duration, aspectRatio });
 
     // Step 1: Create video generation task
-    const createResponse = await fetch('https://api.runwayml.com/v1/generate', {
+    const createResponse = await fetch('https://api.dev.runwayml.com/v1/generate', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${RUNWAYML_API_KEY}`,
@@ -60,7 +60,7 @@ serve(async (req) => {
     const startTime = Date.now();
 
     while (Date.now() - startTime < maxWaitTime) {
-      const statusResponse = await fetch(`https://api.runwayml.com/v1/tasks/${taskId}`, {
+      const statusResponse = await fetch(`https://api.dev.runwayml.com/v1/tasks/${taskId}`, {
         headers: {
           'Authorization': `Bearer ${RUNWAYML_API_KEY}`,
           'X-Runway-Version': '2024-11-06',

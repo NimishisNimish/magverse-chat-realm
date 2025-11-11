@@ -38,6 +38,7 @@ import {
   FileText
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,6 +51,7 @@ import { FeedbackButtons } from "@/components/FeedbackButtons";
 import { CustomInstructionsButton } from "@/components/CustomInstructionsDialog";
 import { ModelABTesting } from "@/components/ModelABTesting";
 import VideoGenerator from "@/components/VideoGenerator";
+import VideoEditor from "@/components/VideoEditor";
 import {
   Sheet,
   SheetContent,
@@ -107,6 +109,7 @@ const Chat = () => {
   const [imageGenerationMode, setImageGenerationMode] = useState(false);
   const [imageStyle, setImageStyle] = useState<'realistic' | 'artistic' | 'cartoon' | 'anime' | 'photographic'>('realistic');
   const [videoGenerationMode, setVideoGenerationMode] = useState(false);
+  const [editingVideoUrl, setEditingVideoUrl] = useState<string | null>(null);
   const [customInstructions, setCustomInstructions] = useState<string | null>(null);
   const [uploadAbortController, setUploadAbortController] = useState<AbortController | null>(null);
   const [editingImageId, setEditingImageId] = useState<string | null>(null);
@@ -1782,6 +1785,17 @@ const Chat = () => {
                     videos: [{ videoUrl: url, prompt }]
                   };
                   setMessages(prev => [...prev, videoMessage]);
+                  
+                  // Save to localStorage for gallery
+                  const savedVideos = JSON.parse(localStorage.getItem('savedVideos') || '[]');
+                  savedVideos.push({
+                    id: crypto.randomUUID(),
+                    url,
+                    prompt,
+                    timestamp: new Date()
+                  });
+                  localStorage.setItem('savedVideos', JSON.stringify(savedVideos));
+                  
                   toast({
                     title: "Video Generated!",
                     description: "Your video has been created successfully.",
@@ -1798,6 +1812,14 @@ const Chat = () => {
         <Button variant="outline" className="w-full justify-start">
           <ImageIcon className="w-5 h-5" />
           Image Gallery ({savedImages.length})
+        </Button>
+      </Link>
+      
+      {/* Video Gallery Button */}
+      <Link to="/video-gallery">
+        <Button variant="outline" className="w-full justify-start">
+          <Video className="w-5 h-5" />
+          Video Gallery
         </Button>
       </Link>
       
@@ -2169,6 +2191,15 @@ const Chat = () => {
                               className="w-full rounded-lg border border-border shadow-lg"
                             />
                             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                              <Button 
+                                size="sm" 
+                                variant="secondary"
+                                onClick={() => setEditingVideoUrl(vid.videoUrl)}
+                                className="shadow-lg"
+                                title="Edit Video"
+                              >
+                                <Sparkles className="w-4 h-4" />
+                              </Button>
                               <Button 
                                 size="sm" 
                                 variant="secondary"
@@ -2546,6 +2577,24 @@ const Chat = () => {
             )}
           </div>
         </div>
+      )}
+
+      {/* Video Editor Dialog */}
+      {editingVideoUrl && (
+        <Dialog open={!!editingVideoUrl} onOpenChange={() => setEditingVideoUrl(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <VideoEditor
+              videoUrl={editingVideoUrl}
+              onSave={(editedUrl) => {
+                setEditingVideoUrl(null);
+                toast({
+                  title: "Video edited",
+                  description: "Your video has been edited successfully",
+                });
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

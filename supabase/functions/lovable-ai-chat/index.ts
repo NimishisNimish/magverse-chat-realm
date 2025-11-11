@@ -21,9 +21,45 @@ serve(async (req) => {
     const selectedModel = generateImage ? "google/gemini-2.5-flash-image-preview" : model;
     console.log(`Processing request for model: ${selectedModel}, generateImage: ${generateImage}`);
 
+    // Process messages to handle images properly
+    const processedMessages = messages.map((msg: any) => {
+      if (typeof msg.content === 'string') {
+        return msg;
+      }
+      
+      // Handle multimodal content (text + images/PDFs)
+      if (Array.isArray(msg.content)) {
+        return {
+          role: msg.role,
+          content: msg.content.map((part: any) => {
+            if (part.type === 'text') {
+              return { type: 'text', text: part.text };
+            } else if (part.type === 'image_url') {
+              // Lovable AI expects image_url format
+              return {
+                type: 'image_url',
+                image_url: {
+                  url: part.image_url.url
+                }
+              };
+            }
+            return part;
+          })
+        };
+      }
+      
+      return msg;
+    });
+
+    console.log('📨 Lovable AI request:', {
+      model: selectedModel,
+      messageCount: processedMessages.length,
+      hasMultimodal: processedMessages.some((m: any) => Array.isArray(m.content))
+    });
+
     const requestBody: any = {
       model: selectedModel,
-      messages,
+      messages: processedMessages,
       stream,
     };
 
