@@ -759,16 +759,16 @@ serve(async (req) => {
       });
 
       // Retry logic with exponential backoff
-      const makeAPICall = async (retries = 3, delay = 1000): Promise<any> => {
+      const makeAPICall = async (retries = 3, delay = 2000): Promise<any> => {
         for (let attempt = 0; attempt <= retries; attempt++) {
           try {
             const timeout = deepResearchMode ? DEEP_RESEARCH_TIMEOUT_MS : API_TIMEOUT_MS;
             const timeoutPromise = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Request timeout')), timeout)
+              setTimeout(() => reject(new Error(`${modelId} request timed out after ${timeout/1000}s`)), timeout)
             );
 
             const requestBody = config.bodyTemplate(finalMessages, effectiveWebSearchEnabled, searchMode);
-            console.log(`🔄 Attempt ${attempt + 1}/${retries + 1} for ${modelId}`);
+            console.log(`🔄 Attempt ${attempt + 1}/${retries + 1} for ${modelId} (${config.provider})`);
 
             const fetchPromise = fetch(config.endpoint, {
               method: 'POST',
@@ -780,20 +780,28 @@ serve(async (req) => {
 
             if (response.ok) {
               const data = await response.json();
+              console.log(`✅ ${modelId} responded successfully`);
               return { success: true, data };
             }
 
             // Handle specific error codes
             const errorText = await response.text();
-            console.error(`❌ ${modelId} API error (${response.status}):`, errorText);
+            console.error(`❌ ${modelId} API error (${response.status}):`, errorText.substring(0, 500));
 
             if (response.status === 401 || response.status === 403) {
-              throw new Error(`API authentication failed for ${modelId}. Please check your API key configuration.`);
+              throw new Error(`Authentication failed - please verify API key for ${modelId} (${config.provider})`);
             }
 
             if (response.status === 429 && attempt < retries) {
               const backoffDelay = delay * Math.pow(2, attempt);
-              console.log(`⏳ Rate limited, waiting ${backoffDelay}ms before retry...`);
+              console.log(`⏳ ${modelId} rate limited, waiting ${backoffDelay}ms before retry ${attempt + 2}/${retries + 1}...`);
+              await new Promise(resolve => setTimeout(resolve, backoffDelay));
+              continue;
+            }
+            
+            if (response.status === 500 && attempt < retries) {
+              const backoffDelay = delay * Math.pow(2, attempt);
+              console.log(`⏳ ${modelId} server error, waiting ${backoffDelay}ms before retry ${attempt + 2}/${retries + 1}...`);
               await new Promise(resolve => setTimeout(resolve, backoffDelay));
               continue;
             }
@@ -802,26 +810,20 @@ serve(async (req) => {
               throw new Error('Payment required. Please add credits to your API account.');
             }
 
-            if (response.status >= 500 && attempt < retries) {
-              const backoffDelay = delay * Math.pow(2, attempt);
-              console.log(`⏳ Server error (${response.status}), retrying in ${backoffDelay}ms...`);
-              await new Promise(resolve => setTimeout(resolve, backoffDelay));
-              continue;
-            }
-
-            throw new Error(`API returned ${response.status}: ${errorText.substring(0, 200)}`);
+            throw new Error(`${modelId} API error (${response.status}): ${errorText.substring(0, 200)}`);
           } catch (error: any) {
-            if (attempt === retries || error.message.includes('authentication') || error.message.includes('Payment required')) {
+            if (attempt === retries || error.message.includes('authentication') || error.message.includes('Payment required') || error.message.includes('timed out')) {
               throw error;
             }
-            console.error(`❌ Attempt ${attempt + 1} failed:`, error.message);
+            console.error(`❌ ${modelId} attempt ${attempt + 1}/${retries + 1} failed:`, error.message);
             if (attempt < retries) {
               const backoffDelay = delay * Math.pow(2, attempt);
+              console.log(`⏳ Retrying ${modelId} in ${backoffDelay}ms...`);
               await new Promise(resolve => setTimeout(resolve, backoffDelay));
             }
           }
         }
-        throw new Error(`All retry attempts failed for ${modelId}`);
+        throw new Error(`${modelId} failed after ${retries + 1} attempts`);
       };
 
       // Check if model supports vision

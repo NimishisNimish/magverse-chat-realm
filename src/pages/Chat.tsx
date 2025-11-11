@@ -98,6 +98,7 @@ const Chat = () => {
   const [uploading, setUploading] = useState(false);
   const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
   const [attachmentType, setAttachmentType] = useState<'pdf' | 'image' | 'other' | null>(null);
+  const [attachmentFileName, setAttachmentFileName] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [processingFile, setProcessingFile] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
@@ -290,6 +291,9 @@ const Chat = () => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
+    // Store original filename for clean display
+    setAttachmentFileName(file.name);
+    
     // First, set the pending file for preview
     setPendingFile(file);
     
@@ -378,6 +382,7 @@ const Chat = () => {
       });
       setAttachmentUrl(null);
       setAttachmentType(null);
+      setAttachmentFileName(null);
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -2374,9 +2379,14 @@ const Chat = () => {
               )}
 
               {/* File preview before upload */}
-              {pendingFile && (
+              {pendingFile && !uploading && !attachmentUrl && (
                 <div className="mb-3">
-                  <FilePreview file={pendingFile} onRemove={() => setPendingFile(null)} />
+                  <FilePreview file={pendingFile} onRemove={() => {
+                    setPendingFile(null);
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = '';
+                    }
+                  }} />
                 </div>
               )}
 
@@ -2396,7 +2406,7 @@ const Chat = () => {
                   )}
                   
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{attachmentUrl.split('/').pop()}</p>
+                    <p className="text-sm font-medium truncate">{attachmentFileName || 'Uploaded file'}</p>
                     <p className="text-xs text-accent flex items-center gap-1">
                       <Circle className="w-1.5 h-1.5 fill-accent" />
                       Ready to send
@@ -2409,6 +2419,7 @@ const Chat = () => {
                     onClick={() => {
                       setAttachmentUrl(null);
                       setAttachmentType(null);
+                      setAttachmentFileName(null);
                       setUploadStatus('idle');
                     }}
                     className="shrink-0 hover:bg-destructive/10 hover:text-destructive"

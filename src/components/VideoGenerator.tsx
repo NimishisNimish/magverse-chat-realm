@@ -22,6 +22,7 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
   const [prompt, setPrompt] = useState("");
   const [duration, setDuration] = useState("5");
   const [aspectRatio, setAspectRatio] = useState("16:9");
+  const [videoModel, setVideoModel] = useState<'runway' | 'veo3'>('runway');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -85,6 +86,7 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
           prompt: prompt.trim(),
           duration: parseInt(duration),
           aspectRatio,
+          model: videoModel,
         },
       });
 
@@ -94,7 +96,7 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
         setProgress(100);
         setStatusMessage("Video ready!");
         setGeneratedVideoUrl(data.videoUrl);
-        toast.success("Video generated successfully!");
+        toast.success(`Video generated successfully with ${videoModel === 'veo3' ? 'Google Veo 3' : 'Runway ML'}!`);
         onVideoGenerated?.(data.videoUrl, prompt);
       } else {
         throw new Error(data.error || 'Failed to generate video');
@@ -168,6 +170,19 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
                 rows={4}
                 disabled={isGenerating}
               />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Video Model</label>
+              <Select value={videoModel} onValueChange={(value: 'runway' | 'veo3') => setVideoModel(value)} disabled={isGenerating}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="runway">Runway ML Gen-3 Turbo</SelectItem>
+                  <SelectItem value="veo3">Google Veo 3 (Experimental)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
