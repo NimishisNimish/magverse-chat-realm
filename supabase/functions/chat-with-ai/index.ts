@@ -107,6 +107,7 @@ const providerConfig: Record<string, any> = {
     apiKey: perplexityApiKey,
     endpoint: 'https://api.perplexity.ai/chat/completions',
     model: 'sonar-pro',
+    supportsStreaming: true,
     headers: () => {
       if (!perplexityApiKey) {
         throw new Error('Perplexity API key is not configured. Please add your API key in Settings.');
@@ -121,11 +122,11 @@ const providerConfig: Record<string, any> = {
         'Content-Type': 'application/json',
       };
     },
-    bodyTemplate: (messages: any[], webSearchEnabled?: boolean, searchMode?: string) => {
+    bodyTemplate: (messages: any[], webSearchEnabled?: boolean, searchMode?: string, stream?: boolean) => {
       const baseConfig: any = {
         model: 'sonar-pro',
         messages,
-        stream: false,
+        stream: stream || false,
         temperature: 0.5,
         max_tokens: 2000,
       };
@@ -159,6 +160,7 @@ const providerConfig: Record<string, any> = {
     apiKey: openRouterApiKey,
     endpoint: 'https://openrouter.ai/api/v1/chat/completions',
     model: 'anthropic/claude-3.5-sonnet',
+    supportsStreaming: true,
     headers: () => {
       if (!openRouterApiKey) {
         throw new Error('OpenRouter API key is not configured. Please add your API key in Settings.');
@@ -175,11 +177,12 @@ const providerConfig: Record<string, any> = {
         'X-Title': 'MagVerse AI Chat',
       };
     },
-    bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
+    bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string, stream?: boolean) => ({
       model: 'anthropic/claude-3.5-sonnet',
       messages,
       temperature: 0.7,
       max_tokens: 4000,
+      stream: stream || false,
     }),
     responseTransform: (data: any) => {
       return data.choices[0]?.message?.content || 'No response';
@@ -340,6 +343,7 @@ const chatRequestSchema = z.object({
   webSearchEnabled: z.boolean().optional(),
   searchMode: z.enum(['general', 'finance', 'academic']).optional(),
   deepResearchMode: z.boolean().optional(),
+  stream: z.boolean().optional(),
 });
 
 /**
@@ -398,7 +402,7 @@ serve(async (req) => {
       );
     }
 
-    const { messages, selectedModels, chatId, attachmentUrl, attachmentExtension, webSearchEnabled = false, searchMode = 'general', deepResearchMode = false } = validationResult.data;
+    const { messages, selectedModels, chatId, attachmentUrl, attachmentExtension, webSearchEnabled = false, searchMode = 'general', deepResearchMode = false, stream = false } = validationResult.data;
     
     // Auto-enable web search for Deep Research mode
     const effectiveWebSearchEnabled = deepResearchMode ? true : webSearchEnabled;
@@ -902,8 +906,9 @@ serve(async (req) => {
 ${searchResults.content}${sourcesText}
 ---
 
-Please synthesize the above web information with your knowledge to provide a comprehensive answer. When referencing web data, use numbered citations like [1], [2] corresponding to the sources above.`;
+Please synthesize the above web information to provide a current, accurate answer. Use numbered citations [1], [2] when referencing web data.`;
 
+            // Replace last user message with enhanced prompt
             finalMessages = [
               ...processedMessages.slice(0, -1),
               {
@@ -912,10 +917,47 @@ Please synthesize the above web information with your knowledge to provide a com
               }
             ];
             
-            console.log(`✅ Web search results with ${webSearchSources.length} sources injected into ${modelId} prompt`);
+            console.log(`✅ Web search results injected for ${modelId}`);
           }
         }
       }
+
+      const { success, data, error } = await makeAPICall();
+
+      if (!success) {
+        console.error(`❌ ${modelId} failed:`, error);
+        return { success: false, model: modelId, error: error || 'Unknown error', sources: [] };
+      }
+
+      // Transform response using provider-specific transformation
+      const response = config.responseTransform ? config.responseTransform(data) : data.choices[0]?.message?.content;
+      
+      // Extract sources from Perplexity native response
+      let responseSources = webSearchSources;
+      if (modelId === 'perplexity' && data.citations) {
+        responseSources = data.citations.map((citation: string, index: number) => ({
+          url: citation,
+          title: `Source ${index + 1}`,
+          snippet: ''
+        }));
+      }
+
+      // Save model response
+      await supabase.from('chat_messages').insert({
+        chat_id: currentChatId,
+        user_id: user.id,
+        role: 'assistant',
+        content: response || 'No response',
+        model: modelId,
+      });
+
+      return { 
+        success: true, 
+        model: modelId, 
+        response: response || 'No response', 
+        sources: responseSources.length > 0 ? responseSources : undefined,
+        webSearchApplied
+      };
       
       // Handle PDF attachments - extract text using extract-pdf-text function
       if (attachmentUrl?.match(/\.pdf$/i)) {
@@ -961,6 +1003,8 @@ Please synthesize the above web information with your knowledge to provide a com
       
       // Handle image attachments (this needs to merge with web search if both are present)
       if (attachmentUrl?.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+        const validAttachmentUrl: string = attachmentUrl!; // Non-null assertion - checked by if condition
+        
         // Get the base content (either from web search enhanced prompt or original message)
         const lastMsg = webSearchApplied 
           ? finalMessages[finalMessages.length - 1]
@@ -970,7 +1014,7 @@ Please synthesize the above web information with your knowledge to provide a com
           : lastMsg.content;
         
         // Use explicit extension if provided, otherwise detect from URL (without query params)
-        const urlWithoutQuery = attachmentUrl.split('?')[0];
+        const urlWithoutQuery = validAttachmentUrl.split('?')[0];
         const fileExtension = attachmentExtension || urlWithoutQuery.split('.').pop()?.toLowerCase();
         
         if (supportsVision) {
@@ -978,7 +1022,7 @@ Please synthesize the above web information with your knowledge to provide a com
             // Gemini needs base64 inline_data format
             try {
               console.log(`📥 Fetching image for Gemini (${modelId}) base64 conversion`);
-              const imageResponse = await fetch(attachmentUrl);
+              const imageResponse = await fetch(validAttachmentUrl);
               const imageBuffer = await imageResponse.arrayBuffer();
               const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
               const mimeType = `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`;
@@ -1119,7 +1163,7 @@ Make complex topics accessible and engaging.`;
             // Handle rate limiting with retry
             if (response.status === 429 && attempt < maxRetries) {
               const retryAfter = response.headers.get('Retry-After');
-              const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : (attempt + 1) * 2000;
+              const waitTime = retryAfter ? parseInt(retryAfter || '0') * 1000 : (attempt + 1) * 2000;
               console.log(`⚠️ Rate limited for ${modelId}, retrying after ${waitTime}ms`);
               await new Promise(resolve => setTimeout(resolve, waitTime));
               continue; // Retry

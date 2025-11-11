@@ -749,16 +749,18 @@ const Chat = () => {
           if (imageGenerationMode) {
             // Non-streaming mode for image generation
             const data = await response.json();
-            const content = data.choices?.[0]?.message?.content || '';
+            const modelResponse = data.responses?.[0]?.message?.content || '';
             const images = data.images || [];
+            const sources = data.sources || [];
             
             // Update message with content and images
             setMessages(prev => prev.map(msg => 
               msg.id === assistantMessageId 
                 ? { 
                     ...msg, 
-                    content: content || 'Image generated successfully',
-                    images: images.length > 0 ? images : undefined 
+                    content: modelResponse || 'Image generated successfully',
+                    images: images.length > 0 ? images : undefined,
+                    sources: sources.length > 0 ? sources : undefined
                   }
                 : msg
             ));
@@ -849,7 +851,16 @@ const Chat = () => {
           
           setMessages(prev => prev.map(msg => 
             msg.id === assistantMessageId 
-              ? { ...msg, content: `Error: ${err.message}`, error: true }
+              ? { 
+                  ...msg, 
+                  content: `Error: ${err.message}`, 
+                  error: true,
+                  userQuery: imageGenerationMode 
+                    ? `Generate a ${imageStyle} style image: ${input}` 
+                    : input,
+                  webSearchEnabled: !imageGenerationMode && webSearchEnabled,
+                  searchMode: !imageGenerationMode ? searchMode : undefined
+                }
               : msg
           ));
           
@@ -921,7 +932,14 @@ const Chat = () => {
           
           setMessages(prev => prev.map(msg => 
             msg.id === assistantMessageId 
-              ? { ...msg, content: `Error: ${err.message}`, error: true }
+              ? { 
+                  ...msg, 
+                  content: `Error: ${err.message}`, 
+                  error: true,
+                  userQuery: input,
+                  webSearchEnabled,
+                  searchMode
+                }
               : msg
           ));
           
@@ -1061,8 +1079,8 @@ const Chat = () => {
     if (!messageToRetry || !messageToRetry.error || !messageToRetry.userQuery) return;
 
     const modelName = messageToRetry.model;
-    const modelId = aiModels.find(m => m.name === modelName)?.id;
-    if (!modelId) return;
+    const modelConfig = aiModels.find(m => m.name === modelName);
+    if (!modelConfig) return;
 
     // Mark message as retrying
     setMessages(prev => prev.map(m => 
@@ -1075,9 +1093,12 @@ const Chat = () => {
       const validMessages = messages.filter(m => !m.error && !m.retrying);
       const recentMessages = validMessages.slice(-MAX_CONTEXT_MESSAGES);
 
-      const modelConfig = aiModels.find(m => m.id === modelId);
-      if (!modelConfig) throw new Error('Model not found');
-
+      // Determine if it's a Lovable AI model or external model
+      const lovableModels = ['gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gemini-flash', 'gemini-pro', 'gemini-lite'];
+      const externalModels = ['claude', 'perplexity'];
+      
+      if (lovableModels.includes(modelConfig.id)) {
+        // Retry with Lovable AI
         const { data, error } = await supabase.functions.invoke('lovable-ai-chat', {
           body: {
             model: modelConfig.model,
@@ -1087,30 +1108,69 @@ const Chat = () => {
             ],
             stream: false,
             generateImage: false,
+            webSearchEnabled: messageToRetry.webSearchEnabled || false,
+            searchMode: messageToRetry.searchMode || 'general',
           },
         });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      if (!data.choices?.[0]?.message?.content) {
-        throw new Error('Model failed to respond again');
+        if (!data.choices?.[0]?.message?.content) {
+          throw new Error('Model failed to respond again');
+        }
+
+        // Replace error message with successful response
+        setMessages(prev => prev.map(m => 
+          m.id === messageId 
+            ? {
+                ...m,
+                content: data.choices[0].message.content,
+                sources: data.sources,
+                error: false,
+                retrying: false,
+              }
+            : m
+        ));
+      } else if (externalModels.includes(modelConfig.id)) {
+        // Retry with external API (Claude/Perplexity)
+        const modelMapping: Record<string, string> = {
+          'claude': 'claude',
+          'perplexity': 'perplexity',
+        };
+
+        const { data, error } = await supabase.functions.invoke('chat-with-ai', {
+          body: {
+            messages: [
+              ...recentMessages.map(m => ({ role: m.role, content: m.content })),
+              { role: 'user', content: messageToRetry.userQuery }
+            ],
+            selectedModels: [modelMapping[modelConfig.id]],
+            webSearchEnabled: messageToRetry.webSearchEnabled || false,
+            searchMode: messageToRetry.searchMode || 'general',
+            deepResearchMode: false,
+          }
+        });
+
+        if (error) throw error;
+
+        const modelResponse = data.responses?.find((r: any) => r.model === modelMapping[modelConfig.id]);
+        if (!modelResponse?.response) {
+          throw new Error('Model failed to respond again');
+        }
+
+        // Replace error message with successful response
+        setMessages(prev => prev.map(m => 
+          m.id === messageId 
+            ? {
+                ...m,
+                content: modelResponse.response,
+                sources: modelResponse.sources,
+                error: false,
+                retrying: false,
+              }
+            : m
+        ));
       }
-
-      // Replace error message with successful response
-      const newResponse = {
-        content: data.choices[0].message.content,
-        model: modelConfig.name,
-      };
-      setMessages(prev => prev.map(m => 
-        m.id === messageId 
-          ? {
-              ...m,
-              content: newResponse.content,
-              error: false,
-              retrying: false,
-            }
-          : m
-      ));
 
       toast({
         title: "Retry successful",
