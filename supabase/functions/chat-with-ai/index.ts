@@ -152,12 +152,20 @@ const providerConfig: Record<string, any> = {
       return baseConfig;
     },
     responseTransform: (data: any) => {
-      console.log('🔍 Perplexity raw response:', JSON.stringify(data));
-      const content = data.choices?.[0]?.message?.content;
+      console.log('📊 Perplexity raw response:', JSON.stringify(data, null, 2));
+      
+      const content = data.choices?.[0]?.message?.content || 
+                     data.choices?.[0]?.text ||
+                     '';
+      
+      console.log('✅ Perplexity extracted content length:', content.length);
+      console.log('✅ Perplexity content preview:', content.substring(0, 200));
+      
       if (!content) {
-        console.error('❌ No content in Perplexity response:', data);
-        return 'No response';
+        console.error('❌ No content in Perplexity response');
+        return 'Error: No response content from Perplexity';
       }
+      
       return content;
     },
   },
@@ -189,12 +197,21 @@ const providerConfig: Record<string, any> = {
       stream: false,
     }),
     responseTransform: (data: any) => {
-      console.log('🔍 Claude (NVIDIA NIM) raw response:', JSON.stringify(data));
-      const content = data.choices?.[0]?.message?.content;
+      console.log('📊 NVIDIA NIM (Claude) raw response:', JSON.stringify(data, null, 2));
+      
+      // NVIDIA NIM uses standard OpenAI format
+      const content = data.choices?.[0]?.message?.content || 
+                     data.choices?.[0]?.text ||
+                     '';
+      
+      console.log('✅ NVIDIA NIM (Claude) extracted content length:', content.length);
+      console.log('✅ NVIDIA NIM (Claude) content preview:', content.substring(0, 200));
+      
       if (!content) {
-        console.error('❌ No content in Claude response:', data);
-        return 'No response';
+        console.error('❌ No content in NVIDIA NIM response');
+        return 'Error: No response content from NVIDIA NIM (Claude)';
       }
+      
       return content;
     },
   },

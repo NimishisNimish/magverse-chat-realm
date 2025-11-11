@@ -10,6 +10,7 @@ import { Video, Loader2, Download, Lock } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface Profile {
+  id?: string;
   subscription_type?: 'free' | 'monthly' | 'yearly' | 'lifetime';
 }
 
@@ -20,7 +21,7 @@ interface VideoGeneratorProps {
 
 export default function VideoGenerator({ profile, onVideoGenerated }: VideoGeneratorProps) {
   const [prompt, setPrompt] = useState("");
-  const [duration, setDuration] = useState("5");
+  const [duration, setDuration] = useState("8");
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [videoModel, setVideoModel] = useState<'runway' | 'veo3'>('runway');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -29,8 +30,41 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
   const [statusMessage, setStatusMessage] = useState("");
   const [exportFormat, setExportFormat] = useState<'mp4' | 'webm'>('mp4');
   const [exportResolution, setExportResolution] = useState<'720p' | '1080p' | '4k'>('1080p');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [checkingAdmin, setCheckingAdmin] = useState(true);
   
   const isProYearlyOrLifetime = profile?.subscription_type === 'yearly' || profile?.subscription_type === 'lifetime';
+
+  // Check admin status
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      try {
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          setCheckingAdmin(false);
+          return;
+        }
+        
+        const { data } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'admin')
+          .single();
+        
+        setIsAdmin(!!data);
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+        setIsAdmin(false);
+      } finally {
+        setCheckingAdmin(false);
+      }
+    };
+    
+    checkAdminStatus();
+  }, []);
 
   useEffect(() => {
     let progressInterval: NodeJS.Timeout;
@@ -73,12 +107,11 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
   }, [isGenerating]);
 
   const handleGenerateVideo = async () => {
-    if (!isProYearlyOrLifetime) {
-      toast.error("Video generation is only available for Pro Yearly and Lifetime Pro members", {
-        action: {
-          label: "Upgrade",
-          onClick: () => window.location.href = '/payment',
-        },
+    // Admin-only check
+    if (!isAdmin) {
+      toast.error("Video generation is restricted to administrators only", {
+        description: "Please contact an admin for video generation access.",
+        duration: 5000,
       });
       return;
     }
@@ -112,15 +145,17 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
       console.log('✅ Video generation response:', data);
 
       if (data.success && data.videoUrl) {
-        // Immediately jump to 100% on success
+        // CRITICAL: Clear generating state BEFORE callback to prevent stuck UI
         setProgress(100);
         setStatusMessage("Video ready!");
         setGeneratedVideoUrl(data.videoUrl);
+        setIsGenerating(false);
         
         const modelName = videoModel === 'veo3' ? 'Google Veo 3' : 'Runway ML';
         const durationText = data.duration ? ` in ${data.duration}s` : '';
         toast.success(`Video generated successfully with ${modelName}${durationText}!`);
         
+        // Call callback AFTER clearing state
         onVideoGenerated?.(data.videoUrl, prompt);
       } else {
         console.error('❌ Invalid response:', data);
@@ -128,6 +163,11 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
       }
     } catch (error: any) {
       console.error('❌ Error generating video:', error);
+      
+      // CRITICAL: Always reset state on error
+      setProgress(0);
+      setStatusMessage("");
+      setIsGenerating(false);
       
       // Provide specific error messages
       let errorMessage = 'Failed to generate video. Please try again.';
@@ -144,10 +184,6 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
       }
       
       toast.error(errorMessage, { duration: 6000 });
-      setProgress(0);
-      setStatusMessage("");
-    } finally {
-      setIsGenerating(false);
     }
   };
 
@@ -186,18 +222,19 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {!isProYearlyOrLifetime ? (
+        {checkingAdmin ? (
+          <div className="p-6 rounded-lg bg-muted/50 border border-border text-center space-y-3">
+            <Loader2 className="w-12 h-12 mx-auto text-muted-foreground animate-spin" />
+            <p className="text-sm text-muted-foreground">Checking permissions...</p>
+          </div>
+        ) : !isAdmin ? (
           <div className="p-6 rounded-lg bg-muted/50 border border-border text-center space-y-3">
             <Lock className="w-12 h-12 mx-auto text-muted-foreground" />
-            <h3 className="text-lg font-semibold">Pro Feature</h3>
+            <h3 className="text-lg font-semibold">Admin-Only Feature</h3>
             <p className="text-sm text-muted-foreground">
-              Video generation is only available for Pro Yearly and Lifetime Pro members
+              Video generation is restricted to administrators only. 
+              Please contact an admin if you need video generation access.
             </p>
-            <Link to="/payment">
-              <Button className="mt-2">
-                Upgrade to Pro Yearly
-              </Button>
-            </Link>
           </div>
         ) : (
           <>
@@ -234,6 +271,7 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="5">5 seconds</SelectItem>
+                    <SelectItem value="8">8 seconds</SelectItem>
                     <SelectItem value="10">10 seconds</SelectItem>
                   </SelectContent>
                 </Select>

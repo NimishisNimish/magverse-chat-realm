@@ -49,6 +49,7 @@ import { usePaymentNotifications } from "@/hooks/usePaymentNotifications";
 import FilePreview from "@/components/FilePreview";
 import { FeedbackButtons } from "@/components/FeedbackButtons";
 import { CustomInstructionsButton } from "@/components/CustomInstructionsDialog";
+import { PromptLibrary } from "@/components/PromptLibrary";
 import { ModelABTesting } from "@/components/ModelABTesting";
 import VideoGenerator from "@/components/VideoGenerator";
 import VideoEditor from "@/components/VideoEditor";
@@ -1962,6 +1963,9 @@ const Chat = () => {
         onInstructionsUpdate={setCustomInstructions}
       />
       
+      {/* Prompt Library */}
+      <PromptLibrary onSelectPrompt={(prompt) => setInput(prompt)} />
+      
       <Link to="/history">
         <Button variant="outline" className="w-full justify-start">
           <HistoryIcon className="w-5 h-5" />
@@ -2513,16 +2517,33 @@ const Chat = () => {
                   <VideoGenerator 
                     profile={profile} 
                     onVideoGenerated={(videoUrl, prompt) => {
-                      const videoMessage: Message = {
+                      // Add user prompt message first
+                      const userMessage: Message = {
                         id: Date.now().toString(),
-                        model: 'Video AI',
+                        model: 'User',
                         content: prompt,
+                        timestamp: new Date(),
+                        role: 'user'
+                      };
+                      
+                      // Then add video response message
+                      const videoMessage: Message = {
+                        id: (Date.now() + 1).toString(),
+                        model: 'Video AI',
+                        content: `Generated video: "${prompt}"`,
                         timestamp: new Date(),
                         role: 'assistant',
                         videos: [{ videoUrl, prompt }]
                       };
-                      setMessages(prev => [...prev, videoMessage]);
-                      toast({ title: "Video added to chat", description: "Your generated video is now in the conversation" });
+                      
+                      setMessages(prev => [...prev, userMessage, videoMessage]);
+                      toast({ 
+                        title: "Video added to chat", 
+                        description: "Your generated video is now in the conversation" 
+                      });
+                      
+                      // Exit video generation mode after successful generation
+                      setVideoGenerationMode(false);
                     }}
                   />
                 </div>
