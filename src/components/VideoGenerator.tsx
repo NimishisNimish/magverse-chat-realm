@@ -38,21 +38,33 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
       setProgress(0);
       setStatusMessage("Initializing video generation...");
       
+      // Slower, more realistic progress that doesn't artificially cap at 95%
       progressInterval = setInterval(() => {
         setProgress(prev => {
-          const newProgress = Math.min(prev + 2, 95);
-          if (newProgress < 30) {
-            setStatusMessage("Processing your request...");
-          } else if (newProgress < 60) {
-            setStatusMessage("Rendering video frames...");
-          } else if (newProgress < 90) {
+          // Slow down as we approach 90% to avoid appearing stuck
+          let increment = 1;
+          if (prev < 20) {
+            increment = 2; // Faster at start
+            setStatusMessage("Submitting request to AI...");
+          } else if (prev < 40) {
+            increment = 1.5;
+            setStatusMessage("Processing video prompt...");
+          } else if (prev < 60) {
+            increment = 1;
+            setStatusMessage("Generating video frames...");
+          } else if (prev < 80) {
+            increment = 0.5;
+            setStatusMessage("Rendering video...");
+          } else if (prev < 90) {
+            increment = 0.3;
             setStatusMessage("Finalizing video...");
           } else {
-            setStatusMessage("Almost done...");
+            increment = 0.1; // Very slow near completion
+            setStatusMessage("Completing generation...");
           }
-          return newProgress;
+          return Math.min(prev + increment, 98); // Cap at 98%, final 2% happens on completion
         });
-      }, 1000);
+      }, 1500); // Slower interval for more realistic feel
     }
     
     return () => {
@@ -81,6 +93,8 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
     setProgress(0);
 
     try {
+      console.log(`🎬 Starting video generation with ${videoModel}:`, { prompt: prompt.substring(0, 50), duration, aspectRatio });
+      
       const { data, error } = await supabase.functions.invoke('generate-video', {
         body: {
           prompt: prompt.trim(),
@@ -90,20 +104,46 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Video generation error:', error);
+        throw error;
+      }
+
+      console.log('✅ Video generation response:', data);
 
       if (data.success && data.videoUrl) {
+        // Immediately jump to 100% on success
         setProgress(100);
         setStatusMessage("Video ready!");
         setGeneratedVideoUrl(data.videoUrl);
-        toast.success(`Video generated successfully with ${videoModel === 'veo3' ? 'Google Veo 3' : 'Runway ML'}!`);
+        
+        const modelName = videoModel === 'veo3' ? 'Google Veo 3' : 'Runway ML';
+        const durationText = data.duration ? ` in ${data.duration}s` : '';
+        toast.success(`Video generated successfully with ${modelName}${durationText}!`);
+        
         onVideoGenerated?.(data.videoUrl, prompt);
       } else {
-        throw new Error(data.error || 'Failed to generate video');
+        console.error('❌ Invalid response:', data);
+        throw new Error(data.error || 'Failed to generate video - no video URL received');
       }
     } catch (error: any) {
-      console.error('Error generating video:', error);
-      toast.error(error.message || 'Failed to generate video. Please try again.');
+      console.error('❌ Error generating video:', error);
+      
+      // Provide specific error messages
+      let errorMessage = 'Failed to generate video. Please try again.';
+      if (error.message?.includes('API key') || error.message?.includes('authentication')) {
+        errorMessage = 'API authentication failed. Please check your API keys in Settings.';
+      } else if (error.message?.includes('rate limit')) {
+        errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
+      } else if (error.message?.includes('timeout') || error.message?.includes('timed out')) {
+        errorMessage = 'Video generation timed out. Try a shorter duration or simpler prompt.';
+      } else if (error.message?.includes('not available') || error.message?.includes('not found')) {
+        errorMessage = error.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage, { duration: 6000 });
       setProgress(0);
       setStatusMessage("");
     } finally {

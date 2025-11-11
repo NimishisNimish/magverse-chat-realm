@@ -80,12 +80,16 @@ async function generateWithRunway(prompt: string, duration: number, aspectRatio:
 
   console.log('✅ Video generation task created:', taskId);
 
-  // Step 2: Poll for completion (with timeout)
-  const maxWaitTime = 180000; // 3 minutes
-  const pollInterval = 5000; // 5 seconds
+  // Step 2: Poll for completion (with timeout and progress tracking)
+  const maxWaitTime = 300000; // 5 minutes
+  const pollInterval = 3000; // 3 seconds
   const startTime = Date.now();
+  let pollCount = 0;
 
   while (Date.now() - startTime < maxWaitTime) {
+    pollCount++;
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+    
     const statusResponse = await fetch(`https://api.dev.runwayml.com/v1/tasks/${taskId}`, {
       headers: {
         'Authorization': `Bearer ${RUNWAYML_API_KEY}`,
@@ -100,95 +104,194 @@ async function generateWithRunway(prompt: string, duration: number, aspectRatio:
     }
 
     const statusData = await statusResponse.json();
-    console.log('📊 Video generation status:', statusData.status, statusData);
+    const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+    console.log(`📊 Video generation status (poll #${pollCount}, ${elapsedSeconds}s):`, {
+      status: statusData.status,
+      progress: statusData.progress,
+      taskId
+    });
 
-    if (statusData.status === 'SUCCEEDED') {
-      // Check if output exists and has videos
-      const videoUrl = statusData.output?.[0] || statusData.output?.url || statusData.artifacts?.[0]?.url;
+    if (statusData.status === 'SUCCEEDED' || statusData.status === 'succeeded') {
+      // Check multiple possible locations for video URL
+      const videoUrl = statusData.output?.[0] || 
+                       statusData.output?.url || 
+                       statusData.artifacts?.[0]?.url ||
+                       statusData.videoUrl ||
+                       statusData.url;
       
       if (!videoUrl) {
-        console.error('❌ No video URL in response:', statusData);
-        throw new Error('Video generation completed but no video URL found');
+        console.error('❌ No video URL in response:', JSON.stringify(statusData, null, 2));
+        throw new Error('Video generation completed but no video URL found in response');
       }
       
-      console.log('✅ Video generation completed:', videoUrl);
+      // Validate video URL is accessible
+      try {
+        const videoCheckResponse = await fetch(videoUrl, { method: 'HEAD' });
+        if (!videoCheckResponse.ok) {
+          throw new Error(`Video URL not accessible: ${videoCheckResponse.status}`);
+        }
+      } catch (urlError) {
+        console.error('❌ Video URL validation failed:', urlError);
+        throw new Error('Video generated but URL is not accessible');
+      }
+      
+      console.log('✅ Video generation completed and validated:', videoUrl);
       return new Response(
         JSON.stringify({
           success: true,
           videoUrl,
           taskId,
           model: 'runway',
+          duration: elapsedSeconds,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-    } else if (statusData.status === 'FAILED') {
-      const failureReason = statusData.failure?.reason || 'Unknown error';
+    } else if (statusData.status === 'FAILED' || statusData.status === 'failed') {
+      const failureReason = statusData.failure?.reason || statusData.error || 'Unknown error';
       console.error('❌ Video generation failed:', failureReason);
       throw new Error(`Video generation failed: ${failureReason}`);
+    } else if (statusData.status === 'PENDING' || statusData.status === 'pending') {
+      console.log(`⏳ Video generation pending (${elapsedSeconds}s elapsed)...`);
+    } else if (statusData.status === 'PROCESSING' || statusData.status === 'processing') {
+      console.log(`🎬 Video generation in progress (${elapsedSeconds}s elapsed)...`);
+    } else {
+      console.log(`🔄 Video status: ${statusData.status} (${elapsedSeconds}s elapsed)...`);
     }
-
-    // Wait before next poll
-    await new Promise(resolve => setTimeout(resolve, pollInterval));
   }
 
   // Timeout reached
-  throw new Error('Video generation timed out. Please try again with a shorter duration.');
+  const elapsedMinutes = Math.floor((Date.now() - startTime) / 60000);
+  throw new Error(`Video generation timed out after ${elapsedMinutes} minutes. The video may still be processing. Please try again or use a shorter duration.`);
 }
 
 async function generateWithVeo3(prompt: string, duration: number, aspectRatio: string) {
   if (!GOOGLE_AI_API_KEY) {
-    throw new Error('GOOGLE_AI_API_KEY is not configured');
+    throw new Error('GOOGLE_AI_API_KEY is not configured. Please add your Google AI API key.');
   }
 
   console.log('🎬 Generating video with Google Veo 3:', { prompt, duration, aspectRatio });
 
-  // Google Veo 3 API call - this is a placeholder as the actual API might be different
-  // You'll need to update this with the actual Veo 3 API endpoint when available
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/veo-3:generateVideo?key=${GOOGLE_AI_API_KEY}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      prompt: {
-        text: prompt,
+  // Step 1: Create video generation request
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/veo-002:generateVideo?key=${GOOGLE_AI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      videoConfig: {
-        duration: duration,
-        aspectRatio: aspectRatio,
-      },
-    }),
-  });
+      body: JSON.stringify({
+        prompt: {
+          text: prompt,
+        },
+        videoConfig: {
+          duration: `${duration}s`,
+          aspectRatio: aspectRatio,
+        },
+      }),
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('❌ Google Veo 3 API error:', errorText);
-    
-    // If endpoint not available, throw specific error
-    if (response.status === 404) {
-      throw new Error('Google Veo 3 API is not yet available. Please use Runway ML for now.');
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Google Veo 3 API error:', errorText);
+      
+      // Handle specific errors
+      if (response.status === 404) {
+        throw new Error('Google Veo 3 API endpoint not found. The API may not be available yet. Please use Runway ML instead.');
+      } else if (response.status === 401 || response.status === 403) {
+        throw new Error('Google AI API authentication failed. Please check your API key in Settings.');
+      } else if (response.status === 429) {
+        throw new Error('Google AI API rate limit exceeded. Please try again in a few moments.');
+      }
+      
+      throw new Error(`Google Veo 3 API error (${response.status}): ${errorText.substring(0, 200)}`);
     }
+
+    const data = await response.json();
+    console.log('📊 Veo 3 initial response:', JSON.stringify(data, null, 2));
     
-    throw new Error(`Google Veo 3 API error: ${response.status} - ${errorText}`);
-  }
+    // Check if response contains operation name for polling
+    const operationName = data.name || data.operation;
+    
+    if (operationName) {
+      // Poll for completion
+      const maxWaitTime = 300000; // 5 minutes
+      const pollInterval = 5000; // 5 seconds
+      const startTime = Date.now();
+      let pollCount = 0;
 
-  const data = await response.json();
-  
-  // Extract video URL from response (adjust based on actual API response)
-  const videoUrl = data.video?.uri || data.videoUrl || data.output;
-  
-  if (!videoUrl) {
-    throw new Error('No video URL in Veo 3 response');
-  }
+      while (Date.now() - startTime < maxWaitTime) {
+        pollCount++;
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        
+        const statusResponse = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/${operationName}?key=${GOOGLE_AI_API_KEY}`,
+          {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
 
-  console.log('✅ Video generated with Veo 3:', videoUrl);
-  
-  return new Response(
-    JSON.stringify({
-      success: true,
-      videoUrl,
-      model: 'veo3',
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
+        if (!statusResponse.ok) {
+          console.error('❌ Failed to check Veo 3 status');
+          continue;
+        }
+
+        const statusData = await statusResponse.json();
+        const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+        console.log(`📊 Veo 3 status (poll #${pollCount}, ${elapsedSeconds}s):`, statusData.done ? 'DONE' : 'PROCESSING');
+
+        if (statusData.done) {
+          // Extract video URL from completed operation
+          const videoUrl = statusData.response?.videoUri || 
+                          statusData.response?.uri || 
+                          statusData.response?.url ||
+                          statusData.result?.videoUri;
+          
+          if (!videoUrl) {
+            console.error('❌ No video URL in Veo 3 completion response:', JSON.stringify(statusData, null, 2));
+            throw new Error('Video generation completed but no video URL found');
+          }
+
+          console.log('✅ Veo 3 video generated:', videoUrl);
+          
+          return new Response(
+            JSON.stringify({
+              success: true,
+              videoUrl,
+              model: 'veo3',
+              duration: elapsedSeconds,
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        if (statusData.error) {
+          throw new Error(`Veo 3 generation failed: ${statusData.error.message || 'Unknown error'}`);
+        }
+      }
+
+      throw new Error('Veo 3 video generation timed out after 5 minutes');
+    } else {
+      // Immediate response with video URL
+      const videoUrl = data.video?.uri || data.videoUri || data.uri || data.url;
+      
+      if (!videoUrl) {
+        console.error('❌ No video URL in immediate Veo 3 response:', JSON.stringify(data, null, 2));
+        throw new Error('No video URL in Veo 3 response');
+      }
+
+      console.log('✅ Veo 3 video generated (immediate):', videoUrl);
+      
+      return new Response(
+        JSON.stringify({
+          success: true,
+          videoUrl,
+          model: 'veo3',
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+  } catch (error: any) {
+    console.error('❌ Veo 3 generation error:', error);
+    throw error;
+  }
 }

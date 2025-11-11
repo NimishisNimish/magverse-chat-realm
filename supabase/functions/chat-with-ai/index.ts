@@ -108,6 +108,9 @@ const providerConfig: Record<string, any> = {
     endpoint: 'https://api.perplexity.ai/chat/completions',
     model: 'sonar-pro',
     headers: () => {
+      if (!perplexityApiKey) {
+        throw new Error('Perplexity API key is not configured. Please add your API key in Settings.');
+      }
       console.log('🔑 Perplexity headers generated:', {
         hasApiKey: !!perplexityApiKey,
         keyLength: perplexityApiKey?.length,
@@ -157,6 +160,9 @@ const providerConfig: Record<string, any> = {
     endpoint: 'https://openrouter.ai/api/v1/chat/completions',
     model: 'anthropic/claude-3.5-sonnet',
     headers: () => {
+      if (!openRouterApiKey) {
+        throw new Error('OpenRouter API key is not configured. Please add your API key in Settings.');
+      }
       console.log('🔑 OpenRouter (Claude) headers generated:', {
         hasApiKey: !!openRouterApiKey,
         keyLength: openRouterApiKey?.length,
@@ -439,19 +445,21 @@ serve(async (req) => {
     // ====== FETCH USER CUSTOM INSTRUCTIONS ======
     let customInstructions: string | null = null;
     try {
-      const { data: instructionsData } = await supabase
+      const { data: instructionsData, error: instructionsError } = await supabase
         .from('ai_custom_instructions')
         .select('instructions')
         .eq('user_id', user.id)
         .eq('is_active', true)
         .single();
       
-      if (instructionsData) {
+      if (instructionsData && !instructionsError) {
         customInstructions = instructionsData.instructions;
-        console.log(`📝 Custom instructions loaded for user ${user.id}`);
+        console.log(`📝 Custom instructions loaded for user ${user.id}: "${customInstructions?.substring(0, 100)}..."`);
+      } else {
+        console.log('📝 No custom instructions found for user', user.id);
       }
     } catch (error) {
-      console.log('No custom instructions found, using defaults');
+      console.log('📝 No custom instructions found, using defaults');
     }
     // ====== END CUSTOM INSTRUCTIONS ======
 
@@ -758,7 +766,7 @@ serve(async (req) => {
         hasKey: true
       });
 
-      // Retry logic with exponential backoff
+      // Retry logic with exponential backoff and improved error handling
       const makeAPICall = async (retries = 3, delay = 2000): Promise<any> => {
         for (let attempt = 0; attempt <= retries; attempt++) {
           try {
@@ -767,12 +775,25 @@ serve(async (req) => {
               setTimeout(() => reject(new Error(`${modelId} request timed out after ${timeout/1000}s`)), timeout)
             );
 
+            // Validate API key before making request
+            if (!config.apiKey) {
+              throw new Error(`${modelId} API key is not configured. Please add your API key in Settings.`);
+            }
+
             const requestBody = config.bodyTemplate(finalMessages, effectiveWebSearchEnabled, searchMode);
             console.log(`🔄 Attempt ${attempt + 1}/${retries + 1} for ${modelId} (${config.provider})`);
 
+            // Generate headers (with error handling)
+            let headers;
+            try {
+              headers = config.headers();
+            } catch (headerError: any) {
+              throw new Error(headerError.message || `Failed to generate headers for ${modelId}`);
+            }
+
             const fetchPromise = fetch(config.endpoint, {
               method: 'POST',
-              headers: config.headers(),
+              headers,
               body: JSON.stringify(requestBody),
             });
 
@@ -788,33 +809,52 @@ serve(async (req) => {
             const errorText = await response.text();
             console.error(`❌ ${modelId} API error (${response.status}):`, errorText.substring(0, 500));
 
+            // Handle authentication errors (don't retry)
             if (response.status === 401 || response.status === 403) {
-              throw new Error(`Authentication failed - please verify API key for ${modelId} (${config.provider})`);
+              throw new Error(`${modelId} authentication failed. Please check your API key in Settings.`);
             }
 
+            // Handle rate limiting with exponential backoff (longer delays)
             if (response.status === 429 && attempt < retries) {
-              const backoffDelay = delay * Math.pow(2, attempt);
+              const backoffDelay = delay * Math.pow(3, attempt); // 2s, 6s, 18s
               console.log(`⏳ ${modelId} rate limited, waiting ${backoffDelay}ms before retry ${attempt + 2}/${retries + 1}...`);
               await new Promise(resolve => setTimeout(resolve, backoffDelay));
               continue;
             }
             
-            if (response.status === 500 && attempt < retries) {
-              const backoffDelay = delay * Math.pow(2, attempt);
-              console.log(`⏳ ${modelId} server error, waiting ${backoffDelay}ms before retry ${attempt + 2}/${retries + 1}...`);
+            // Handle server errors with retry
+            if (response.status >= 500 && attempt < retries) {
+              const backoffDelay = delay * Math.pow(2, attempt); // 2s, 4s, 8s
+              console.log(`⏳ ${modelId} server error (${response.status}), waiting ${backoffDelay}ms before retry ${attempt + 2}/${retries + 1}...`);
               await new Promise(resolve => setTimeout(resolve, backoffDelay));
               continue;
             }
 
+            // Handle payment/credit issues
             if (response.status === 402) {
-              throw new Error('Payment required. Please add credits to your API account.');
+              throw new Error(`${modelId} requires payment or credits. Please add credits to your account.`);
+            }
+
+            // Handle bad request errors
+            if (response.status === 400) {
+              throw new Error(`${modelId} bad request: ${errorText.substring(0, 200)}`);
             }
 
             throw new Error(`${modelId} API error (${response.status}): ${errorText.substring(0, 200)}`);
           } catch (error: any) {
-            if (attempt === retries || error.message.includes('authentication') || error.message.includes('Payment required') || error.message.includes('timed out')) {
+            // Don't retry on specific errors
+            if (
+              attempt === retries || 
+              error.message.includes('authentication') || 
+              error.message.includes('API key') ||
+              error.message.includes('Payment required') ||
+              error.message.includes('credits') ||
+              error.message.includes('bad request')
+            ) {
               throw error;
             }
+            
+            // Network or timeout errors - retry with backoff
             console.error(`❌ ${modelId} attempt ${attempt + 1}/${retries + 1} failed:`, error.message);
             if (attempt < retries) {
               const backoffDelay = delay * Math.pow(2, attempt);
