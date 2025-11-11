@@ -28,7 +28,7 @@ serve(async (req) => {
     console.log('🎬 Generating video with Runway ML:', { prompt, duration, aspectRatio });
 
     // Step 1: Create video generation task
-    const createResponse = await fetch('https://api.dev.runwayml.com/v1/generate', {
+    const createResponse = await fetch('https://api.dev.runwayml.com/v1/text_to_video', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${RUNWAYML_API_KEY}`,
@@ -37,9 +37,9 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'gen3a_turbo',
-        prompt_text: prompt,
+        promptText: prompt,
         duration,
-        aspect_ratio: aspectRatio,
+        ratio: aspectRatio,
       }),
     });
 
