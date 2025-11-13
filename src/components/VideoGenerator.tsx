@@ -21,7 +21,7 @@ interface VideoGeneratorProps {
 
 export default function VideoGenerator({ profile, onVideoGenerated }: VideoGeneratorProps) {
   const [prompt, setPrompt] = useState("");
-  const [duration, setDuration] = useState("8");
+  const [duration, setDuration] = useState("6");
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [videoModel, setVideoModel] = useState<'runway'>('runway');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -162,7 +162,7 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
         setGeneratedVideoUrl(data.videoUrl);
         setIsGenerating(false);
         
-        const modelName = 'Runway ML';
+        const modelName = 'Runway ML (Veo 3.1 Fast)';
         const durationText = data.duration ? ` in ${data.duration}s` : '';
         toast.success(`Video generated successfully with ${modelName}${durationText}!`);
         
@@ -267,12 +267,12 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="runway">Runway ML Gen-3 Turbo</SelectItem>
+                  <SelectItem value="runway">Runway ML - Veo 3.1 Fast</SelectItem>
                   <SelectItem value="veo3" disabled>Google Veo 3 (Coming Soon)</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Google Veo 3 API is not yet publicly available. Using Runway ML for video generation.
+                Using Runway ML's Veo 3.1 Fast model for high-quality video generation.
               </p>
             </div>
 
@@ -284,9 +284,9 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="5">5 seconds</SelectItem>
+                    <SelectItem value="4">4 seconds</SelectItem>
+                    <SelectItem value="6">6 seconds</SelectItem>
                     <SelectItem value="8">8 seconds</SelectItem>
-                    <SelectItem value="10">10 seconds</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -300,7 +300,6 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
                   <SelectContent>
                     <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
                     <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
-                    <SelectItem value="1:1">1:1 (Square)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
