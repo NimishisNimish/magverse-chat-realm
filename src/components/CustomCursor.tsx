@@ -36,41 +36,57 @@ const CustomCursor = () => {
   // Don't render on mobile/touch devices
   if (isMobile) return null;
 
-  const getOuterScale = () => {
+  const getCursorScale = () => {
     switch (cursorVariant) {
       case 'link':
       case 'button':
-        return 1.5;
+        return 1.3;
       case 'card':
-        return 1.8;
+        return 1.5;
+      case 'text':
+        return 1.2;
+      case 'image':
+        return 1.4;
       default:
         return 1;
     }
   };
 
   return (
-    <>
-      {/* Outer cursor - glowing ring */}
-      <div
-        className="custom-cursor-outer"
-        style={{
-          left: `${position.x}px`,
-          top: `${position.y}px`,
-          transform: `translate(-50%, -50%) scale(${getOuterScale()})`,
-          opacity: isVisible ? 1 : 0,
-        }}
-      />
-      
-      {/* Inner cursor - small dot */}
-      <div
-        className="custom-cursor-inner"
-        style={{
-          left: `${position.x}px`,
-          top: `${position.y}px`,
-          opacity: isVisible ? 1 : 0,
-        }}
-      />
-    </>
+    <div
+      className="custom-cursor-pointer"
+      style={{
+        left: `${position.x}px`,
+        top: `${position.y}px`,
+        transform: `translate(-20%, -20%) scale(${getCursorScale()})`,
+        opacity: isVisible ? 1 : 0,
+      }}
+    >
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="cursorGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="hsl(var(--primary))" />
+            <stop offset="50%" stopColor="hsl(var(--accent))" />
+            <stop offset="100%" stopColor="hsl(var(--secondary))" />
+          </linearGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+            <feMerge>
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+        <path
+          d="M4 4 L4 28 L12 20 L16 28 L20 26 L16 18 L28 18 Z"
+          fill="url(#cursorGradient)"
+          filter="url(#glow)"
+          stroke="white"
+          strokeWidth="1.5"
+          strokeOpacity="0.8"
+        />
+      </svg>
+    </div>
   );
 };
 
