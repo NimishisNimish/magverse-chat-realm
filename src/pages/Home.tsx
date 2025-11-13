@@ -119,7 +119,7 @@ const Home = () => {
 
           <div className="grid md:grid-cols-3 gap-8">
             {/* Free Plan */}
-            <div className="glass-card-hover p-8 rounded-2xl space-y-6 border-accent/20">
+            <div className="glass-card-hover p-8 rounded-2xl space-y-6 border-accent/20 stagger-item" style={{ animationDelay: '0.1s' }}>
               <div className="space-y-2">
                 <h3 className="text-2xl font-bold">Free</h3>
                 <p className="text-muted-foreground">Try out MagverseAI with basic features</p>
@@ -163,7 +163,7 @@ const Home = () => {
             </div>
 
             {/* Yearly Plan */}
-            <div className="glass-card p-8 rounded-2xl space-y-6 border-primary relative">
+            <div className="glass-card p-8 rounded-2xl space-y-6 border-primary relative stagger-item" style={{ animationDelay: '0.2s' }}>
               <div className="absolute top-4 right-4">
                 <div className="px-3 py-1 rounded-full bg-primary text-xs font-semibold text-white">
                   MOST POPULAR
@@ -219,7 +219,7 @@ const Home = () => {
             </div>
 
             {/* Lifetime Plan */}
-            <div className="glass-card-hover p-8 rounded-2xl space-y-6 border-accent/20">
+            <div className="glass-card-hover p-8 rounded-2xl space-y-6 border-accent/20 stagger-item" style={{ animationDelay: '0.3s' }}>
               <div className="space-y-2">
                 <h3 className="text-2xl font-bold">Lifetime</h3>
                 <p className="text-muted-foreground">For individuals and professionals</p>

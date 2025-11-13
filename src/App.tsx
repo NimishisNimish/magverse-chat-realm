@@ -2,11 +2,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { CursorProvider } from "@/contexts/CursorContext";
 import CustomCursor from "@/components/CustomCursor";
+import { AnimatePresence } from "framer-motion";
+import PageTransition from "@/components/PageTransition";
 import Home from "./pages/Home";
 import Chat from "./pages/Chat";
 import Upgrade from "./pages/Upgrade";
@@ -50,6 +52,45 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return user ? <>{children}</> : <Navigate to="/auth" />;
 };
 
+const AnimatedRoutes = () => {
+  const location = useLocation();
+  
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<PageTransition><Home /></PageTransition>} />
+        <Route path="/auth" element={<PageTransition><Auth /></PageTransition>} />
+        <Route path="/reset-password" element={<PageTransition><ResetPassword /></PageTransition>} />
+        <Route path="/reset-password-confirm" element={<PageTransition><ResetPasswordConfirm /></PageTransition>} />
+        <Route path="/privacy-policy" element={<PageTransition><PrivacyPolicy /></PageTransition>} />
+        <Route path="/terms-of-service" element={<PageTransition><TermsOfService /></PageTransition>} />
+        <Route path="/link-phone" element={<ProtectedRoute><PageTransition><LinkPhone /></PageTransition></ProtectedRoute>} />
+        <Route path="/chat" element={<ProtectedRoute><PageTransition><Chat /></PageTransition></ProtectedRoute>} />
+        <Route path="/history" element={<ProtectedRoute><PageTransition><History /></PageTransition></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><PageTransition><ProfileSettings /></PageTransition></ProtectedRoute>} />
+        <Route path="/upgrade" element={<ProtectedRoute><PageTransition><Upgrade /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute><PageTransition><Admin /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/dashboard" element={<ProtectedRoute><PageTransition><AdminDashboard /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/analytics" element={<ProtectedRoute><PageTransition><Analytics /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/advanced-analytics" element={<ProtectedRoute><PageTransition><AdminAnalyticsDashboard /></PageTransition></ProtectedRoute>} />
+        <Route path="/payment" element={<PageTransition><Payment /></PageTransition>} />
+        <Route path="/dashboard" element={<ProtectedRoute><PageTransition><Dashboard /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/old-analytics" element={<ProtectedRoute><PageTransition><AdminAnalytics /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/users" element={<ProtectedRoute><PageTransition><UserManagement /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/activity" element={<ProtectedRoute><PageTransition><AdminUserActivity /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/payment-queue" element={<ProtectedRoute><PageTransition><AdminPaymentQueue /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/traffic" element={<ProtectedRoute><PageTransition><AdminTraffic /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/user/:userId" element={<ProtectedRoute><PageTransition><AdminUserDetail /></PageTransition></ProtectedRoute>} />
+        <Route path="/model-comparison" element={<ProtectedRoute><PageTransition><ModelComparison /></PageTransition></ProtectedRoute>} />
+        <Route path="/image-gallery" element={<ProtectedRoute><PageTransition><ImageGallery /></PageTransition></ProtectedRoute>} />
+        <Route path="/pro-analytics" element={<ProtectedRoute><PageTransition><ProAnalytics /></PageTransition></ProtectedRoute>} />
+        <Route path="/support" element={<PageTransition><Support /></PageTransition>} />
+        <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
+      </Routes>
+    </AnimatePresence>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
@@ -60,36 +101,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <AuthProvider>
-              <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/reset-password-confirm" element={<ResetPasswordConfirm />} />
-            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-            <Route path="/terms-of-service" element={<TermsOfService />} />
-            <Route path="/link-phone" element={<ProtectedRoute><LinkPhone /></ProtectedRoute>} />
-            <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
-            <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
-            <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
-            <Route path="/upgrade" element={<ProtectedRoute><Upgrade /></ProtectedRoute>} />
-            <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-          <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-          <Route path="/admin/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-          <Route path="/admin/advanced-analytics" element={<ProtectedRoute><AdminAnalyticsDashboard /></ProtectedRoute>} />
-          <Route path="/payment" element={<Payment />} />
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/admin/old-analytics" element={<ProtectedRoute><AdminAnalytics /></ProtectedRoute>} />
-            <Route path="/admin/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
-            <Route path="/admin/activity" element={<ProtectedRoute><AdminUserActivity /></ProtectedRoute>} />
-            <Route path="/admin/payment-queue" element={<ProtectedRoute><AdminPaymentQueue /></ProtectedRoute>} />
-            <Route path="/admin/traffic" element={<ProtectedRoute><AdminTraffic /></ProtectedRoute>} />
-            <Route path="/admin/user/:userId" element={<ProtectedRoute><AdminUserDetail /></ProtectedRoute>} />
-            <Route path="/model-comparison" element={<ProtectedRoute><ModelComparison /></ProtectedRoute>} />
-            <Route path="/image-gallery" element={<ProtectedRoute><ImageGallery /></ProtectedRoute>} />
-            <Route path="/pro-analytics" element={<ProtectedRoute><ProAnalytics /></ProtectedRoute>} />
-            <Route path="/support" element={<Support />} />
-            <Route path="*" element={<NotFound />} />
-              </Routes>
+              <AnimatedRoutes />
             </AuthProvider>
           </BrowserRouter>
         </TooltipProvider>
