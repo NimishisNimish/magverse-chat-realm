@@ -35,7 +35,7 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
   
   const isProYearlyOrLifetime = profile?.subscription_type === 'yearly' || profile?.subscription_type === 'lifetime';
 
-  // Check admin status using RPC function (more secure than client-side check)
+  // Check admin status using RPC function with timeout
   useEffect(() => {
     const checkAdminStatus = async () => {
       try {
@@ -48,11 +48,17 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
           return;
         }
         
-        // Use has_role function for secure admin check
-        const { data, error } = await supabase.rpc('has_role', {
+        // Add 5-second timeout to prevent infinite loading
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Admin check timeout')), 5000)
+        );
+        
+        const rpcPromise = supabase.rpc('has_role', {
           _user_id: user.id,
           _role: 'admin'
         });
+        
+        const { data, error } = await Promise.race([rpcPromise, timeoutPromise]) as any;
         
         if (error) {
           console.error('Error checking admin role:', error);
@@ -61,8 +67,8 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
           setIsAdmin(data === true);
         }
       } catch (error) {
-        console.error('Error checking admin status:', error);
-        setIsAdmin(false);
+        console.error('Admin check timeout or error:', error);
+        setIsAdmin(false); // Default to non-admin on timeout
       } finally {
         setCheckingAdmin(false);
       }

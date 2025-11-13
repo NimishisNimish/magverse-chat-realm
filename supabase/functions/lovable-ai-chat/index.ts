@@ -86,7 +86,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, model = "google/gemini-2.5-flash", stream = false, generateImage = false, webSearchEnabled = false, searchMode = 'general' } = await req.json();
+    const { messages, model = "google/gemini-2.5-flash", stream = false, generateImage = false, webSearchEnabled = false, searchMode = 'general', deepResearch = false } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -130,15 +130,24 @@ serve(async (req) => {
       model: selectedModel,
       messageCount: processedMessages.length,
       hasMultimodal: processedMessages.some((m: any) => Array.isArray(m.content)),
-      webSearchEnabled
+      webSearchEnabled,
+      deepResearch
     });
 
+    // Add system prompt for deep research if enabled
+    let finalMessages = deepResearch ? [
+      { 
+        role: 'system', 
+        content: 'You are a thorough research assistant. Provide comprehensive, in-depth answers with detailed explanations, multiple perspectives, and extensive analysis. Take your time to think through the question carefully.'
+      },
+      ...processedMessages
+    ] : processedMessages;
+
     // Perform web search if enabled (inject web results into messages)
-    let finalMessages = processedMessages;
     let webSearchSources: Array<{url: string, title: string}> = [];
     
     if (webSearchEnabled && !generateImage) {
-      const lastMsg = processedMessages[processedMessages.length - 1];
+      const lastMsg = finalMessages[finalMessages.length - 1];
       const userQuery = typeof lastMsg.content === 'string' 
         ? lastMsg.content 
         : (Array.isArray(lastMsg.content) && lastMsg.content[0]?.text) || '';
@@ -164,7 +173,7 @@ ${searchResults.content}${sourcesText}
 Please synthesize the above web information to provide a current, accurate answer. Use numbered citations [1], [2] when referencing web data.`;
 
           finalMessages = [
-            ...processedMessages.slice(0, -1),
+            ...finalMessages.slice(0, -1),
             {
               role: 'user',
               content: enhancedPrompt
