@@ -23,7 +23,7 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
   const [prompt, setPrompt] = useState("");
   const [duration, setDuration] = useState("8");
   const [aspectRatio, setAspectRatio] = useState("16:9");
-  const [videoModel, setVideoModel] = useState<'runway' | 'veo3'>('runway');
+  const [videoModel, setVideoModel] = useState<'runway'>('runway');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -162,7 +162,7 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
         setGeneratedVideoUrl(data.videoUrl);
         setIsGenerating(false);
         
-        const modelName = videoModel === 'veo3' ? 'Google Veo 3' : 'Runway ML';
+        const modelName = 'Runway ML';
         const durationText = data.duration ? ` in ${data.duration}s` : '';
         toast.success(`Video generated successfully with ${modelName}${durationText}!`);
         
@@ -262,15 +262,18 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Video Model</label>
-              <Select value={videoModel} onValueChange={(value: 'runway' | 'veo3') => setVideoModel(value)} disabled={isGenerating}>
+              <Select value={videoModel} onValueChange={(value: 'runway') => setVideoModel(value)} disabled={isGenerating}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="runway">Runway ML Gen-3 Turbo</SelectItem>
-                  <SelectItem value="veo3">Google Veo 3 (Experimental)</SelectItem>
+                  <SelectItem value="veo3" disabled>Google Veo 3 (Coming Soon)</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                Google Veo 3 API is not yet publicly available. Using Runway ML for video generation.
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
