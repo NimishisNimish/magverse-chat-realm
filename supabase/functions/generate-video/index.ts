@@ -24,12 +24,11 @@ serve(async (req) => {
 
     console.log('🎬 Generating video:', { prompt, duration, aspectRatio, model });
 
-    // Generate video based on selected model
+    // Always use Runway ML (Veo 3 API not yet available)
     if (model === "veo3") {
-      return await generateWithVeo3(prompt, duration, aspectRatio);
-    } else {
-      return await generateWithRunway(prompt, duration, aspectRatio);
+      console.log('⚠️ Veo 3 requested but not available, using Runway ML instead');
     }
+    return await generateWithRunway(prompt, duration, aspectRatio);
 
   } catch (error: any) {
     console.error('❌ Error in generate-video function:', error);
