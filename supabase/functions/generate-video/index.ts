@@ -50,9 +50,20 @@ async function generateWithRunway(prompt: string, duration: number, aspectRatio:
     throw new Error('RUNWAYML_API_KEY is not configured');
   }
 
-  console.log('🎬 Generating video with Runway ML:', { prompt, duration, aspectRatio });
+  console.log('🎬 Generating video with Runway ML (Veo 3.1 Fast):', { prompt, duration, aspectRatio });
 
-  // Step 1: Create video generation task
+  // Map aspect ratios to Runway ML format
+  const ratioMap: Record<string, string> = {
+    '16:9': '1920:1080',
+    '9:16': '1080:1920',
+  };
+  
+  const ratio = ratioMap[aspectRatio] || '1920:1080';
+  
+  // Runway ML Veo models only support 4, 6, or 8 seconds
+  const validDuration = duration <= 4 ? 4 : duration <= 6 ? 6 : 8;
+
+  // Step 1: Create video generation task using Veo 3.1 Fast
   const createResponse = await fetch('https://api.dev.runwayml.com/v1/text_to_video', {
     method: 'POST',
     headers: {
@@ -61,10 +72,10 @@ async function generateWithRunway(prompt: string, duration: number, aspectRatio:
       'X-Runway-Version': '2024-11-06',
     },
     body: JSON.stringify({
-      model: 'gen3a_turbo',
+      model: 'veo3.1_fast',
       promptText: prompt,
-      duration,
-      ratio: aspectRatio,
+      duration: validDuration,
+      ratio: ratio,
     }),
   });
 
