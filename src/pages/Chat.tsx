@@ -59,8 +59,6 @@ import { MessageAnnotations } from "@/components/MessageAnnotations";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { RealtimeMessageSync } from "@/components/RealtimeMessageSync";
 import { ModelABTesting } from "@/components/ModelABTesting";
-import VideoGenerator from "@/components/VideoGenerator";
-import VideoEditor from "@/components/VideoEditor";
 import {
   Sheet,
   SheetContent,
@@ -119,9 +117,7 @@ const Chat = () => {
   const [isDeepResearching, setIsDeepResearching] = useState(false);
   const [imageGenerationMode, setImageGenerationMode] = useState(false);
   const [imageStyle, setImageStyle] = useState<'realistic' | 'artistic' | 'cartoon' | 'anime' | 'photographic'>('realistic');
-  const [videoGenerationMode, setVideoGenerationMode] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [editingVideoUrl, setEditingVideoUrl] = useState<string | null>(null);
   const [customInstructions, setCustomInstructions] = useState<string | null>(null);
   const [uploadAbortController, setUploadAbortController] = useState<AbortController | null>(null);
   const [editingImageId, setEditingImageId] = useState<string | null>(null);
@@ -256,10 +252,7 @@ const Chat = () => {
     if (imageGenerationMode && !selectedModels.includes('gemini-flash')) {
       setSelectedModels(['gemini-flash']);
     }
-    if (videoGenerationMode) {
-      setSelectedModels([]);
-    }
-  }, [imageGenerationMode, videoGenerationMode]);
+  }, [imageGenerationMode]);
 
   const toggleModel = (modelId: string) => {
     const isPro = profile?.is_pro || profile?.subscription_type === 'monthly' || profile?.subscription_type === 'lifetime' || profile?.subscription_type === 'yearly';
@@ -1936,56 +1929,6 @@ const Chat = () => {
             </>
           )}
           
-          <button
-            onClick={() => setVideoGenerationMode(!videoGenerationMode)}
-            className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
-              videoGenerationMode 
-                ? 'glass-card border-blue-500/50 shadow-lg shadow-blue-500/20' 
-                : 'hover:bg-muted/20'
-            }`}
-          >
-            <div className={`w-8 h-8 rounded-lg ${videoGenerationMode ? 'bg-blue-500/20' : 'bg-muted/20'} flex items-center justify-center`}>
-              <Video className={`w-4 h-4 ${videoGenerationMode ? 'text-blue-400' : 'text-muted-foreground'}`} />
-            </div>
-            <span className={`font-medium ${videoGenerationMode ? 'text-foreground' : 'text-muted-foreground'}`}>
-              Generate Videos
-            </span>
-            {videoGenerationMode && <Circle className="w-2 h-2 ml-auto fill-blue-400 text-blue-400" />}
-          </button>
-          
-          {videoGenerationMode && (
-            <div className="pl-2 animate-fade-in">
-              <VideoGenerator 
-                profile={profile}
-                onVideoGenerated={(url, prompt) => {
-                  const videoMessage: Message = {
-                    id: crypto.randomUUID(),
-                    model: 'RunwayML Video',
-                    content: prompt,
-                    timestamp: new Date(),
-                    role: 'assistant',
-                    videos: [{ videoUrl: url, prompt }]
-                  };
-                  setMessages(prev => [...prev, videoMessage]);
-                  
-                  // Save to localStorage for gallery
-                  const savedVideos = JSON.parse(localStorage.getItem('savedVideos') || '[]');
-                  savedVideos.push({
-                    id: crypto.randomUUID(),
-                    url,
-                    prompt,
-                    timestamp: new Date()
-                  });
-                  localStorage.setItem('savedVideos', JSON.stringify(savedVideos));
-                  
-                  toast({
-                    title: "Video Generated!",
-                    description: "Your video has been created successfully.",
-                  });
-                }} 
-              />
-            </div>
-          )}
         </div>
       </div>
       
@@ -1994,14 +1937,6 @@ const Chat = () => {
         <Button variant="outline" className="w-full justify-start">
           <ImageIcon className="w-5 h-5" />
           Image Gallery ({savedImages.length})
-        </Button>
-      </Link>
-      
-      {/* Video Gallery Button */}
-      <Link to="/video-gallery">
-        <Button variant="outline" className="w-full justify-start">
-          <Video className="w-5 h-5" />
-          Video Gallery
         </Button>
       </Link>
       
@@ -2435,15 +2370,6 @@ const Chat = () => {
                               <Button 
                                 size="sm" 
                                 variant="secondary"
-                                onClick={() => setEditingVideoUrl(vid.videoUrl)}
-                                className="shadow-lg"
-                                title="Edit Video"
-                              >
-                                <Sparkles className="w-4 h-4" />
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="secondary"
                                 onClick={async () => {
                                   try {
                                     const a = document.createElement('a');
@@ -2613,44 +2539,6 @@ const Chat = () => {
                     </div>
                   </div>
                 )}
-              
-              {/* Video Generator */}
-              {videoGenerationMode && (
-                <div className="mb-4">
-                  <VideoGenerator 
-                    profile={profile} 
-                    onVideoGenerated={(videoUrl, prompt) => {
-                      // Add user prompt message first
-                      const userMessage: Message = {
-                        id: Date.now().toString(),
-                        model: 'User',
-                        content: prompt,
-                        timestamp: new Date(),
-                        role: 'user'
-                      };
-                      
-                      // Then add video response message
-                      const videoMessage: Message = {
-                        id: (Date.now() + 1).toString(),
-                        model: 'Video AI',
-                        content: `Generated video: "${prompt}"`,
-                        timestamp: new Date(),
-                        role: 'assistant',
-                        videos: [{ videoUrl, prompt }]
-                      };
-                      
-                      setMessages(prev => [...prev, userMessage, videoMessage]);
-                      toast({ 
-                        title: "Video added to chat", 
-                        description: "Your generated video is now in the conversation" 
-                      });
-                      
-                      // Exit video generation mode after successful generation
-                      setVideoGenerationMode(false);
-                    }}
-                  />
-                </div>
-              )}
               
               {/* Image Generation Mode Indicator */}
               {imageGenerationMode && (
@@ -2922,23 +2810,6 @@ const Chat = () => {
         </div>
       )}
 
-      {/* Video Editor Dialog */}
-      {editingVideoUrl && (
-        <Dialog open={!!editingVideoUrl} onOpenChange={() => setEditingVideoUrl(null)}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <VideoEditor
-              videoUrl={editingVideoUrl}
-              onSave={(editedUrl) => {
-                setEditingVideoUrl(null);
-                toast({
-                  title: "Video edited",
-                  description: "Your video has been edited successfully",
-                });
-              }}
-            />
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 };
