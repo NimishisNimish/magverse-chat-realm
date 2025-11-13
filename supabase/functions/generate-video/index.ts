@@ -82,6 +82,12 @@ async function generateWithRunway(prompt: string, duration: number, aspectRatio:
   if (!createResponse.ok) {
     const errorText = await createResponse.text();
     console.error('❌ Runway ML API error:', errorText);
+    
+    // Handle specific error cases
+    if (createResponse.status === 400 && errorText.includes('not have enough credits')) {
+      throw new Error('Insufficient Runway ML credits. Please add credits at https://app.runwayml.com/billing to continue generating videos.');
+    }
+    
     throw new Error(`Runway ML API error: ${createResponse.status} - ${errorText}`);
   }
 

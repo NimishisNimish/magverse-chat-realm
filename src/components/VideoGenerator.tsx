@@ -182,7 +182,9 @@ export default function VideoGenerator({ profile, onVideoGenerated }: VideoGener
       
       // Provide specific error messages
       let errorMessage = 'Failed to generate video. Please try again.';
-      if (error.message?.includes('API key') || error.message?.includes('authentication')) {
+      if (error.message?.includes('Insufficient Runway ML credits') || error.message?.includes('not have enough credits')) {
+        errorMessage = 'Your Runway ML account is out of credits. Please add credits at app.runwayml.com/billing to continue.';
+      } else if (error.message?.includes('API key') || error.message?.includes('authentication')) {
         errorMessage = 'API authentication failed. Please check your API keys in Settings.';
       } else if (error.message?.includes('rate limit')) {
         errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
