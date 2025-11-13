@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Image as ImageIcon, Palette, Camera, Sparkles, Download, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useCursor } from "@/contexts/CursorContext";
+import { useScrollAnimation } from "@/hooks/useScrollAnimation";
+import ScrollProgressIndicator from "@/components/ScrollProgressIndicator";
 
 interface SavedImage {
   id: string;
@@ -17,6 +20,7 @@ interface SavedImage {
 const ImageGallery = () => {
   const [savedImages, setSavedImages] = useState<SavedImage[]>([]);
   const { toast } = useToast();
+  const { setCursorVariant } = useCursor();
 
   useEffect(() => {
     const saved = localStorage.getItem('savedImages');
@@ -97,14 +101,20 @@ const ImageGallery = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
-          {images.map((image) => (
-            <div key={image.id} className="glass-card rounded-xl overflow-hidden group">
-              <div className="relative aspect-square bg-muted">
+          {images.map((image, index) => (
+            <div 
+              key={image.id} 
+              className="glass-card rounded-xl overflow-hidden group stagger-item"
+              style={{ animationDelay: `${index * 0.1}s` }}
+            >
+              <div className="relative aspect-square bg-muted overflow-hidden">
                 <img
                   src={image.url}
                   alt={image.prompt}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:rotate-2 cursor-pointer"
                   loading="lazy"
+                  onMouseEnter={() => setCursorVariant('image')}
+                  onMouseLeave={() => setCursorVariant('default')}
                 />
                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                   <Button
@@ -140,6 +150,7 @@ const ImageGallery = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <ScrollProgressIndicator />
       <Navbar />
       <div className="container mx-auto px-4 pt-24 pb-12">
         <div className="flex items-center gap-3 mb-8">

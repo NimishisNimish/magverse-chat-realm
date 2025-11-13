@@ -9,6 +9,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageSquare, Trash2, Edit2, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { ChatHistorySkeleton } from "@/components/ui/skeleton";
+import ScrollProgressIndicator from "@/components/ScrollProgressIndicator";
 
 interface ChatHistory {
   id: string;
@@ -142,19 +144,26 @@ const History = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <ScrollProgressIndicator />
       <Navbar />
       <div className="container mx-auto px-4 pt-24 pb-12">
         <h1 className="text-4xl font-bold gradient-text mb-8">Chat History</h1>
         
         {loading ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Loading chat history...</p>
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <ChatHistorySkeleton key={i} />
+            ))}
           </div>
         ) : (
           <ScrollArea className="h-[calc(100vh-200px)]">
             <div className="grid gap-4">
-              {chats.map(chat => (
-              <div key={chat.id} className="glass-card p-6 rounded-xl hover:shadow-lg transition-all">
+              {chats.map((chat, index) => (
+              <div 
+                key={chat.id} 
+                className="glass-card p-6 rounded-xl hover:shadow-lg transition-all stagger-item"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
                 <div className="flex items-start gap-4">
                   <MessageSquare className="w-6 h-6 text-accent mt-1" />
                   
