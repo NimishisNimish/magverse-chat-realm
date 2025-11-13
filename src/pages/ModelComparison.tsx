@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
 
 const models = [
   { id: 'gemini-flash', name: 'Gemini Flash', icon: Zap, model: 'google/gemini-2.5-flash' },
-  { id: 'gemini-pro', name: 'Gemini Pro', icon: Brain, model: 'google/gemini-2.5-pro' },
+  { id: 'gemini-pro', name: 'Gemini 2.5 Pro', icon: Brain, model: 'google/gemini-2.5-pro' },
   { id: 'gpt-5-mini', name: 'GPT-5 Mini', icon: Sparkles, model: 'openai/gpt-5-mini' },
   { id: 'gpt-5', name: 'GPT-5', icon: Bot, model: 'openai/gpt-5' },
 ];

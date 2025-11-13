@@ -71,7 +71,7 @@ import {
 const aiModels = [
   { id: "gpt-5-mini", name: "GPT-5 Mini", icon: Sparkles, color: "text-purple-400", model: "openai/gpt-5-mini" },
   { id: "gemini-flash", name: "Gemini Flash", icon: Zap, color: "text-primary", model: "google/gemini-2.5-flash" },
-  { id: "gemini-pro", name: "Gemini Pro", icon: Brain, color: "text-secondary", model: "google/gemini-2.5-pro" },
+  { id: "gemini-pro", name: "Gemini 2.5 Pro", icon: Brain, color: "text-secondary", model: "google/gemini-2.5-pro" },
   { id: "gemini-lite", name: "Gemini Lite", icon: Cpu, color: "text-muted-foreground", model: "google/gemini-2.5-flash-lite" },
   { id: "gpt-5", name: "GPT-5", icon: Bot, color: "text-accent", model: "openai/gpt-5" },
   { id: "gpt-5-nano", name: "GPT-5 Nano", icon: Star, color: "text-blue-400", model: "openai/gpt-5-nano" },
@@ -802,14 +802,40 @@ const Chat = () => {
             },
             body: JSON.stringify({
               model: modelConfig.model,
-              messages: [...conversationHistory.map(m => ({ role: m.role, content: m.content })), { 
-                role: 'user', 
-                content: imageGenerationMode 
-                  ? `Generate a ${imageStyle} style image: ${input}` 
-                  : input 
-              }],
+              messages: (() => {
+                // Prepare messages with multimodal content (images)
+                const formattedMessages = conversationHistory.map(m => {
+                  if (m.attachmentFile?.url) {
+                    return {
+                      role: m.role,
+                      content: [
+                        { type: 'text', text: m.content },
+                        { type: 'image_url', image_url: { url: m.attachmentFile.url } }
+                      ]
+                    };
+                  }
+                  return { role: m.role, content: m.content };
+                });
+
+                // Add current user message with attachment if present
+                const userMessage = attachmentToSend ? {
+                  role: 'user',
+                  content: [
+                    { type: 'text', text: imageGenerationMode ? `Generate a ${imageStyle} style image: ${input}` : input },
+                    { type: 'image_url', image_url: { url: attachmentToSend } }
+                  ]
+                } : { 
+                  role: 'user', 
+                  content: imageGenerationMode ? `Generate a ${imageStyle} style image: ${input}` : input 
+                };
+
+                return [...formattedMessages, userMessage];
+              })(),
               stream: shouldStream,
               generateImage: imageGenerationMode,
+              webSearchEnabled,
+              searchMode: webSearchSettings.searchMode,
+              deepResearch: deepResearchMode,
             }),
           });
 
@@ -971,15 +997,26 @@ const Chat = () => {
             'perplexity': 'perplexity',
           };
 
-              const { data, error } = await supabase.functions.invoke('chat-with-ai', {
+          const { data, error } = await supabase.functions.invoke('chat-with-ai', {
             body: {
-              messages: conversationHistory.map(m => ({ role: m.role, content: m.content })),
-              selectedModels: [modelMapping[modelId]],
-              webSearchEnabled,
-              searchMode,
-              deepResearchMode,
-              attachmentUrl: attachmentToSend || undefined,
-              attachmentExtension: attachmentToSend ? attachmentToSend.split('.').pop()?.toLowerCase() : undefined,
+              model: modelMapping[modelId],
+              message: input,
+              chatHistory: conversationHistory.map(m => {
+                if (m.attachmentFile?.url) {
+                  return {
+                    role: m.role,
+                    content: [
+                      { type: 'text', text: m.content },
+                      { type: 'image_url', image_url: { url: m.attachmentFile.url } }
+                    ]
+                  };
+                }
+                return { role: m.role, content: m.content };
+              }),
+              attachmentUrl: attachmentToSend,
+              webSearchEnabled: webSearchEnabled,
+              searchMode: webSearchSettings.searchMode,
+              deepResearch: deepResearchMode,
             },
           });
 
@@ -1305,7 +1342,7 @@ const Chat = () => {
       
       // Generate PDF client-side
       const chatTitle = `Chat - ${new Date().toLocaleDateString()}`;
-      const pdfBlob = generateChatPDF(messages, chatTitle);
+      const pdfBlob = await generateChatPDF(messages, chatTitle);
       
       // Create download link
       const url = window.URL.createObjectURL(pdfBlob);
@@ -2705,30 +2742,61 @@ const Chat = () => {
                 </div>
               )}
 
-              <div className="flex gap-3">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                  accept="image/*,.pdf,.txt"
-                />
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="shrink-0"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading || loading}
-                >
-                  {uploading ? (
-                    <Upload className="w-5 h-5 animate-spin text-accent" />
-                  ) : uploadStatus === 'success' ? (
-                    <Paperclip className="w-5 h-5 text-green-500" />
-                  ) : (
-                    <Paperclip className="w-5 h-5" />
-                  )}
-                </Button>
-                <Textarea
+              <div className="flex flex-col gap-3">
+                {/* File Preview with Remove Button */}
+                {attachmentUrl && (
+                  <div className="p-3 bg-muted rounded-lg border border-border flex items-center gap-3">
+                    {attachmentType === 'image' ? (
+                      <img src={attachmentUrl} alt="Preview" className="w-16 h-16 object-cover rounded flex-shrink-0" />
+                    ) : attachmentType === 'pdf' ? (
+                      <FileText className="w-12 h-12 text-red-500 flex-shrink-0" />
+                    ) : (
+                      <File className="w-12 h-12 text-muted-foreground flex-shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{attachmentFileName}</p>
+                      <p className="text-xs text-muted-foreground">Ready to send</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setAttachmentUrl(null);
+                        setAttachmentType(null);
+                        setAttachmentFileName(null);
+                        setPendingFile(null);
+                      }}
+                      className="flex-shrink-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                    accept="image/*,.pdf,.txt"
+                  />
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="shrink-0"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading || loading}
+                  >
+                    {uploading ? (
+                      <Upload className="w-5 h-5 animate-spin text-accent" />
+                    ) : uploadStatus === 'success' ? (
+                      <Paperclip className="w-5 h-5 text-green-500" />
+                    ) : (
+                      <Paperclip className="w-5 h-5" />
+                    )}
+                  </Button>
+                  <Textarea
                   ref={textareaRef}
                   value={input}
                   onChange={(e) => {
@@ -2761,35 +2829,11 @@ const Chat = () => {
                       }
                     }
                   }}
-                  placeholder="Type your message... (Shift+Enter for new line)"
+                  placeholder="Type your message..."
                   className="glass-card border-accent/30 focus:border-accent resize-none min-h-[44px] max-h-[200px] overflow-y-auto"
                   disabled={loading}
                   rows={1}
                 />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleDownloadPDF}
-                  disabled={isDownloading || messages.length === 0}
-                  className="shrink-0"
-                  title="Download chat as PDF"
-                >
-                  {isDownloading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <Download className="w-5 h-5" />
-                  )}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={exportChatAsJSON}
-                  disabled={messages.length === 0}
-                  className="shrink-0"
-                  title="Export chat as JSON"
-                >
-                  <FileText className="w-5 h-5" />
-                </Button>
                 <Button 
                   variant="hero" 
                   size="icon" 
@@ -2804,7 +2848,6 @@ const Chat = () => {
                 >
                   <Send className="w-5 h-5" />
                 </Button>
-              </div>
               </div>
             </div>
           </div>

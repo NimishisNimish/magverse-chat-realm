@@ -7,7 +7,7 @@ interface ChatMessage {
   timestamp: Date | string;
 }
 
-export const generateChatPDF = (messages: ChatMessage[], chatTitle: string): Blob => {
+export const generateChatPDF = async (messages: ChatMessage[], chatTitle: string): Promise<Blob> => {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',

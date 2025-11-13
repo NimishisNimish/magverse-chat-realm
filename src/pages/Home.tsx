@@ -262,7 +262,7 @@ const Home = () => {
                       <td className="text-center p-4 font-semibold">All 6+ models</td>
                     </tr>
                     <tr className="border-b border-glass-border/50">
-                      <td className="p-4 text-muted-foreground">GPT-5, Claude, Gemini Pro</td>
+                      <td className="p-4 text-muted-foreground">GPT-5, Claude, Gemini 2.5 Pro</td>
                       <td className="text-center p-4">
                         <X className="w-5 h-5 text-muted-foreground mx-auto" />
                       </td>
