@@ -8,6 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { StatCardSkeleton } from "@/components/ui/skeleton";
+import { useScrollAnimation } from "@/hooks/useScrollAnimation";
+import ScrollProgressIndicator from "@/components/ScrollProgressIndicator";
 import { 
   Zap, 
   MessageSquare, 
@@ -43,6 +46,8 @@ const Dashboard = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { ref: statsRef, isVisible: statsVisible } = useScrollAnimation();
+  const { ref: chartsRef, isVisible: chartsVisible } = useScrollAnimation();
 
   useEffect(() => {
     if (!user) {
@@ -238,8 +243,13 @@ const Dashboard = () => {
     return (
       <div className="min-h-screen gradient-bg">
         <Navbar />
+        <ScrollProgressIndicator />
         <div className="container mx-auto px-4 pt-24">
-          <div className="text-center">Loading dashboard...</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {[...Array(4)].map((_, i) => (
+              <StatCardSkeleton key={i} />
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -248,6 +258,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen gradient-bg">
       <Navbar />
+      <ScrollProgressIndicator />
       <div className="container mx-auto px-4 pt-24 pb-12">
         <div className="mb-8">
           <h1 className="text-4xl font-bold gradient-text mb-2">Dashboard</h1>
@@ -339,7 +350,10 @@ const Dashboard = () => {
         </Card>
 
         {/* Usage Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div 
+          ref={statsRef} 
+          className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 animate-on-scroll fade-in-up ${statsVisible ? 'is-visible' : ''}`}
+        >
           <Card className="glass-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Messages</CardTitle>
@@ -392,7 +406,10 @@ const Dashboard = () => {
         </div>
 
         {/* Credit Usage Analytics & Model Usage Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div 
+          ref={chartsRef}
+          className={`grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 animate-on-scroll scale-in ${chartsVisible ? 'is-visible' : ''}`}
+        >
           <Card className="glass-card">
             <CardHeader>
               <CardTitle>Daily Message Activity (Last 30 Days)</CardTitle>

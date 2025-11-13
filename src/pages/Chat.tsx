@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { MessageSkeleton } from "@/components/ui/skeleton";
+import ScrollProgressIndicator from "@/components/ScrollProgressIndicator";
 import { 
   MessageSquarePlus, 
   Send, 
@@ -1979,6 +1981,7 @@ const Chat = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
+      <ScrollProgressIndicator />
       
       <div className="flex-1 flex pt-16">
         {/* Desktop Sidebar */}
@@ -2049,12 +2052,16 @@ const Chat = () => {
               </div>
             ) : (
               <div className="max-w-4xl mx-auto space-y-6">
+                {loading && selectedModels.length > 0 && (
+                  <MessageSkeleton />
+                )}
                 {messages.map((message, index) => (
                   <div 
                     key={message.id} 
-                    className={`glass-card-hover p-6 rounded-xl space-y-3 animate-fade-in ${
+                    className={`glass-card-hover p-6 rounded-xl space-y-3 stagger-item ${
                       message.role === 'user' ? 'bg-accent/5' : ''
                     }`}
+                    style={{ animationDelay: `${index * 0.05}s` }}
                   >
                     <div className="flex items-center gap-2">
                       <div className={`w-6 h-6 rounded-full ${
