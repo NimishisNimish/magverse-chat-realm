@@ -35,7 +35,8 @@ import {
   Image as ImageIcon,
   Palette,
   MessageCircle,
-  FileText
+  FileText,
+  File as FileIcon
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -834,7 +835,7 @@ const Chat = () => {
               stream: shouldStream,
               generateImage: imageGenerationMode,
               webSearchEnabled,
-              searchMode: webSearchSettings.searchMode,
+              searchMode: searchMode,
               deepResearch: deepResearchMode,
             }),
           });
@@ -1015,7 +1016,7 @@ const Chat = () => {
               }),
               attachmentUrl: attachmentToSend,
               webSearchEnabled: webSearchEnabled,
-              searchMode: webSearchSettings.searchMode,
+              searchMode: searchMode,
               deepResearch: deepResearchMode,
             },
           });
@@ -2751,7 +2752,7 @@ const Chat = () => {
                     ) : attachmentType === 'pdf' ? (
                       <FileText className="w-12 h-12 text-red-500 flex-shrink-0" />
                     ) : (
-                      <File className="w-12 h-12 text-muted-foreground flex-shrink-0" />
+                      <FileIcon className="w-12 h-12 text-muted-foreground flex-shrink-0" />
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{attachmentFileName}</p>
@@ -2850,6 +2851,8 @@ const Chat = () => {
                 </Button>
               </div>
             </div>
+            </div>
+          </div>
           </div>
         </main>
       </div>
