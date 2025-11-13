@@ -139,4 +139,108 @@ All colors MUST be HSL.
       scroll-behavior: smooth;
     }
   }
+
+  /* Custom Cursor Styles */
+  body {
+    cursor: none;
+  }
+
+  @media (pointer: coarse) {
+    body {
+      cursor: auto;
+    }
+  }
+
+  .custom-cursor-outer {
+    position: fixed;
+    width: 40px;
+    height: 40px;
+    border: 2px solid hsl(var(--primary));
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.3s ease,
+                border-color 0.3s ease;
+    mix-blend-mode: difference;
+    box-shadow: 0 0 20px hsl(var(--glow-primary) / 0.4),
+                0 0 40px hsl(var(--glow-primary) / 0.2);
+  }
+
+  .custom-cursor-inner {
+    position: fixed;
+    width: 8px;
+    height: 8px;
+    background: hsl(var(--primary));
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 10000;
+    transform: translate(-50%, -50%);
+    transition: opacity 0.3s ease,
+                transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 10px hsl(var(--primary) / 0.8);
+  }
+
+  /* Scroll Animation Classes */
+  .animate-on-scroll {
+    opacity: 0;
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .animate-on-scroll.is-visible {
+    opacity: 1;
+  }
+
+  .fade-in-up {
+    transform: translateY(40px);
+  }
+
+  .fade-in-up.is-visible {
+    transform: translateY(0);
+  }
+
+  .fade-in-left {
+    transform: translateX(-40px);
+  }
+
+  .fade-in-left.is-visible {
+    transform: translateX(0);
+  }
+
+  .fade-in-right {
+    transform: translateX(40px);
+  }
+
+  .fade-in-right.is-visible {
+    transform: translateX(0);
+  }
+
+  .scale-in {
+    transform: scale(0.95);
+  }
+
+  .scale-in.is-visible {
+    transform: scale(1);
+  }
+
+  /* Stagger animations for lists */
+  .stagger-children > * {
+    animation-delay: calc(var(--stagger-index, 0) * 0.1s);
+  }
+
+  /* Hover effects that work with custom cursor */
+  a, button, [role="button"] {
+    cursor: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-on-scroll,
+    .fade-in-up,
+    .fade-in-left,
+    .fade-in-right,
+    .scale-in {
+      opacity: 1 !important;
+      transform: none !important;
+    }
+  }
 }
