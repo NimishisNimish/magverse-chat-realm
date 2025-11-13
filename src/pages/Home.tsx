@@ -7,6 +7,8 @@ import magverseLogo from "@/assets/magverse-logo.png";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useScrollAnimation } from "@/hooks/useScrollAnimation";
+import { useParallax } from "@/hooks/useParallax";
 const Home = () => {
   const {
     user,
@@ -22,12 +24,34 @@ const Home = () => {
     message: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  return <div className="min-h-screen bg-background">
+  
+  // Scroll animations for different sections
+  const heroAnimation = useScrollAnimation({ threshold: 0.2 });
+  const pricingAnimation = useScrollAnimation({ threshold: 0.1 });
+  const featuresAnimation = useScrollAnimation({ threshold: 0.15 });
+  
+  // Parallax effects
+  const heroParallax = useParallax({ speed: 0.3 });
+  const bgParallax = useParallax({ speed: 0.2 });
+  return <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* Background parallax element */}
+      <div 
+        className="absolute inset-0 pointer-events-none opacity-30"
+        style={bgParallax}
+      >
+        <div className="absolute top-20 left-10 w-96 h-96 bg-primary/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-secondary/20 rounded-full blur-3xl" />
+      </div>
+      
       <Navbar />
       
       {/* Hero Section */}
-      <section className="container mx-auto px-4 pt-32 pb-20">
-        <div className="max-w-4xl mx-auto text-center space-y-8 animate-fade-in">
+      <section className="container mx-auto px-4 pt-32 pb-20 relative z-10">
+        <div 
+          ref={heroAnimation.ref}
+          className={`max-w-4xl mx-auto text-center space-y-8 animate-on-scroll fade-in-up ${heroAnimation.isVisible ? 'is-visible' : ''}`}
+          style={heroParallax}
+        >
           <div className="inline-block">
             <div className="flex items-center gap-2 px-4 py-2 rounded-full glass-card border-accent/30 mb-6">
               <Sparkles className="w-4 h-4 text-primary" />
@@ -79,9 +103,12 @@ const Home = () => {
 
       
       {/* Pricing Section */}
-      <section id="pricing-section" className="container mx-auto px-4 py-20">
+      <section id="pricing-section" className="container mx-auto px-4 py-20 relative z-10">
         <div className="max-w-6xl mx-auto space-y-12">
-          <div className="text-center space-y-4 animate-fade-in">
+          <div 
+            ref={pricingAnimation.ref}
+            className={`text-center space-y-4 animate-on-scroll fade-in-up ${pricingAnimation.isVisible ? 'is-visible' : ''}`}
+          >
             <h2 className="text-4xl md:text-5xl font-bold">
               Simple, <span className="text-primary">Transparent Pricing</span>
             </h2>

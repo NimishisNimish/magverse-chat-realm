@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { CursorProvider } from "@/contexts/CursorContext";
+import CustomCursor from "@/components/CustomCursor";
 import Home from "./pages/Home";
 import Chat from "./pages/Chat";
 import Upgrade from "./pages/Upgrade";
@@ -51,12 +53,14 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AuthProvider>
-            <Routes>
+      <CursorProvider>
+        <CustomCursor />
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AuthProvider>
+              <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
@@ -85,10 +89,11 @@ const App = () => (
             <Route path="/pro-analytics" element={<ProtectedRoute><ProAnalytics /></ProtectedRoute>} />
             <Route path="/support" element={<Support />} />
             <Route path="*" element={<NotFound />} />
-            </Routes>
-          </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
+              </Routes>
+            </AuthProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </CursorProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );
