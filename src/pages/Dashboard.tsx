@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { StatCardSkeleton } from "@/components/ui/skeleton";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
+import { useCountUp } from "@/hooks/useCountUp";
 import ScrollProgressIndicator from "@/components/ScrollProgressIndicator";
 import { 
   Zap, 
@@ -354,50 +355,50 @@ const Dashboard = () => {
           ref={statsRef} 
           className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 animate-on-scroll fade-in-up ${statsVisible ? 'is-visible' : ''}`}
         >
-          <Card className="glass-card">
+          <Card className="glass-card stagger-item" style={{ animationDelay: '0.0s' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Messages</CardTitle>
               <MessageSquare className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats?.totalMessages}</div>
+              <div className="text-2xl font-bold glow-effect">{stats?.totalMessages}</div>
               <p className="text-xs text-muted-foreground">
                 {stats?.messagesThisMonth} this month
               </p>
             </CardContent>
           </Card>
 
-          <Card className="glass-card">
+          <Card className="glass-card stagger-item" style={{ animationDelay: '0.1s' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Chat Sessions</CardTitle>
               <History className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats?.totalChats}</div>
+              <div className="text-2xl font-bold glow-effect">{stats?.totalChats}</div>
               <p className="text-xs text-muted-foreground">
                 {stats?.chatsThisMonth} this month
               </p>
             </CardContent>
           </Card>
 
-          <Card className="glass-card">
+          <Card className="glass-card stagger-item" style={{ animationDelay: '0.2s' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Favorite Model</CardTitle>
               <TrendingUp className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats?.favoriteModel || 'N/A'}</div>
+              <div className="text-2xl font-bold glow-effect">{stats?.favoriteModel || 'N/A'}</div>
               <p className="text-xs text-muted-foreground">Most used AI model</p>
             </CardContent>
           </Card>
 
-          <Card className="glass-card">
+          <Card className="glass-card stagger-item" style={{ animationDelay: '0.3s' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Account Age</CardTitle>
               <Calendar className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-bold glow-effect">
                 {stats?.accountAgeDays || 0}
               </div>
               <p className="text-xs text-muted-foreground">Days since signup</p>
@@ -410,7 +411,7 @@ const Dashboard = () => {
           ref={chartsRef}
           className={`grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 animate-on-scroll scale-in ${chartsVisible ? 'is-visible' : ''}`}
         >
-          <Card className="glass-card">
+          <Card className="glass-card stagger-item" style={{ animationDelay: '0.4s' }}>
             <CardHeader>
               <CardTitle>Daily Message Activity (Last 30 Days)</CardTitle>
               <CardDescription>Track your messaging patterns</CardDescription>
@@ -438,7 +439,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="glass-card">
+          <Card className="glass-card stagger-item" style={{ animationDelay: '0.5s' }}>
             <CardHeader>
               <CardTitle>Model Usage Distribution</CardTitle>
               <CardDescription>Your favorite AI models</CardDescription>
