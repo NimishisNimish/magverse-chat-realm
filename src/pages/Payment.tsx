@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Copy, CreditCard, Smartphone, Shield, CheckCircle, X } from "lucide-react";
 import upiQrCode from "@/assets/phonepe-qr-code.png";
+import { triggerUpgradeConfetti } from "@/utils/confetti";
 declare global {
   interface Window {
     Razorpay: any;
@@ -100,6 +101,10 @@ const Payment = () => {
             if (verifyError || !verifyData?.success) {
               throw new Error(verifyData?.error || "Payment verification failed");
             }
+            
+            // Trigger confetti on successful upgrade
+            triggerUpgradeConfetti();
+            
             toast({
               title: "Payment Successful!",
               description: `Your ${plans[selectedPlan].name} subscription is now active.`
