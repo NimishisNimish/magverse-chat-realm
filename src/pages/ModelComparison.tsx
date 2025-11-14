@@ -95,10 +95,17 @@ const ModelComparison = () => {
           },
         });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase function error:', error);
+          throw error;
+        }
+
+        if (!data) {
+          throw new Error('No data received from AI');
+        }
 
         const responseTime = Date.now() - startTime;
-        const content = data.choices?.[0]?.message?.content || 'No response';
+        const content = data.choices?.[0]?.message?.content || data.content || 'No response';
 
         setResponses(prev => {
           const updated = [...prev];
@@ -112,13 +119,14 @@ const ModelComparison = () => {
         });
       } catch (error: any) {
         console.error(`Error with ${model.name}:`, error);
+        const errorMessage = error.message || 'Failed to get response';
         setResponses(prev => {
           const updated = [...prev];
           updated[index] = {
             model: model.name,
             response: '',
             loading: false,
-            error: error.message || 'Failed to get response',
+            error: `Error: ${errorMessage}. Please try again.`,
           };
           return updated;
         });
