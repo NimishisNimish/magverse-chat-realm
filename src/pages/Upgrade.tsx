@@ -230,7 +230,58 @@ const Upgrade = () => {
       <Navbar />
       
       <div className="container mx-auto px-4 pt-32 pb-20">
-        <div className="max-w-5xl mx-auto space-y-12">
+        {/* Hide entire pricing section for lifetime users */}
+        {profile?.subscription_type === 'lifetime' || profile?.is_pro ? (
+          <div className="max-w-3xl mx-auto text-center space-y-6">
+            <div className="flex justify-center">
+              <div className="p-4 rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 mb-4">
+                <Crown className="w-16 h-16 text-primary" />
+              </div>
+            </div>
+            <h1 className="text-4xl font-bold gradient-text">
+              You Have the Ultimate Plan!
+            </h1>
+            <p className="text-xl text-muted-foreground">
+              You're already enjoying {profile?.subscription_type === 'lifetime' ? 'Lifetime Pro' : 'Pro'} access with all premium features unlocked.
+            </p>
+            <div className="glass-card p-8 rounded-2xl space-y-4">
+              <h3 className="text-2xl font-bold">Your Benefits</h3>
+              <ul className="space-y-3 text-left max-w-md mx-auto">
+                <li className="flex items-start gap-3">
+                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <span>Unlimited access to all 7+ premium AI models</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <span>500 messages per day</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <span>Deep research mode enabled</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <span>AI image generation</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <span>Priority support</span>
+                </li>
+                {profile?.subscription_type === 'lifetime' && (
+                  <li className="flex items-start gap-3">
+                    <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <span>All future model updates - FREE forever!</span>
+                  </li>
+                )}
+              </ul>
+            </div>
+            <Button onClick={() => navigate('/chat')} size="lg" className="gap-2">
+              Start Chatting
+              <Sparkles className="w-5 h-5" />
+            </Button>
+          </div>
+        ) : (
+          <div className="max-w-5xl mx-auto space-y-12">
           <div className="text-center space-y-4 animate-fade-in">
             <div className="inline-block">
               <div className="flex items-center gap-2 px-4 py-2 rounded-full glass-card border-accent/30 mb-4">
@@ -387,10 +438,10 @@ const Upgrade = () => {
                 size="lg" 
                 className="w-full"
                 onClick={() => handleOpenPaymentDialog('lifetime')}
-                disabled={loading || profile?.subscription_type === 'lifetime' || profile?.is_pro}
+                disabled={loading || profile?.subscription_type === ('lifetime' as any) || profile?.is_pro}
               >
                 <Infinity className="w-5 h-5" />
-                {loading ? "Processing..." : (profile?.subscription_type === 'lifetime' || profile?.is_pro) ? "Current Plan" : "Get Lifetime Access"}
+                {loading ? "Processing..." : (profile?.subscription_type === ('lifetime' as any) || profile?.is_pro) ? "Current Plan" : "Get Lifetime Access"}
               </Button>
             </div>
           </div>
@@ -425,6 +476,7 @@ const Upgrade = () => {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* Payment Dialog */}

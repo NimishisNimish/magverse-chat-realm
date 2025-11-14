@@ -18,6 +18,7 @@ import {
   Download
 } from "lucide-react";
 import { generateChatPDF } from "@/utils/pdfGenerator";
+import { AnalyticsChartSkeleton, StatCardSkeleton } from "@/components/ui/skeleton";
 import { 
   LineChart, 
   Line, 
@@ -362,6 +363,30 @@ ${reportData.models.join('\n')}
         <Navbar />
         <div className="container mx-auto px-4 pt-24">
           <div className="text-center">Loading analytics...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen gradient-bg">
+        <Navbar />
+        <div className="container mx-auto px-4 pt-24 pb-12">
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold gradient-text mb-2">Admin Analytics</h1>
+            <p className="text-muted-foreground">Loading analytics data...</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {[...Array(4)].map((_, i) => (
+              <StatCardSkeleton key={i} />
+            ))}
+          </div>
+          <div className="space-y-6">
+            {[...Array(3)].map((_, i) => (
+              <AnalyticsChartSkeleton key={i} />
+            ))}
+          </div>
         </div>
       </div>
     );

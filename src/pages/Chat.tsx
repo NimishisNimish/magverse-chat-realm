@@ -4,7 +4,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageSkeleton } from "@/components/ui/skeleton";
 import ScrollProgressIndicator from "@/components/ScrollProgressIndicator";
-import { 
+import { OnboardingTour } from "@/components/OnboardingTour";
+import { triggerSuccessConfetti } from "@/utils/confetti";
+import {
   MessageSquarePlus, 
   Send, 
   Paperclip, 

@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { UserTableSkeleton, StatCardSkeleton } from "@/components/ui/skeleton";
 
 interface UserData {
   id: string;
@@ -264,7 +265,10 @@ const UserManagement = () => {
         </Card>
 
         {/* Users Table */}
-        <Card>
+        {loading ? (
+          <UserTableSkeleton />
+        ) : (
+          <Card>
           <ScrollArea className="h-[600px]">
             <Table>
               <TableHeader>
@@ -338,6 +342,7 @@ const UserManagement = () => {
             </Table>
           </ScrollArea>
         </Card>
+        )}
       </div>
     </div>
   );
