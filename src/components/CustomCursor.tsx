@@ -37,16 +37,17 @@ const CustomCursor = () => {
   if (isMobile) return null;
 
   const getCursorScale = () => {
+    // Reduced scaling to fix size issue
     switch (cursorVariant) {
       case 'link':
       case 'button':
-        return 1.3;
+        return 1.1;
       case 'card':
-        return 1.5;
+        return 1.15;
       case 'text':
-        return 1.2;
+        return 1.05;
       case 'image':
-        return 1.4;
+        return 1.1;
       default:
         return 1;
     }
@@ -58,7 +59,7 @@ const CustomCursor = () => {
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
-        transform: `translate(-20%, -20%) scale(${getCursorScale()})`,
+        transform: `translate(-50%, -50%) scale(${getCursorScale()})`,
         opacity: isVisible ? 1 : 0,
       }}
     >

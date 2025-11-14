@@ -68,6 +68,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { triggerSuccessConfetti } from "@/utils/confetti";
 
 const aiModels = [
   { id: "gpt-5-mini", name: "GPT-5 Mini", icon: Sparkles, color: "text-purple-400", model: "openai/gpt-5-mini" },
@@ -1109,6 +1110,11 @@ const Chat = () => {
       const successfulResponses = allAIResponses.filter(msg => !msg.error && msg.content);
       if (successfulResponses.length > 0) {
         await saveChatToDatabase(userMessage, successfulResponses);
+        
+        // Trigger confetti on first successful chat!
+        if (messages.length === 1) { // Only user message before this
+          setTimeout(() => triggerSuccessConfetti(), 500);
+        }
       }
       
       // Clear all loading states
