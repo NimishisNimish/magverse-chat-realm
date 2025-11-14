@@ -55,37 +55,47 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const AnimatedRoutes = () => {
   const location = useLocation();
   
+  // Map routes to transition variants
+  const getTransitionVariant = (pathname: string) => {
+    if (pathname === '/') return 'fade';
+    if (pathname === '/auth' || pathname === '/reset-password') return 'scale';
+    if (pathname.startsWith('/admin')) return 'slideUp';
+    if (pathname === '/chat' || pathname === '/history') return 'slideRight';
+    if (pathname === '/dashboard' || pathname === '/profile') return 'slideLeft';
+    return 'fade';
+  };
+  
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<PageTransition><Home /></PageTransition>} />
-        <Route path="/auth" element={<PageTransition><Auth /></PageTransition>} />
-        <Route path="/reset-password" element={<PageTransition><ResetPassword /></PageTransition>} />
-        <Route path="/reset-password-confirm" element={<PageTransition><ResetPasswordConfirm /></PageTransition>} />
-        <Route path="/privacy-policy" element={<PageTransition><PrivacyPolicy /></PageTransition>} />
-        <Route path="/terms-of-service" element={<PageTransition><TermsOfService /></PageTransition>} />
-        <Route path="/link-phone" element={<ProtectedRoute><PageTransition><LinkPhone /></PageTransition></ProtectedRoute>} />
-        <Route path="/chat" element={<ProtectedRoute><PageTransition><Chat /></PageTransition></ProtectedRoute>} />
-        <Route path="/history" element={<ProtectedRoute><PageTransition><History /></PageTransition></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><PageTransition><ProfileSettings /></PageTransition></ProtectedRoute>} />
-        <Route path="/upgrade" element={<ProtectedRoute><PageTransition><Upgrade /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin" element={<ProtectedRoute><PageTransition><Admin /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/dashboard" element={<ProtectedRoute><PageTransition><AdminDashboard /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/analytics" element={<ProtectedRoute><PageTransition><Analytics /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/advanced-analytics" element={<ProtectedRoute><PageTransition><AdminAnalyticsDashboard /></PageTransition></ProtectedRoute>} />
-        <Route path="/payment" element={<PageTransition><Payment /></PageTransition>} />
-        <Route path="/dashboard" element={<ProtectedRoute><PageTransition><Dashboard /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/old-analytics" element={<ProtectedRoute><PageTransition><AdminAnalytics /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/users" element={<ProtectedRoute><PageTransition><UserManagement /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/activity" element={<ProtectedRoute><PageTransition><AdminUserActivity /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/payment-queue" element={<ProtectedRoute><PageTransition><AdminPaymentQueue /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/traffic" element={<ProtectedRoute><PageTransition><AdminTraffic /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/user/:userId" element={<ProtectedRoute><PageTransition><AdminUserDetail /></PageTransition></ProtectedRoute>} />
-        <Route path="/model-comparison" element={<ProtectedRoute><PageTransition><ModelComparison /></PageTransition></ProtectedRoute>} />
-        <Route path="/image-gallery" element={<ProtectedRoute><PageTransition><ImageGallery /></PageTransition></ProtectedRoute>} />
-        <Route path="/pro-analytics" element={<ProtectedRoute><PageTransition><ProAnalytics /></PageTransition></ProtectedRoute>} />
-        <Route path="/support" element={<PageTransition><Support /></PageTransition>} />
-        <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
+        <Route path="/" element={<PageTransition variant={getTransitionVariant('/')}><Home /></PageTransition>} />
+        <Route path="/auth" element={<PageTransition variant={getTransitionVariant('/auth')}><Auth /></PageTransition>} />
+        <Route path="/reset-password" element={<PageTransition variant={getTransitionVariant('/reset-password')}><ResetPassword /></PageTransition>} />
+        <Route path="/reset-password-confirm" element={<PageTransition variant="scale"><ResetPasswordConfirm /></PageTransition>} />
+        <Route path="/privacy-policy" element={<PageTransition variant="fade"><PrivacyPolicy /></PageTransition>} />
+        <Route path="/terms-of-service" element={<PageTransition variant="fade"><TermsOfService /></PageTransition>} />
+        <Route path="/link-phone" element={<ProtectedRoute><PageTransition variant="scale"><LinkPhone /></PageTransition></ProtectedRoute>} />
+        <Route path="/chat" element={<ProtectedRoute><PageTransition variant={getTransitionVariant('/chat')}><Chat /></PageTransition></ProtectedRoute>} />
+        <Route path="/history" element={<ProtectedRoute><PageTransition variant={getTransitionVariant('/history')}><History /></PageTransition></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><PageTransition variant={getTransitionVariant('/profile')}><ProfileSettings /></PageTransition></ProtectedRoute>} />
+        <Route path="/upgrade" element={<ProtectedRoute><PageTransition variant="fade"><Upgrade /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute><PageTransition variant={getTransitionVariant('/admin')}><Admin /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/dashboard" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminDashboard /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/analytics" element={<ProtectedRoute><PageTransition variant="slideUp"><Analytics /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/advanced-analytics" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminAnalyticsDashboard /></PageTransition></ProtectedRoute>} />
+        <Route path="/payment" element={<PageTransition variant="scale"><Payment /></PageTransition>} />
+        <Route path="/dashboard" element={<ProtectedRoute><PageTransition variant={getTransitionVariant('/dashboard')}><Dashboard /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/old-analytics" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminAnalytics /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/users" element={<ProtectedRoute><PageTransition variant="slideUp"><UserManagement /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/activity" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminUserActivity /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/payment-queue" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminPaymentQueue /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/traffic" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminTraffic /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/user/:userId" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminUserDetail /></PageTransition></ProtectedRoute>} />
+        <Route path="/model-comparison" element={<ProtectedRoute><PageTransition variant="slideRight"><ModelComparison /></PageTransition></ProtectedRoute>} />
+        <Route path="/image-gallery" element={<ProtectedRoute><PageTransition variant="slideRight"><ImageGallery /></PageTransition></ProtectedRoute>} />
+        <Route path="/pro-analytics" element={<ProtectedRoute><PageTransition variant="slideLeft"><ProAnalytics /></PageTransition></ProtectedRoute>} />
+        <Route path="/support" element={<PageTransition variant="fade"><Support /></PageTransition>} />
+        <Route path="*" element={<PageTransition variant="fade"><NotFound /></PageTransition>} />
       </Routes>
     </AnimatePresence>
   );

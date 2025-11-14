@@ -4,11 +4,13 @@ import { Sparkles, Zap, Shield, Infinity, Mail, MapPin, Phone, Users, Target, Ro
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
 import magverseLogo from "@/assets/magverse-logo.png";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { useParallax } from "@/hooks/useParallax";
+import { motion } from "framer-motion";
+
 const Home = () => {
   const {
     user,
@@ -24,6 +26,19 @@ const Home = () => {
     message: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  
+  // Track mouse for parallax particles
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePosition({ 
+        x: (e.clientX - window.innerWidth / 2) / window.innerWidth,
+        y: (e.clientY - window.innerHeight / 2) / window.innerHeight
+      });
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
   
   // Scroll animations for different sections
   const heroAnimation = useScrollAnimation({ threshold: 0.2 });
@@ -33,14 +48,86 @@ const Home = () => {
   // Parallax effects
   const heroParallax = useParallax({ speed: 0.3 });
   const bgParallax = useParallax({ speed: 0.2 });
+  
   return <div className="min-h-screen bg-background relative overflow-hidden">
-      {/* Background parallax element */}
-      <div 
-        className="absolute inset-0 pointer-events-none opacity-30"
-        style={bgParallax}
-      >
-        <div className="absolute top-20 left-10 w-96 h-96 bg-primary/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-secondary/20 rounded-full blur-3xl" />
+      {/* Animated gradient background */}
+      <div className="absolute inset-0 animated-gradient opacity-20 pointer-events-none" />
+      
+      {/* Floating orbs and particles */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {/* Large floating orbs */}
+        <motion.div 
+          className="absolute top-20 left-10 w-64 h-64 rounded-full glass-card opacity-30 blur-2xl"
+          animate={{
+            y: [0, -30, 0],
+            x: [0, 20, 0],
+            scale: [1, 1.1, 1],
+          }}
+          transition={{
+            duration: 10,
+            repeat: 999999,
+            ease: "easeInOut"
+          }}
+          style={{
+            background: 'radial-gradient(circle, hsl(var(--primary) / 0.4), transparent)'
+          }}
+        />
+        
+        <motion.div 
+          className="absolute top-1/3 right-20 w-96 h-96 rounded-full opacity-20 blur-3xl"
+          animate={{
+            y: [0, 40, 0],
+            x: [0, -30, 0],
+            scale: [1, 1.2, 1],
+          }}
+          transition={{
+            duration: 12,
+            repeat: 999999,
+            ease: "easeInOut"
+          }}
+          style={{
+            background: 'radial-gradient(circle, hsl(var(--secondary) / 0.4), transparent)'
+          }}
+        />
+        
+        <motion.div 
+          className="absolute bottom-20 left-1/3 w-80 h-80 rounded-full opacity-25 blur-2xl"
+          animate={{
+            y: [0, -25, 0],
+            x: [0, 25, 0],
+            rotate: [0, 180, 360],
+          }}
+          transition={{
+            duration: 15,
+            repeat: 999999,
+            ease: "easeInOut"
+          }}
+          style={{
+            background: 'radial-gradient(circle, hsl(var(--accent) / 0.3), transparent)'
+          }}
+        />
+        
+        {/* Small particles that follow mouse */}
+        {Array.from({ length: 20 }, (_, i) => (
+          <motion.div
+            key={`particle-${i}`}
+            className="absolute w-2 h-2 rounded-full bg-primary/40"
+            style={{
+              left: `${10 + (i * 5)}%`,
+              top: `${10 + (i * 3)}%`,
+            }}
+            animate={{
+              x: mousePosition.x * (50 + i * 10),
+              y: mousePosition.y * (50 + i * 10),
+              opacity: [0.2, 0.6, 0.2],
+            }}
+            transition={{
+              x: { type: "spring", stiffness: 50, damping: 20 },
+              y: { type: "spring", stiffness: 50, damping: 20 },
+              opacity: { duration: 2, repeat: 999999, ease: "easeInOut" }
+            }}
+          />
+        ))}
       </div>
       
       <Navbar />
@@ -75,13 +162,13 @@ const Home = () => {
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
             <Link to={user ? "/chat" : "/auth"}>
-              <Button variant="hero" size="lg" className="w-full sm:w-auto text-lg px-8">
+              <Button magnetic variant="hero" size="lg" className="w-full sm:w-auto text-lg px-8">
                 <Zap className="w-5 h-5" />
                 Start Chatting
               </Button>
             </Link>
             {/* Hide View Pricing for all Pro users (lifetime and monthly) */}
-            {profile?.subscription_type !== 'lifetime' && profile?.subscription_type !== 'monthly' && <Button variant="outline" size="lg" className="w-full sm:w-auto text-lg px-8" onClick={() => document.getElementById('pricing-section')?.scrollIntoView({
+            {profile?.subscription_type !== 'lifetime' && profile?.subscription_type !== 'monthly' && <Button magnetic variant="outline" size="lg" className="w-full sm:w-auto text-lg px-8" onClick={() => document.getElementById('pricing-section')?.scrollIntoView({
             behavior: 'smooth'
           })}>
                 <Sparkles className="w-5 h-5" />
