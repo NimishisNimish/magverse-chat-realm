@@ -13,6 +13,8 @@ import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { useCountUp } from "@/hooks/useCountUp";
 import ScrollProgressIndicator from "@/components/ScrollProgressIndicator";
 import { MilestoneProgress } from "@/components/MilestoneProgress";
+import { useMilestoneTracker } from "@/hooks/useMilestoneTracker";
+import { downloadDashboardPDF } from "@/utils/dashboardExport";
 import { 
   Zap, 
   MessageSquare, 
@@ -22,7 +24,8 @@ import {
   Calendar,
   BarChart3,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  FileText
 } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
@@ -46,6 +49,7 @@ const Dashboard = () => {
   const [stats, setStats] = useState<UsageStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { getProgress } = useMilestoneTracker();
   
   const { user, profile } = useAuth();
   const { toast } = useToast();
@@ -77,6 +81,30 @@ const Dashboard = () => {
     toast({
       title: "Refreshed",
       description: "Dashboard data updated successfully",
+    });
+  };
+
+  const handleExportPDF = () => {
+    if (!stats) return;
+
+    const dashboardStats = {
+      totalMessages: stats.totalMessages,
+      totalChats: stats.totalChats,
+      accountAge: stats.accountAgeDays,
+      creditsRemaining: profile?.credits_remaining || 0,
+      subscriptionType: profile?.subscription_type || 'free',
+      milestoneProgress: {
+        messages: getProgress('messages'),
+        chats: getProgress('chats'),
+        images: getProgress('images'),
+      }
+    };
+
+    downloadDashboardPDF(dashboardStats, profile?.display_name || user?.email || 'User');
+    
+    toast({
+      title: "PDF Exported",
+      description: "Your dashboard report has been downloaded",
     });
   };
 

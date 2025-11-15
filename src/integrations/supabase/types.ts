@@ -638,6 +638,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          animation_preferences: Json | null
           avatar_url: string | null
           bio: string | null
           created_at: string | null
@@ -657,9 +658,11 @@ export type Database = {
           recovery_email: string | null
           subscription_expires_at: string | null
           subscription_type: string | null
+          theme_preferences: Json | null
           username: string | null
         }
         Insert: {
+          animation_preferences?: Json | null
           avatar_url?: string | null
           bio?: string | null
           created_at?: string | null
@@ -679,9 +682,11 @@ export type Database = {
           recovery_email?: string | null
           subscription_expires_at?: string | null
           subscription_type?: string | null
+          theme_preferences?: Json | null
           username?: string | null
         }
         Update: {
+          animation_preferences?: Json | null
           avatar_url?: string | null
           bio?: string | null
           created_at?: string | null
@@ -701,6 +706,7 @@ export type Database = {
           recovery_email?: string | null
           subscription_expires_at?: string | null
           subscription_type?: string | null
+          theme_preferences?: Json | null
           username?: string | null
         }
         Relationships: []
