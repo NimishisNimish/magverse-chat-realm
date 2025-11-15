@@ -406,7 +406,7 @@ ${reportData.models.join('\n')}
             </h1>
             <p className="text-muted-foreground">Real-time platform performance and user engagement tracking</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 relative z-10">
             <Button onClick={exportToCSV} variant="outline">
               <Download className="w-4 h-4 mr-2" />
               Export CSV
