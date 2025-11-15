@@ -8,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Palette, Save, RotateCcw, Download, Upload, Check, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ColorScheme {
   name: string;
@@ -48,22 +50,67 @@ export const ThemeCustomizer = () => {
   const [customScheme, setCustomScheme] = useState<ColorScheme>(defaultSchemes[0]);
   const [savedSchemes, setSavedSchemes] = useState<ColorScheme[]>([]);
   const [contrastRating, setContrastRating] = useState<string>("AA");
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
+    loadTheme();
+  }, [user]);
+
+  const loadTheme = async () => {
+    // Load from localStorage first
     const saved = localStorage.getItem("customColorSchemes");
     if (saved) {
       setSavedSchemes(JSON.parse(saved));
     }
 
-    // Load active theme
     const activeTheme = localStorage.getItem("activeColorScheme");
     if (activeTheme) {
       const theme = JSON.parse(activeTheme);
       setCustomScheme(theme);
       applyColorScheme(theme);
     }
-  }, []);
+
+    // If user is logged in, try to load from Supabase
+    if (user) {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('theme_preferences, animation_preferences')
+          .eq('id', user.id)
+          .single();
+
+        if (error) throw error;
+
+        if (data?.theme_preferences) {
+          const prefs = data.theme_preferences as any;
+          // Convert stored HSL format to ColorScheme
+          if (prefs.primary && typeof prefs.primary === 'string') {
+            const parseHsl = (hslString: string) => {
+              const match = hslString.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+              if (match) {
+                return { h: parseInt(match[1]), s: parseInt(match[2]), l: parseInt(match[3]) };
+              }
+              return { h: 262, s: 83, l: 58 };
+            };
+
+            const loadedScheme: ColorScheme = {
+              name: "Saved Theme",
+              primary: prefs.primary ? parseHsl(prefs.primary) : customScheme.primary,
+              secondary: prefs.secondary ? parseHsl(prefs.secondary) : customScheme.secondary,
+              accent: prefs.accent ? parseHsl(prefs.accent) : customScheme.accent,
+            };
+            
+            setCustomScheme(loadedScheme);
+            applyColorScheme(loadedScheme);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading theme from Supabase:', error);
+      }
+    }
+  };
 
   useEffect(() => {
     checkContrast();

@@ -37,6 +37,7 @@ import AdminUserDetail from "./pages/AdminUserDetail";
 import AdminDashboard from "./pages/AdminDashboard";
 import Analytics from "./pages/Analytics";
 import AdminAnalyticsDashboard from "./pages/AdminAnalyticsDashboard";
+import Achievements from "./pages/Achievements";
 
 const queryClient = new QueryClient();
 
