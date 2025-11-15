@@ -21,6 +21,8 @@ const MILESTONES: Milestone[] = [
   { id: 'images_50', title: 'Creative Mind', description: 'Generated 50 images', target: 50, icon: '🎨', type: 'images' },
 ];
 
+const STORAGE_KEY = 'magverse_achieved_milestones';
+
 export const useMilestoneTracker = () => {
   const { user } = useAuth();
   const [achievedMilestones, setAchievedMilestones] = useState<Set<string>>(new Set());
@@ -28,6 +30,20 @@ export const useMilestoneTracker = () => {
 
   useEffect(() => {
     if (!user) return;
+    
+    // Load previously achieved milestones from localStorage
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      try {
+        const data = JSON.parse(stored);
+        if (data[user.id]) {
+          setAchievedMilestones(new Set(data[user.id]));
+        }
+      } catch (e) {
+        console.error('Error loading achieved milestones:', e);
+      }
+    }
+    
     loadProgress();
     
     // Real-time subscription
@@ -85,10 +101,30 @@ export const useMilestoneTracker = () => {
       
       if (currentValue >= milestone.target && !achievedMilestones.has(milestone.id)) {
         // Milestone achieved!
-        setAchievedMilestones(prev => new Set(prev).add(milestone.id));
+        setAchievedMilestones(prev => {
+          const newSet = new Set(prev).add(milestone.id);
+          saveAchievedMilestone(milestone.id);
+          return newSet;
+        });
         celebrateMilestone(milestone);
       }
     });
+  };
+
+  const saveAchievedMilestone = (milestoneId: string) => {
+    if (!user) return;
+    
+    const stored = localStorage.getItem(STORAGE_KEY) || '{}';
+    try {
+      const data = JSON.parse(stored);
+      if (!data[user.id]) data[user.id] = [];
+      if (!data[user.id].includes(milestoneId)) {
+        data[user.id].push(milestoneId);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      }
+    } catch (e) {
+      console.error('Error saving milestone:', e);
+    }
   };
 
   const celebrateMilestone = (milestone: Milestone) => {

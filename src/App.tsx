@@ -38,6 +38,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Analytics from "./pages/Analytics";
 import AdminAnalyticsDashboard from "./pages/AdminAnalyticsDashboard";
 import Achievements from "./pages/Achievements";
+import AdminLogin from "./pages/AdminLogin";
 
 const queryClient = new QueryClient();
 
@@ -95,6 +96,8 @@ const AnimatedRoutes = () => {
         <Route path="/model-comparison" element={<ProtectedRoute><PageTransition variant="slideRight"><ModelComparison /></PageTransition></ProtectedRoute>} />
         <Route path="/image-gallery" element={<ProtectedRoute><PageTransition variant="slideRight"><ImageGallery /></PageTransition></ProtectedRoute>} />
         <Route path="/pro-analytics" element={<ProtectedRoute><PageTransition variant="slideLeft"><ProAnalytics /></PageTransition></ProtectedRoute>} />
+        <Route path="/achievements" element={<ProtectedRoute><PageTransition variant="slideRight"><Achievements /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin-login" element={<PageTransition variant="scale"><AdminLogin /></PageTransition>} />
         <Route path="/support" element={<PageTransition variant="fade"><Support /></PageTransition>} />
         <Route path="*" element={<PageTransition variant="fade"><NotFound /></PageTransition>} />
       </Routes>
