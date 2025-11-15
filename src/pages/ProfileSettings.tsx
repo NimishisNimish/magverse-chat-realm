@@ -34,6 +34,9 @@ export default function ProfileSettings() {
   
   // Recovery email state
   const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [sendingOtp, setSendingOtp] = useState(false);
   
   // Invoices state
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -232,23 +235,95 @@ export default function ProfileSettings() {
     }
   };
 
-  const handleUpdateRecoveryEmail = async () => {
+  const sendRecoveryEmailOTP = async () => {
     if (!recoveryEmail) {
       toast.error('Please enter a recovery email');
       return;
     }
 
-    setLoading(true);
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(recoveryEmail)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    setSendingOtp(true);
     try {
+      const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      const { error } = await supabase.functions.invoke('send-recovery-email-otp', {
+        body: { email: recoveryEmail, otp: newOtp }
+      });
+
+      if (error) throw error;
+
+      setOtpSent(true);
+      toast.success('OTP sent to your recovery email. Please check your inbox.');
+      
+      // Store OTP with expiry in sessionStorage
+      sessionStorage.setItem('recovery_otp', JSON.stringify({
+        otp: newOtp,
+        expiry: Date.now() + 10 * 60 * 1000 // 10 minutes
+      }));
+    } catch (error: any) {
+      console.error('Error sending OTP:', error);
+      toast.error(error.message || 'Failed to send OTP');
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const verifyAndUpdateRecoveryEmail = async () => {
+    if (!otp) {
+      toast.error('Please enter the OTP');
+      return;
+    }
+
+    const stored = sessionStorage.getItem('recovery_otp');
+    if (!stored) {
+      toast.error('OTP expired. Please request a new one.');
+      setOtpSent(false);
+      return;
+    }
+    
+    try {
+      const { otp: storedOtp, expiry } = JSON.parse(stored);
+      
+      if (Date.now() > expiry) {
+        toast.error('OTP expired. Please request a new one.');
+        sessionStorage.removeItem('recovery_otp');
+        setOtpSent(false);
+        return;
+      }
+      
+      if (otp !== storedOtp) {
+        toast.error('Invalid OTP. Please try again.');
+        return;
+      }
+      
+      setLoading(true);
+      
+      // Update recovery email in database
       const { error } = await supabase
         .from('profiles')
         .update({ recovery_email: recoveryEmail })
         .eq('id', user!.id);
-
+      
       if (error) throw error;
-
+      
+      // Send confirmation email
+      await supabase.functions.invoke('send-recovery-email-confirmation', {
+        body: { email: recoveryEmail }
+      });
+      
       await refreshProfile();
       toast.success('Recovery email updated successfully!');
+      
+      // Clean up
+      sessionStorage.removeItem('recovery_otp');
+      setOtpSent(false);
+      setOtp('');
     } catch (error: any) {
       console.error('Error updating recovery email:', error);
       toast.error(error.message || 'Failed to update recovery email');
@@ -473,20 +548,64 @@ export default function ProfileSettings() {
                   value={recoveryEmail}
                   onChange={(e) => setRecoveryEmail(e.target.value)}
                   placeholder="Enter recovery email"
+                  disabled={otpSent}
                 />
                 <p className="text-xs text-muted-foreground">
                   This email will be used to recover your account if you forget your primary email
                 </p>
               </div>
 
-              <Button
-                onClick={handleUpdateRecoveryEmail}
-                disabled={loading || !recoveryEmail}
-                className="w-full"
-              >
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Update Recovery Email
-              </Button>
+              {otpSent && (
+                <div className="space-y-2">
+                  <Label htmlFor="otp">Enter OTP</Label>
+                  <Input
+                    id="otp"
+                    type="text"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    placeholder="Enter 6-digit OTP"
+                    maxLength={6}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Check your email for the verification code (expires in 10 minutes)
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                {!otpSent ? (
+                  <Button
+                    onClick={sendRecoveryEmailOTP}
+                    disabled={sendingOtp || !recoveryEmail}
+                    className="w-full"
+                  >
+                    {sendingOtp && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Send OTP
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      onClick={verifyAndUpdateRecoveryEmail}
+                      disabled={loading || !otp}
+                      className="flex-1"
+                    >
+                      {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Verify & Update
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setOtpSent(false);
+                        setOtp('');
+                        sessionStorage.removeItem('recovery_otp');
+                      }}
+                      variant="outline"
+                      disabled={loading}
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                )}
+              </div>
             </Card>
           </TabsContent>
 

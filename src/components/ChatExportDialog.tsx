@@ -78,11 +78,22 @@ export const ChatExportDialog = ({ messages, chatTitle = 'Chat History' }: ChatE
         sources: includeSources ? msg.sources : undefined,
       }));
 
-      await generateChatPDF(filteredMessages, chatTitle);
+      const blob = await generateChatPDF(filteredMessages, chatTitle);
+      
+      // Create download link and trigger download
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${chatTitle.replace(/\s+/g, '-')}-${Date.now()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
       toast.success('Chat exported as PDF');
-    } catch (error) {
+    } catch (error: any) {
       console.error('PDF export error:', error);
-      toast.error('Failed to export PDF');
+      toast.error('Failed to export PDF: ' + (error?.message || 'Unknown error'));
     }
   };
 

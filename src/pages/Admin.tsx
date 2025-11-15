@@ -72,6 +72,20 @@ const Admin = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Check session storage first
+    const isAuthenticated = sessionStorage.getItem('admin_authenticated');
+    const loginTime = sessionStorage.getItem('admin_login_time');
+    
+    // Session expires after 12 hours
+    const isSessionValid = loginTime && 
+      (Date.now() - parseInt(loginTime)) < 12 * 60 * 60 * 1000;
+    
+    if (!isAuthenticated || !isSessionValid) {
+      navigate('/admin-login');
+      return;
+    }
+    
+    // Then check database role
     checkAdminAccess();
   }, [user]);
 

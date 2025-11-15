@@ -19,6 +19,8 @@ interface SavedImage {
 
 const ImageGalleryInfinite = () => {
   const [allImages, setAllImages] = useState<SavedImage[]>([]);
+  const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
+  const [selectionMode, setSelectionMode] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -91,6 +93,77 @@ const ImageGalleryInfinite = () => {
     });
   };
 
+  const toggleSelection = (imageId: string) => {
+    setSelectedImages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(imageId)) {
+        newSet.delete(imageId);
+      } else {
+        newSet.add(imageId);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAll = (images: SavedImage[]) => {
+    setSelectedImages(new Set(images.map(img => img.id)));
+  };
+
+  const clearSelection = () => {
+    setSelectedImages(new Set());
+    setSelectionMode(false);
+  };
+
+  const bulkDelete = () => {
+    const updated = allImages.filter(img => !selectedImages.has(img.id));
+    setAllImages(updated);
+    localStorage.setItem('savedImages', JSON.stringify(updated));
+    toast({
+      title: "Images deleted",
+      description: `Deleted ${selectedImages.size} images`,
+    });
+    clearSelection();
+  };
+
+  const bulkDownload = async () => {
+    try {
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      
+      for (const imageId of selectedImages) {
+        const image = allImages.find(img => img.id === imageId);
+        if (image) {
+          const response = await fetch(image.url);
+          const blob = await response.blob();
+          zip.file(`magverse-${imageId}.png`, blob);
+        }
+      }
+      
+      const content = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(content);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `magverse-images-${Date.now()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Download complete",
+        description: `Downloaded ${selectedImages.size} images as ZIP`,
+      });
+      clearSelection();
+    } catch (error) {
+      console.error('Bulk download error:', error);
+      toast({
+        title: "Download failed",
+        description: "Failed to download images",
+        variant: "destructive",
+      });
+    }
+  };
+
   const ImageGrid = ({ category }: { category: string }) => {
     const { data: images, loading, hasMore, loadMoreRef } = useInfiniteScroll<SavedImage>({
       fetchData: (page, pageSize) => fetchImages(page, pageSize, category),
@@ -108,13 +181,30 @@ const ImageGalleryInfinite = () => {
 
     return (
       <div>
+        {images.length > 0 && selectionMode && (
+          <div className="mb-4 flex gap-2">
+            <Button onClick={() => selectAll(images)} variant="outline" size="sm">
+              Select All
+            </Button>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
           {images.map((image, index) => (
             <div 
               key={image.id} 
-              className="glass-card rounded-xl overflow-hidden group stagger-item card-hover-effect"
+              className="glass-card rounded-xl overflow-hidden group stagger-item card-hover-effect relative"
               style={{ animationDelay: `${index * 0.05}s` }}
             >
+              {selectionMode && (
+                <div className="absolute top-2 left-2 z-10">
+                  <input
+                    type="checkbox"
+                    checked={selectedImages.has(image.id)}
+                    onChange={() => toggleSelection(image.id)}
+                    className="w-5 h-5 cursor-pointer"
+                  />
+                </div>
+              )}
               <div className="relative aspect-square bg-muted overflow-hidden">
                 <img
                   src={image.url}
@@ -122,26 +212,28 @@ const ImageGalleryInfinite = () => {
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                   loading="lazy"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <div className="absolute bottom-0 left-0 right-0 p-4 flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => downloadImage(image.url, image.id)}
-                      className="flex-1"
-                    >
-                      <Download className="w-4 h-4 mr-1" />
-                      Download
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => deleteImage(image.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                {!selectionMode && (
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="absolute bottom-0 left-0 right-0 p-4 flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => downloadImage(image.url, image.id)}
+                        className="flex-1"
+                      >
+                        <Download className="w-4 h-4 mr-1" />
+                        Download
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => deleteImage(image.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
               <div className="p-4">
                 <p className="text-sm text-muted-foreground line-clamp-2">{image.prompt}</p>
@@ -183,10 +275,35 @@ const ImageGalleryInfinite = () => {
     <div className="min-h-screen bg-background">
       <ScrollProgressIndicator />
       <Navbar />
-      
       <div className="container mx-auto px-4 pt-24 pb-12">
-        <h1 className="text-4xl font-bold gradient-text mb-8">Image Gallery</h1>
-        
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-4xl font-bold gradient-text">Image Gallery</h1>
+          <div className="flex gap-2">
+            {!selectionMode ? (
+              <Button onClick={() => setSelectionMode(true)} variant="outline" size="sm">
+                Select Multiple
+              </Button>
+            ) : (
+              <>
+                <span className="text-sm text-muted-foreground flex items-center">
+                  {selectedImages.size} selected
+                </span>
+                <Button onClick={bulkDownload} disabled={selectedImages.size === 0} size="sm">
+                  <Download className="w-4 h-4 mr-2" />
+                  Download ZIP
+                </Button>
+                <Button onClick={bulkDelete} disabled={selectedImages.size === 0} variant="destructive" size="sm">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+                <Button onClick={clearSelection} variant="outline" size="sm">
+                  Cancel
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+
         <Tabs defaultValue="all" className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="all">All Images</TabsTrigger>
