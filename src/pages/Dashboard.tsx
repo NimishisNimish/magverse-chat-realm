@@ -21,7 +21,8 @@ import {
   Crown,
   Calendar,
   BarChart3,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw
 } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
@@ -44,12 +45,19 @@ interface UsageStats {
 const Dashboard = () => {
   const [stats, setStats] = useState<UsageStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const { ref: statsRef, isVisible: statsVisible } = useScrollAnimation();
   const { ref: chartsRef, isVisible: chartsVisible } = useScrollAnimation();
+
+  // Count-up animations for key stats
+  const totalMessagesCount = useCountUp({ end: stats?.totalMessages || 0, duration: 2000 });
+  const totalChatsCount = useCountUp({ end: stats?.totalChats || 0, duration: 2000 });
+  const messagesThisMonthCount = useCountUp({ end: stats?.messagesThisMonth || 0, duration: 1500 });
+  const accountAgeDaysCount = useCountUp({ end: stats?.accountAgeDays || 0, duration: 1500 });
 
   useEffect(() => {
     if (!user) {
@@ -58,27 +66,19 @@ const Dashboard = () => {
     }
     loadStats();
 
-    // Set up real-time subscription
-    const channel = supabase
-      .channel('user-stats-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          loadStats(); // Reload stats when messages change
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // Manual refresh only - removed auto-refresh to prevent constant reloading
+    // Users can manually refresh using browser refresh or a refresh button
   }, [user]);
+
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    await loadStats();
+    setRefreshing(false);
+    toast({
+      title: "Refreshed",
+      description: "Dashboard data updated successfully",
+    });
+  };
 
   const loadStats = async () => {
     if (!user) return;
@@ -262,9 +262,21 @@ const Dashboard = () => {
       <Navbar />
       <ScrollProgressIndicator />
       <div className="container mx-auto px-4 pt-24 pb-12">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold gradient-text mb-2">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back, {profile?.display_name || profile?.username || 'User'}!</p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold gradient-text mb-2">Dashboard</h1>
+            <p className="text-muted-foreground">Welcome back, {profile?.display_name || profile?.username || 'User'}!</p>
+          </div>
+          <Button 
+            onClick={handleManualRefresh} 
+            disabled={refreshing}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
 
         {/* Renewal Reminder for Yearly Users */}
@@ -356,33 +368,37 @@ const Dashboard = () => {
           ref={statsRef} 
           className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 animate-on-scroll fade-in-up ${statsVisible ? 'is-visible' : ''}`}
         >
-          <Card className="glass-card stagger-item" style={{ animationDelay: '0.0s' }}>
+          <Card className="glass-card stagger-item card-hover-effect" style={{ animationDelay: '0.0s' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Messages</CardTitle>
               <MessageSquare className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold glow-effect">{stats?.totalMessages}</div>
+              <div ref={totalMessagesCount.ref} className="text-2xl font-bold glow-effect">
+                {statsVisible ? totalMessagesCount.count : 0}
+              </div>
               <p className="text-xs text-muted-foreground">
                 {stats?.messagesThisMonth} this month
               </p>
             </CardContent>
           </Card>
 
-          <Card className="glass-card stagger-item" style={{ animationDelay: '0.1s' }}>
+          <Card className="glass-card stagger-item card-hover-effect" style={{ animationDelay: '0.1s' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Chat Sessions</CardTitle>
               <History className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold glow-effect">{stats?.totalChats}</div>
+              <div ref={totalChatsCount.ref} className="text-2xl font-bold glow-effect">
+                {statsVisible ? totalChatsCount.count : 0}
+              </div>
               <p className="text-xs text-muted-foreground">
                 {stats?.chatsThisMonth} this month
               </p>
             </CardContent>
           </Card>
 
-          <Card className="glass-card stagger-item" style={{ animationDelay: '0.2s' }}>
+          <Card className="glass-card stagger-item card-hover-effect" style={{ animationDelay: '0.2s' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Favorite Model</CardTitle>
               <TrendingUp className="h-4 w-4 text-primary" />
@@ -393,14 +409,14 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="glass-card stagger-item" style={{ animationDelay: '0.3s' }}>
+          <Card className="glass-card stagger-item card-hover-effect" style={{ animationDelay: '0.3s' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Account Age</CardTitle>
               <Calendar className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold glow-effect">
-                {stats?.accountAgeDays || 0}
+              <div ref={accountAgeDaysCount.ref} className="text-2xl font-bold glow-effect">
+                {statsVisible ? accountAgeDaysCount.count : 0}
               </div>
               <p className="text-xs text-muted-foreground">Days since signup</p>
             </CardContent>

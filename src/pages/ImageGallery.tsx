@@ -104,7 +104,7 @@ const ImageGallery = () => {
           {images.map((image, index) => (
             <div 
               key={image.id} 
-              className="glass-card rounded-xl overflow-hidden group stagger-item"
+              className="glass-card rounded-xl overflow-hidden group stagger-item card-hover-effect"
               style={{ animationDelay: `${index * 0.1}s` }}
             >
               <div className="relative aspect-square bg-muted overflow-hidden">
