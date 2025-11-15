@@ -9,6 +9,8 @@ import { CursorProvider } from "@/contexts/CursorContext";
 import CustomCursor from "@/components/CustomCursor";
 import { AnimatePresence } from "framer-motion";
 import PageTransition from "@/components/PageTransition";
+import { useUnifiedNotifications } from "@/hooks/useUnifiedNotifications";
+import ActivityLog from "./pages/ActivityLog";
 import Home from "./pages/Home";
 import Chat from "./pages/Chat";
 import Upgrade from "./pages/Upgrade";
@@ -56,6 +58,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const AnimatedRoutes = () => {
   const location = useLocation();
+  useUnifiedNotifications();
   
   // Map routes to transition variants
   const getTransitionVariant = (pathname: string) => {
@@ -97,6 +100,7 @@ const AnimatedRoutes = () => {
         <Route path="/image-gallery" element={<ProtectedRoute><PageTransition variant="slideRight"><ImageGallery /></PageTransition></ProtectedRoute>} />
         <Route path="/pro-analytics" element={<ProtectedRoute><PageTransition variant="slideLeft"><ProAnalytics /></PageTransition></ProtectedRoute>} />
         <Route path="/achievements" element={<ProtectedRoute><PageTransition variant="slideRight"><Achievements /></PageTransition></ProtectedRoute>} />
+        <Route path="/activity-log" element={<ProtectedRoute><PageTransition variant="fade"><ActivityLog /></PageTransition></ProtectedRoute>} />
         <Route path="/admin-login" element={<PageTransition variant="scale"><AdminLogin /></PageTransition>} />
         <Route path="/support" element={<PageTransition variant="fade"><Support /></PageTransition>} />
         <Route path="*" element={<PageTransition variant="fade"><NotFound /></PageTransition>} />

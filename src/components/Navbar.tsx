@@ -185,6 +185,12 @@ const Navbar = () => {
                       History
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/activity-log" className="cursor-pointer">
+                      <Activity className="w-4 h-4 mr-2" />
+                      Activity Log
+                    </Link>
+                  </DropdownMenuItem>
                   {isAdmin && (
                     <>
                       <DropdownMenuSeparator />

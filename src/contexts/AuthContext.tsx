@@ -103,6 +103,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email,
       password,
     });
+    
+    if (!error) {
+      // Track login activity
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await supabase.functions.invoke('track-activity', {
+            body: {
+              activity_type: 'login',
+              activity_title: 'User Login',
+              activity_description: 'User successfully logged in',
+              metadata: {}
+            }
+          });
+        }
+      } catch (trackError) {
+        console.error('Error tracking login:', trackError);
+      }
+    }
+    
     return { error };
   };
 
