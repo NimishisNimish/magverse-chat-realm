@@ -133,23 +133,7 @@ export default function Analytics() {
     if (isAdmin) {
       loadAnalyticsData();
 
-      // Set up real-time subscriptions
-      const channel = supabase
-        .channel('analytics-updates')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages' }, () => {
-          loadAnalyticsData();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-          loadAnalyticsData();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => {
-          loadAnalyticsData();
-        })
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
+      // Manual refresh only - removed auto-refresh to prevent constant reloading
     }
   }, [isAdmin]);
 

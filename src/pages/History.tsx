@@ -161,7 +161,7 @@ const History = () => {
               {chats.map((chat, index) => (
               <div 
                 key={chat.id} 
-                className="glass-card p-6 rounded-xl hover:shadow-lg transition-all stagger-item"
+                className="glass-card p-6 rounded-xl hover:shadow-lg transition-all stagger-item card-hover-effect"
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <div className="flex items-start gap-4">
