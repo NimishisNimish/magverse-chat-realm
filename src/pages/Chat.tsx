@@ -70,7 +70,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { triggerSuccessConfetti } from "@/utils/confetti";
 
 const aiModels = [
   { id: "gpt-5-mini", name: "GPT-5 Mini", icon: Sparkles, color: "text-purple-400", model: "openai/gpt-5-mini" },
@@ -2754,9 +2753,9 @@ const Chat = () => {
                 </Button>
               </div>
             </div>
-            </div>
           </div>
-          </div>
+        </div>
+      </div>
         </main>
       </div>
 
