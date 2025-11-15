@@ -9,7 +9,7 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
   return (
     <div 
       ref={ref} 
-      className={cn("rounded-lg border bg-card text-card-foreground shadow-sm", className)} 
+      className={cn("rounded-lg border bg-card text-card-foreground shadow-sm card-hover-effect", className)} 
       onMouseEnter={() => setCursorVariant('card')}
       onMouseLeave={() => setCursorVariant('default')}
       {...props} 

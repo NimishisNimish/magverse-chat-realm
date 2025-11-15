@@ -45,9 +45,12 @@ const Home = () => {
   const pricingAnimation = useScrollAnimation({ threshold: 0.1 });
   const featuresAnimation = useScrollAnimation({ threshold: 0.15 });
   
-  // Parallax effects
+  // Parallax effects with multiple layers
   const heroParallax = useParallax({ speed: 0.3 });
   const bgParallax = useParallax({ speed: 0.2 });
+  const parallaxLayer1 = useParallax({ speed: 0.2, mouseInfluence: true, depth: 0.3 });
+  const parallaxLayer2 = useParallax({ speed: 0.4, mouseInfluence: true, depth: 0.5 });
+  const parallaxLayer3 = useParallax({ speed: 0.6, mouseInfluence: true, depth: 0.7 });
   
   return <div className="min-h-screen bg-background relative overflow-hidden">
       {/* Animated gradient background */}
@@ -55,9 +58,10 @@ const Home = () => {
       
       {/* Floating orbs and particles */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {/* Large floating orbs */}
+        {/* Large floating orbs - Layer 1 (background) */}
         <motion.div 
           className="absolute top-20 left-10 w-64 h-64 rounded-full glass-card opacity-30 blur-2xl"
+          style={parallaxLayer1.style}
           animate={{
             y: [0, -30, 0],
             x: [0, 20, 0],
@@ -68,13 +72,15 @@ const Home = () => {
             repeat: 999999,
             ease: "easeInOut"
           }}
-          style={{
+        >
+          <div className="absolute inset-0" style={{
             background: 'radial-gradient(circle, hsl(var(--primary) / 0.4), transparent)'
-          }}
-        />
+          }} />
+        </motion.div>
         
         <motion.div 
           className="absolute top-1/3 right-20 w-96 h-96 rounded-full opacity-20 blur-3xl"
+          style={parallaxLayer1.style}
           animate={{
             y: [0, 40, 0],
             x: [0, -30, 0],
@@ -85,13 +91,15 @@ const Home = () => {
             repeat: 999999,
             ease: "easeInOut"
           }}
-          style={{
+        >
+          <div className="absolute inset-0" style={{
             background: 'radial-gradient(circle, hsl(var(--secondary) / 0.4), transparent)'
-          }}
-        />
+          }} />
+        </motion.div>
         
         <motion.div 
           className="absolute bottom-20 left-1/3 w-80 h-80 rounded-full opacity-25 blur-2xl"
+          style={parallaxLayer2.style}
           animate={{
             y: [0, -25, 0],
             x: [0, 25, 0],
@@ -102,10 +110,11 @@ const Home = () => {
             repeat: 999999,
             ease: "easeInOut"
           }}
-          style={{
+        >
+          <div className="absolute inset-0" style={{
             background: 'radial-gradient(circle, hsl(var(--accent) / 0.3), transparent)'
-          }}
-        />
+          }} />
+        </motion.div>
         
         {/* Small particles that follow mouse */}
         {Array.from({ length: 20 }, (_, i) => (
