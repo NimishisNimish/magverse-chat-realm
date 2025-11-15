@@ -8,6 +8,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { useCursor } from "@/contexts/CursorContext";
+import { NotificationBadge } from "@/components/NotificationBadge";
+import { useNotificationBadge } from "@/hooks/useNotificationBadge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +25,7 @@ const Navbar = () => {
   const { user, profile, signOut } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const { setCursorVariant } = useCursor();
+  const notifications = useNotificationBadge();
 
   useEffect(() => {
     const checkAdminAccess = async () => {
@@ -103,7 +106,25 @@ const Navbar = () => {
         
         {user ? (
             <>
-              {getMembershipBadge()}
+              <div className="relative">
+                {getMembershipBadge()}
+                {notifications.creditsAdded > 0 && (
+                  <div className="absolute -top-2 -right-2">
+                    <NotificationBadge 
+                      count={notifications.creditsAdded} 
+                      variant="credits"
+                    />
+                  </div>
+                )}
+                {notifications.subscriptionUpdate && (
+                  <div className="absolute -top-2 -right-2">
+                    <NotificationBadge 
+                      count={1} 
+                      variant="subscription"
+                    />
+                  </div>
+                )}
+              </div>
               <Link to="/chat">
                 <Button variant="ghost" className="text-foreground">
                   Chat

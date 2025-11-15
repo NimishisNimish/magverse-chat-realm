@@ -217,6 +217,74 @@ All colors MUST be HSL.
     animation-delay: calc(var(--stagger-index, 0) * 0.1s);
   }
 
+  /* Hover glow effect */
+  @keyframes glow-pulse {
+    0%, 100% {
+      box-shadow: 0 0 20px hsl(var(--primary) / 0.3),
+                  0 0 40px hsl(var(--primary) / 0.2);
+    }
+    50% {
+      box-shadow: 0 0 30px hsl(var(--primary) / 0.5),
+                  0 0 60px hsl(var(--primary) / 0.3);
+    }
+  }
+
+  @keyframes bounce-subtle {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  /* Enhanced hover classes */
+  .hover-scale-glow {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .hover-scale-glow:hover {
+    transform: scale(1.05);
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  .card-hover-effect {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .card-hover-effect:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 20px 40px hsl(var(--primary) / 0.2),
+                0 10px 20px hsl(var(--primary) / 0.1);
+  }
+
+  .button-hover-glow {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .button-hover-glow::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--primary) / 0.3),
+      transparent
+    );
+    transform: translateX(-100%);
+    transition: transform 0.6s ease;
+  }
+
+  .button-hover-glow:hover::before {
+    transform: translateX(100%);
+  }
+
+  .animate-bounce-subtle {
+    animation: bounce-subtle 2s ease-in-out infinite;
+  }
+
   /* Hover effects that work with custom cursor */
   a, button, [role="button"], input, textarea, select, .card, img {
     cursor: none !important;

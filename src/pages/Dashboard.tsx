@@ -12,6 +12,7 @@ import { StatCardSkeleton } from "@/components/ui/skeleton";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { useCountUp } from "@/hooks/useCountUp";
 import ScrollProgressIndicator from "@/components/ScrollProgressIndicator";
+import { MilestoneProgress } from "@/components/MilestoneProgress";
 import { 
   Zap, 
   MessageSquare, 
@@ -471,6 +472,11 @@ const Dashboard = () => {
               </ResponsiveContainer>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Milestone Progress */}
+        <div className="mb-8">
+          <MilestoneProgress />
         </div>
 
         {/* Credit Usage Stats */}
