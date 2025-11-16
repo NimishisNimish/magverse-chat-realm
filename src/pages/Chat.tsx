@@ -62,7 +62,6 @@ import { MessageReactions } from "@/components/MessageReactions";
 import { MessageAnnotations } from "@/components/MessageAnnotations";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { RealtimeMessageSync } from "@/components/RealtimeMessageSync";
-import { ModelABTesting } from "@/components/ModelABTesting";
 import {
   Sheet,
   SheetContent,
@@ -2451,23 +2450,6 @@ const Chat = () => {
                           .slice(userMsgIndex + 1)
                           .filter(m => m.role === 'assistant' && !m.error);
                         
-                        // Only show on the last AI response if exactly 2 responses
-                        const isLastAIResponse = aiResponses[aiResponses.length - 1]?.id === message.id;
-                        
-                        if (aiResponses.length === 2 && isLastAIResponse && currentChatId) {
-                          return (
-                            <div className="mt-4">
-                              <ModelABTesting
-                                prompt={userMessage.content}
-                                responses={aiResponses.map(r => ({
-                                  model: r.model,
-                                  content: r.content
-                                }))}
-                                chatId={currentChatId}
-                              />
-                            </div>
-                          );
-                        }
                         return null;
                       })()
                     )}
@@ -2646,36 +2628,6 @@ const Chat = () => {
               )}
 
               <div className="flex flex-col gap-3">
-                {/* File Preview with Remove Button */}
-                {attachmentUrl && (
-                  <div className="p-3 bg-muted rounded-lg border border-border flex items-center gap-3">
-                    {attachmentType === 'image' ? (
-                      <img src={attachmentUrl} alt="Preview" className="w-16 h-16 object-cover rounded flex-shrink-0" />
-                    ) : attachmentType === 'pdf' ? (
-                      <FileText className="w-12 h-12 text-red-500 flex-shrink-0" />
-                    ) : (
-                      <FileIcon className="w-12 h-12 text-muted-foreground flex-shrink-0" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{attachmentFileName}</p>
-                      <p className="text-xs text-muted-foreground">Ready to send</p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setAttachmentUrl(null);
-                        setAttachmentType(null);
-                        setAttachmentFileName(null);
-                        setPendingFile(null);
-                      }}
-                      className="flex-shrink-0"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )}
-
                 <div className="flex gap-3">
                   <input
                     ref={fileInputRef}
