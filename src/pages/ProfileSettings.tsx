@@ -59,6 +59,13 @@ export default function ProfileSettings() {
     if (!user) return;
     
     setInvoicesLoading(true);
+    
+    // Set timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      setInvoicesLoading(false);
+      toast.error('Invoice loading timed out. Please try again.');
+    }, 10000); // 10 second timeout
+    
     try {
       const { data, error } = await supabase
         .from('invoices')
@@ -66,11 +73,20 @@ export default function ProfileSettings() {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setInvoices(data || []);
+      clearTimeout(timeoutId);
+
+      if (error) {
+        console.error('Error loading invoices:', error);
+        // Don't throw - just set empty array
+        setInvoices([]);
+      } else {
+        setInvoices(data || []);
+      }
     } catch (error: any) {
-      console.error('Error loading invoices:', error);
+      console.error('Exception loading invoices:', error);
+      setInvoices([]);
     } finally {
+      clearTimeout(timeoutId);
       setInvoicesLoading(false);
     }
   };

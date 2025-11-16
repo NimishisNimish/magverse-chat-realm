@@ -37,17 +37,17 @@ const CustomCursor = () => {
   if (isMobile) return null;
 
   const getCursorScale = () => {
-    // Reduced scaling to fix size issue
+    // Normalized scaling for better size
     switch (cursorVariant) {
       case 'link':
       case 'button':
-        return 1.1;
-      case 'card':
-        return 1.15;
-      case 'text':
         return 1.05;
+      case 'card':
+        return 1.08;
+      case 'text':
+        return 1.02;
       case 'image':
-        return 1.1;
+        return 1.05;
       default:
         return 1;
     }
@@ -63,7 +63,7 @@ const CustomCursor = () => {
         opacity: isVisible ? 1 : 0,
       }}
     >
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="cursorGradient" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="hsl(var(--primary))" />
@@ -71,7 +71,7 @@ const CustomCursor = () => {
             <stop offset="100%" stopColor="hsl(var(--secondary))" />
           </linearGradient>
           <filter id="glow">
-            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+            <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
             <feMerge>
               <feMergeNode in="coloredBlur"/>
               <feMergeNode in="SourceGraphic"/>
@@ -79,11 +79,11 @@ const CustomCursor = () => {
           </filter>
         </defs>
         <path
-          d="M4 4 L4 28 L12 20 L16 28 L20 26 L16 18 L28 18 Z"
+          d="M2 2 L2 18 L8 13 L10 18 L13 16 L10 11 L18 11 Z"
           fill="url(#cursorGradient)"
           filter="url(#glow)"
           stroke="white"
-          strokeWidth="1.5"
+          strokeWidth="1"
           strokeOpacity="0.8"
         />
       </svg>

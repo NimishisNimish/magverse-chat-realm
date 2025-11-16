@@ -644,9 +644,11 @@ export type Database = {
           created_at: string | null
           credits_remaining: number | null
           display_name: string | null
+          email_digest_enabled: boolean | null
           id: string
           is_pro: boolean | null
           last_credit_reset: string | null
+          last_digest_sent: string | null
           last_email_change: string | null
           last_password_change: string | null
           last_phone_change: string | null
@@ -668,9 +670,11 @@ export type Database = {
           created_at?: string | null
           credits_remaining?: number | null
           display_name?: string | null
+          email_digest_enabled?: boolean | null
           id: string
           is_pro?: boolean | null
           last_credit_reset?: string | null
+          last_digest_sent?: string | null
           last_email_change?: string | null
           last_password_change?: string | null
           last_phone_change?: string | null
@@ -692,9 +696,11 @@ export type Database = {
           created_at?: string | null
           credits_remaining?: number | null
           display_name?: string | null
+          email_digest_enabled?: boolean | null
           id?: string
           is_pro?: boolean | null
           last_credit_reset?: string | null
+          last_digest_sent?: string | null
           last_email_change?: string | null
           last_password_change?: string | null
           last_phone_change?: string | null
@@ -816,42 +822,6 @@ export type Database = {
           verification_status?: string | null
           verified_at?: string | null
           verified_by?: string | null
-        }
-        Relationships: []
-      }
-      user_activity_log: {
-        Row: {
-          activity_description: string | null
-          activity_title: string
-          activity_type: string
-          created_at: string
-          id: string
-          ip_address: string | null
-          metadata: Json | null
-          user_agent: string | null
-          user_id: string
-        }
-        Insert: {
-          activity_description?: string | null
-          activity_title: string
-          activity_type: string
-          created_at?: string
-          id?: string
-          ip_address?: string | null
-          metadata?: Json | null
-          user_agent?: string | null
-          user_id: string
-        }
-        Update: {
-          activity_description?: string | null
-          activity_title?: string
-          activity_type?: string
-          created_at?: string
-          id?: string
-          ip_address?: string | null
-          metadata?: Json | null
-          user_agent?: string | null
-          user_id?: string
         }
         Relationships: []
       }

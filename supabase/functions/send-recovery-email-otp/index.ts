@@ -16,14 +16,19 @@ serve(async (req) => {
   try {
     const { email, otp } = await req.json();
 
+    console.log("Recovery OTP request received for:", email);
+
     if (!email || !otp) {
+      console.error("Missing email or OTP");
       return new Response(
         JSON.stringify({ error: "Email and OTP are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    await resend.emails.send({
+    console.log("Attempting to send recovery OTP email...");
+
+    const result = await resend.emails.send({
       from: "MagVerse <onboarding@resend.dev>",
       to: [email],
       subject: "Recovery Email Verification - OTP",
@@ -53,8 +58,10 @@ serve(async (req) => {
       `,
     });
 
+    console.log("Email send result:", JSON.stringify(result));
+
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ success: true, result }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {

@@ -49,6 +49,7 @@ const Dashboard = () => {
   const [stats, setStats] = useState<UsageStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { getProgress } = useMilestoneTracker();
   
   const { user, profile } = useAuth();
@@ -111,116 +112,111 @@ const Dashboard = () => {
   const loadStats = async () => {
     if (!user) return;
 
-    try {
-      setLoading(true);
+    setLoading(true);
+    setError(null);
 
-      // Fetch profile created_at
+    // Set a timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+      setError('Request timed out. Please try refreshing the page.');
+    }, 15000); // 15 second timeout
+
+    try {
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('created_at')
+        .select('*')
         .eq('id', user.id)
         .single();
 
-      const accountAgeDays = profileData?.created_at 
-        ? Math.floor((Date.now() - new Date(profileData.created_at).getTime()) / (1000 * 60 * 60 * 24))
-        : 0;
-
-      // Fetch all messages
       const { data: messages } = await supabase
         .from('chat_messages')
-        .select('model, created_at')
-        .eq('user_id', user.id);
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
-      // Fetch all chats
       const { data: chats } = await supabase
         .from('chat_history')
-        .select('created_at')
-        .eq('user_id', user.id);
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
-      const totalMessages = messages?.length || 0;
-      const totalChats = chats?.length || 0;
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
 
-      // Calculate this month's stats
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
-      
-      const messagesThisMonth = messages?.filter(m => {
-        const date = new Date(m.created_at);
-        return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-      }).length || 0;
+      const messagesThisMonth = messages?.filter(m => 
+        new Date(m.created_at!) >= startOfMonth
+      ).length || 0;
 
-      const chatsThisMonth = chats?.filter(c => {
-        const date = new Date(c.created_at);
-        return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-      }).length || 0;
+      const chatsThisMonth = chats?.filter(c => 
+        new Date(c.created_at!) >= startOfMonth
+      ).length || 0;
 
-      // Find favorite model
-      const modelCounts: { [key: string]: number } = {};
+      const modelCount: Record<string, number> = {};
       messages?.forEach(msg => {
-        if (msg.model) {
-          modelCounts[msg.model] = (modelCounts[msg.model] || 0) + 1;
+        if (msg.role === 'assistant' && msg.model) {
+          modelCount[msg.model] = (modelCount[msg.model] || 0) + 1;
         }
       });
-      const favoriteModel = Object.entries(modelCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 
-      // Calculate daily usage for chart (last 30 days)
-      const dailyUsage: { [key: string]: number } = {};
-      const last30Days = Array.from({ length: 30 }, (_, i) => {
+      const favoriteModel = Object.keys(modelCount).length > 0
+        ? Object.entries(modelCount).sort((a, b) => b[1] - a[1])[0][0]
+        : null;
+
+      const last7Days = Array.from({ length: 7 }, (_, i) => {
         const date = new Date();
         date.setDate(date.getDate() - i);
         return date.toISOString().split('T')[0];
-      });
+      }).reverse();
 
-      last30Days.forEach(date => { dailyUsage[date] = 0; });
-      messages?.forEach(msg => {
-        const date = new Date(msg.created_at).toISOString().split('T')[0];
-        if (dailyUsage[date] !== undefined) {
-          dailyUsage[date]++;
-        }
-      });
-
-      const dailyUsageData = last30Days.reverse().map(date => ({
-        date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        messages: dailyUsage[date]
+      const dailyUsage = last7Days.map(date => ({
+        date: format(new Date(date), 'MMM dd'),
+        messages: messages?.filter(m => 
+          m.created_at?.split('T')[0] === date
+        ).length || 0
       }));
 
-      // Model usage for pie chart
-      const modelUsageData = Object.entries(modelCounts).map(([model, count]) => ({
+      const modelUsage = Object.entries(modelCount).map(([model, count]) => ({
         model: model.split('/').pop() || model,
         count
       }));
 
-      // Calculate credits used (1 credit per message as baseline)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const thisWeek = new Date();
-      thisWeek.setDate(thisWeek.getDate() - 7);
-      
-      const creditsUsedToday = messages?.filter(m => new Date(m.created_at) >= today).length || 0;
-      const creditsUsedThisWeek = messages?.filter(m => new Date(m.created_at) >= thisWeek).length || 0;
+      const creditsUsedToday = messages?.filter(m => 
+        new Date(m.created_at!) >= startOfToday
+      ).length || 0;
+
+      const creditsUsedThisWeek = messages?.filter(m => 
+        new Date(m.created_at!) >= startOfWeek
+      ).length || 0;
+
       const creditsUsedThisMonth = messagesThisMonth;
 
+      const accountAgeDays = profileData?.created_at 
+        ? differenceInDays(new Date(), new Date(profileData.created_at))
+        : 0;
+
       setStats({
-        totalMessages,
-        totalChats,
+        totalMessages: messages?.length || 0,
+        totalChats: chats?.length || 0,
         messagesThisMonth,
         chatsThisMonth,
         favoriteModel,
         accountAgeDays,
-        dailyUsage: dailyUsageData,
-        modelUsage: modelUsageData,
+        dailyUsage,
+        modelUsage,
         creditsUsedToday,
         creditsUsedThisWeek,
         creditsUsedThisMonth
       });
+
+      clearTimeout(timeoutId);
+      setLoading(false);
     } catch (error) {
-      console.error('Error loading stats:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load dashboard data.",
-        variant: "destructive",
-      });
-    } finally {
+      console.error("Error loading stats:", error);
+      clearTimeout(timeoutId);
+      setError('Failed to load dashboard data. Please try again.');
       setLoading(false);
     }
   };
@@ -280,6 +276,24 @@ const Dashboard = () => {
               <StatCardSkeleton key={i} />
             ))}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen gradient-bg">
+        <Navbar />
+        <div className="container mx-auto px-4 pt-24">
+          <Alert variant="destructive" className="mb-6">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+          <Button onClick={handleManualRefresh} disabled={refreshing}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            Try Again
+          </Button>
         </div>
       </div>
     );
