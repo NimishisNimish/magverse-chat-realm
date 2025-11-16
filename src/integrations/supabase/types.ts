@@ -521,50 +521,6 @@ export type Database = {
         }
         Relationships: []
       }
-      model_comparison_votes: {
-        Row: {
-          chat_id: string | null
-          created_at: string | null
-          id: string
-          model_a: string
-          model_b: string
-          prompt: string
-          reason: string | null
-          user_id: string
-          winner: string | null
-        }
-        Insert: {
-          chat_id?: string | null
-          created_at?: string | null
-          id?: string
-          model_a: string
-          model_b: string
-          prompt: string
-          reason?: string | null
-          user_id: string
-          winner?: string | null
-        }
-        Update: {
-          chat_id?: string | null
-          created_at?: string | null
-          id?: string
-          model_a?: string
-          model_b?: string
-          prompt?: string
-          reason?: string | null
-          user_id?: string
-          winner?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "model_comparison_votes_chat_id_fkey"
-            columns: ["chat_id"]
-            isOneToOne: false
-            referencedRelation: "chat_history"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       password_reset_attempts: {
         Row: {
           created_at: string | null

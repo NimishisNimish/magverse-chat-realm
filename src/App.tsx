@@ -29,9 +29,7 @@ import Dashboard from "./pages/Dashboard";
 import AdminAnalytics from "./pages/AdminAnalytics";
 import UserManagement from "./pages/UserManagement";
 import Support from "./pages/Support";
-import ModelComparison from "./pages/ModelComparison";
 import ImageGallery from "./pages/ImageGallery";
-import ProAnalytics from "./pages/ProAnalytics";
 import AdminUserActivity from "./pages/AdminUserActivity";
 import AdminPaymentQueue from "./pages/AdminPaymentQueue";
 import AdminTraffic from "./pages/AdminTraffic";
@@ -96,9 +94,7 @@ const AnimatedRoutes = () => {
         <Route path="/admin/payment-queue" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminPaymentQueue /></PageTransition></ProtectedRoute>} />
         <Route path="/admin/traffic" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminTraffic /></PageTransition></ProtectedRoute>} />
         <Route path="/admin/user/:userId" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminUserDetail /></PageTransition></ProtectedRoute>} />
-        <Route path="/model-comparison" element={<ProtectedRoute><PageTransition variant="slideRight"><ModelComparison /></PageTransition></ProtectedRoute>} />
         <Route path="/image-gallery" element={<ProtectedRoute><PageTransition variant="slideRight"><ImageGallery /></PageTransition></ProtectedRoute>} />
-        <Route path="/pro-analytics" element={<ProtectedRoute><PageTransition variant="slideLeft"><ProAnalytics /></PageTransition></ProtectedRoute>} />
         <Route path="/achievements" element={<ProtectedRoute><PageTransition variant="slideRight"><Achievements /></PageTransition></ProtectedRoute>} />
         <Route path="/admin/insights" element={<ProtectedRoute><PageTransition variant="fade"><AdminInsights /></PageTransition></ProtectedRoute>} />
         <Route path="/admin-login" element={<PageTransition variant="scale"><AdminLogin /></PageTransition>} />

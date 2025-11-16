@@ -15,7 +15,6 @@ import AdminRealTimeNotifications from "@/components/AdminRealTimeNotifications"
 import AdminFeedbackAnalytics from "@/components/AdminFeedbackAnalytics";
 import UserSegmentationDashboard from "@/components/UserSegmentationDashboard";
 import EmailCampaignAnalytics from "@/components/EmailCampaignAnalytics";
-import { ModelComparisonAnalytics } from "@/components/ModelABTesting";
 import CronSchedulerAdmin from "@/components/CronSchedulerAdmin";
 
 interface UserData {
@@ -446,7 +445,6 @@ export default function AdminDashboard() {
 
       {/* New Advanced Analytics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        <ModelComparisonAnalytics />
         <CronSchedulerAdmin />
       </div>
 

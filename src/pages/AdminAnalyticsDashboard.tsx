@@ -9,7 +9,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import UserEngagementScoring from "@/components/UserEngagementScoring";
-import { ModelComparisonAnalytics } from "@/components/ModelABTesting";
 import EmailCampaignAnalytics from "@/components/EmailCampaignAnalytics";
 import UserSegmentationDashboard from "@/components/UserSegmentationDashboard";
 
@@ -403,8 +402,6 @@ export default function AdminAnalyticsDashboard() {
                 </ScrollArea>
               </CardContent>
             </Card>
-
-            <ModelComparisonAnalytics />
           </TabsContent>
 
           <TabsContent value="conversions" className="space-y-4">
