@@ -31,7 +31,7 @@ import UserManagement from "./pages/UserManagement";
 import Support from "./pages/Support";
 import ImageGallery from "./pages/ImageGallery";
 import AdminUserActivity from "./pages/AdminUserActivity";
-import AdminPaymentQueue from "./pages/AdminPaymentQueue";
+
 import AdminTraffic from "./pages/AdminTraffic";
 import AdminUserDetail from "./pages/AdminUserDetail";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -91,7 +91,6 @@ const AnimatedRoutes = () => {
         <Route path="/admin/old-analytics" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminAnalytics /></PageTransition></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute><PageTransition variant="slideUp"><UserManagement /></PageTransition></ProtectedRoute>} />
         <Route path="/admin/activity" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminUserActivity /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/payment-queue" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminPaymentQueue /></PageTransition></ProtectedRoute>} />
         <Route path="/admin/traffic" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminTraffic /></PageTransition></ProtectedRoute>} />
         <Route path="/admin/user/:userId" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminUserDetail /></PageTransition></ProtectedRoute>} />
         <Route path="/image-gallery" element={<ProtectedRoute><PageTransition variant="slideRight"><ImageGallery /></PageTransition></ProtectedRoute>} />
