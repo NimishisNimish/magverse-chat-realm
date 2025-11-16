@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Sparkles, LogOut, Zap, User, History, MessageSquare, Settings, LayoutDashboard, BarChart3, Shield, Crown, Users, Activity, GitCompare, TrendingUp } from "lucide-react";
+import { Sparkles, LogOut, Zap, User, History, MessageSquare, Settings, LayoutDashboard, BarChart3, Shield, Crown, Users, GitCompare, TrendingUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ThemeCustomizer } from "@/components/ThemeCustomizer";
@@ -180,24 +180,18 @@ const Navbar = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link to="/history" className="cursor-pointer">
-                      <History className="w-4 h-4 mr-2" />
-                      History
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/activity-log" className="cursor-pointer">
-                      <Activity className="w-4 h-4 mr-2" />
-                      Activity Log
-                    </Link>
-                  </DropdownMenuItem>
-                  {isAdmin && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem asChild>
-                        <Link to="/admin" className="cursor-pointer">
-                          <Shield className="w-4 h-4 mr-2" />
-                          Admin Panel
+                  <Link to="/history" className="cursor-pointer">
+                    <History className="w-4 h-4 mr-2" />
+                    History
+                  </Link>
+                </DropdownMenuItem>
+                {isAdmin && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin" className="cursor-pointer">
+                        <Shield className="w-4 h-4 mr-2" />
+                        Admin Panel
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
@@ -214,7 +208,7 @@ const Navbar = () => {
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
                         <Link to="/admin/activity" className="cursor-pointer">
-                          <Activity className="w-4 h-4 mr-2" />
+                          <BarChart3 className="w-4 h-4 mr-2" />
                           User Activity
                         </Link>
                       </DropdownMenuItem>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { triggerSuccessConfetti } from '@/utils/confetti';
@@ -27,6 +27,7 @@ export const useMilestoneTracker = () => {
   const { user } = useAuth();
   const [achievedMilestones, setAchievedMilestones] = useState<Set<string>>(new Set());
   const [currentProgress, setCurrentProgress] = useState({ chats: 0, messages: 0, images: 0 });
+  const celebratedThisSession = React.useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user) return;
@@ -99,8 +100,12 @@ export const useMilestoneTracker = () => {
     MILESTONES.forEach(milestone => {
       const currentValue = progress[milestone.type];
       
-      if (currentValue >= milestone.target && !achievedMilestones.has(milestone.id)) {
-        // Milestone achieved!
+      // Check both localStorage-loaded achievements AND session celebrations to prevent duplicates
+      if (currentValue >= milestone.target && 
+          !achievedMilestones.has(milestone.id) &&
+          !celebratedThisSession.current.has(milestone.id)) {
+        
+        celebratedThisSession.current.add(milestone.id);
         setAchievedMilestones(prev => {
           const newSet = new Set(prev).add(milestone.id);
           saveAchievedMilestone(milestone.id);
