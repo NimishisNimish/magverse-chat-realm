@@ -43,6 +43,8 @@ interface UsageStats {
   creditsUsedToday: number;
   creditsUsedThisWeek: number;
   creditsUsedThisMonth: number;
+  avgModelUse: number;
+  avgResponseTime: string;
 }
 
 const Dashboard = () => {
@@ -197,6 +199,25 @@ const Dashboard = () => {
         ? differenceInDays(new Date(), new Date(profileData.created_at))
         : 0;
 
+      // Calculate average model use (unique models used)
+      const uniqueModels = new Set(messages?.filter(m => m.role === 'assistant' && m.model).map(m => m.model)).size;
+      const avgModelUse = accountAgeDays > 0 ? uniqueModels / Math.max(1, accountAgeDays) : uniqueModels;
+
+      // Calculate average response time
+      const responseTimes: number[] = [];
+      messages?.forEach((msg, idx) => {
+        if (msg.role === 'assistant' && idx > 0) {
+          const prevMsg = messages[idx - 1];
+          if (prevMsg.role === 'user') {
+            const timeDiff = new Date(msg.created_at!).getTime() - new Date(prevMsg.created_at!).getTime();
+            responseTimes.push(timeDiff / 1000); // Convert to seconds
+          }
+        }
+      });
+      const avgResponseTime = responseTimes.length > 0 
+        ? (responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length).toFixed(2) 
+        : '0';
+
       setStats({
         totalMessages: messages?.length || 0,
         totalChats: chats?.length || 0,
@@ -208,7 +229,9 @@ const Dashboard = () => {
         modelUsage,
         creditsUsedToday,
         creditsUsedThisWeek,
-        creditsUsedThisMonth
+        creditsUsedThisMonth,
+        avgModelUse: parseFloat(avgModelUse.toFixed(2)),
+        avgResponseTime: `${avgResponseTime}s`
       });
 
       clearTimeout(timeoutId);
@@ -408,7 +431,7 @@ const Dashboard = () => {
         {/* Usage Statistics */}
         <div 
           ref={statsRef} 
-          className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 animate-on-scroll fade-in-up ${statsVisible ? 'is-visible' : ''}`}
+          className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 animate-on-scroll fade-in-up ${statsVisible ? 'is-visible' : ''}`}
         >
           <Card className="glass-card stagger-item card-hover-effect" style={{ animationDelay: '0.0s' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -461,6 +484,32 @@ const Dashboard = () => {
                 {statsVisible ? accountAgeDaysCount.count : 0}
               </div>
               <p className="text-xs text-muted-foreground">Days since signup</p>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card stagger-item card-hover-effect" style={{ animationDelay: '0.4s' }}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Avg Model Use</CardTitle>
+              <BarChart3 className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold glow-effect">
+                {stats?.avgModelUse?.toFixed(2) || '0.00'}
+              </div>
+              <p className="text-xs text-muted-foreground">Models per day</p>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card stagger-item card-hover-effect" style={{ animationDelay: '0.5s' }}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Avg Response Time</CardTitle>
+              <Zap className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold glow-effect">
+                {stats?.avgResponseTime || '0s'}
+              </div>
+              <p className="text-xs text-muted-foreground">AI response speed</p>
             </CardContent>
           </Card>
         </div>
