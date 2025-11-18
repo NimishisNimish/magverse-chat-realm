@@ -58,8 +58,6 @@ import { PromptLibrary } from "@/components/PromptLibrary";
 import { ChatExportDialog } from "@/components/ChatExportDialog";
 import { CollaborativeChatPresence } from "@/components/CollaborativeChatPresence";
 import { ConversationBranching } from "@/components/ConversationBranching";
-import { MessageReactions } from "@/components/MessageReactions";
-import { MessageAnnotations } from "@/components/MessageAnnotations";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { RealtimeMessageSync } from "@/components/RealtimeMessageSync";
 import {
@@ -1106,13 +1104,13 @@ const Chat = () => {
         }
       }
       
-      // Save chat to database
+      // Save chat to database after successful responses
       const successfulResponses = allAIResponses.filter(msg => !msg.error && msg.content);
-      if (successfulResponses.length > 0) {
+      if (successfulResponses.length > 0 && user) {
         await saveChatToDatabase(userMessage, successfulResponses);
         
         // Trigger confetti on first successful chat!
-        if (messages.length === 1) { // Only user message before this
+        if (messages.length === 1) {
           setTimeout(() => triggerSuccessConfetti(), 500);
         }
       }
@@ -2123,7 +2121,15 @@ const Chat = () => {
                       </div>
                     ) : (
                       <>
-                         <p className="text-foreground leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                         <div 
+                           className="text-foreground leading-relaxed whitespace-pre-wrap prose prose-invert max-w-none"
+                           dangerouslySetInnerHTML={{ 
+                             __html: message.content
+                               .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                               .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                               .replace(/`(.*?)`/g, '<code class="bg-muted px-1 py-0.5 rounded text-sm">$1</code>')
+                           }}
+                         />
                         
                         {/* Display attached file preview for user messages */}
                         {message.role === 'user' && message.attachmentFile && (
@@ -2163,12 +2169,6 @@ const Chat = () => {
                           />
                         )}
                         
-                        {/* Message Reactions */}
-                        <MessageReactions 
-                          messageId={message.id}
-                          conversationId={currentChatId || undefined}
-                        />
-                        
                         {/* Action buttons */}
                         <div className="flex gap-2 mt-3">
                           {message.role === 'user' && (
@@ -2196,13 +2196,6 @@ const Chat = () => {
                             </Button>
                           )}
                         </div>
-                        
-                        {/* Message Annotations */}
-                        <MessageAnnotations 
-                          messageId={message.id}
-                          messageContent={message.content}
-                          conversationId={currentChatId || undefined}
-                        />
                       </>
                     )}
                     

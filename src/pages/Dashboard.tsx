@@ -112,54 +112,42 @@ const Dashboard = () => {
 
     // Set a timeout to prevent infinite loading
     const timeoutId = setTimeout(() => {
-      setLoading(false);
-      setError('Request timed out. Please try refreshing the page.');
-    }, 15000); // 15 second timeout
+      if (loading) {
+        setError('Request timed out. Please try refreshing the page.');
+        setLoading(false);
+      }
+    }, 15000); // 15 seconds
 
     try {
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      // Use database function for optimized stats
+      const { data: statsData, error: statsError } = await supabase
+        .rpc('get_user_dashboard_stats', { p_user_id: user.id });
 
-      const { data: messages } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      if (statsError) throw statsError;
 
-      const { data: chats } = await supabase
-        .from('chat_history')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      // Get limited data for charts - only last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const startOfWeek = new Date(now);
-      startOfWeek.setDate(now.getDate() - now.getDay());
+      const [messagesRes, profileRes] = await Promise.all([
+        supabase
+          .from('chat_messages')
+          .select('created_at, model, role')
+          .eq('user_id', user.id)
+          .gte('created_at', thirtyDaysAgo.toISOString())
+          .order('created_at', { ascending: false })
+          .limit(500),
+        supabase
+          .from('profiles')
+          .select('created_at')
+          .eq('id', user.id)
+          .single()
+      ]);
 
-      const messagesThisMonth = messages?.filter(m => 
-        new Date(m.created_at!) >= startOfMonth
-      ).length || 0;
+      const recentMessages = messagesRes.data || [];
+      const profileData = profileRes.data;
 
-      const chatsThisMonth = chats?.filter(c => 
-        new Date(c.created_at!) >= startOfMonth
-      ).length || 0;
-
-      const modelCount: Record<string, number> = {};
-      messages?.forEach(msg => {
-        if (msg.role === 'assistant' && msg.model) {
-          modelCount[msg.model] = (modelCount[msg.model] || 0) + 1;
-        }
-      });
-
-      const favoriteModel = Object.keys(modelCount).length > 0
-        ? Object.entries(modelCount).sort((a, b) => b[1] - a[1])[0][0]
-        : null;
-
+      // Process daily usage
       const last7Days = Array.from({ length: 7 }, (_, i) => {
         const date = new Date();
         date.setDate(date.getDate() - i);
@@ -168,62 +156,57 @@ const Dashboard = () => {
 
       const dailyUsage = last7Days.map(date => ({
         date: format(new Date(date), 'MMM dd'),
-        messages: messages?.filter(m => 
+        messages: recentMessages.filter(m => 
           m.created_at?.split('T')[0] === date
-        ).length || 0
+        ).length
       }));
+
+      // Process model usage
+      const modelCount: Record<string, number> = {};
+      recentMessages.forEach(msg => {
+        if (msg.role === 'assistant' && msg.model) {
+          modelCount[msg.model] = (modelCount[msg.model] || 0) + 1;
+        }
+      });
 
       const modelUsage = Object.entries(modelCount).map(([model, count]) => ({
         model: model.split('/').pop() || model,
         count
       }));
 
-      const creditsUsedToday = messages?.filter(m => 
-        new Date(m.created_at!) >= startOfToday
-      ).length || 0;
+      // Calculate response times
+      const responseTimes: number[] = [];
+      recentMessages.forEach((msg, idx) => {
+        if (msg.role === 'assistant' && idx > 0) {
+          const prevMsg = recentMessages[idx - 1];
+          if (prevMsg.role === 'user') {
+            const timeDiff = new Date(msg.created_at!).getTime() - new Date(prevMsg.created_at!).getTime();
+            responseTimes.push(timeDiff / 1000);
+          }
+        }
+      });
 
-      const creditsUsedThisWeek = messages?.filter(m => 
-        new Date(m.created_at!) >= startOfWeek
-      ).length || 0;
-
-      const creditsUsedThisMonth = messagesThisMonth;
+      const avgResponseTime = responseTimes.length > 0 
+        ? (responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length).toFixed(2) 
+        : '0';
 
       const accountAgeDays = profileData?.created_at 
         ? differenceInDays(new Date(), new Date(profileData.created_at))
         : 0;
 
-      // Calculate average model use (unique models used)
-      const uniqueModels = new Set(messages?.filter(m => m.role === 'assistant' && m.model).map(m => m.model)).size;
-      const avgModelUse = accountAgeDays > 0 ? uniqueModels / Math.max(1, accountAgeDays) : uniqueModels;
-
-      // Calculate average response time
-      const responseTimes: number[] = [];
-      messages?.forEach((msg, idx) => {
-        if (msg.role === 'assistant' && idx > 0) {
-          const prevMsg = messages[idx - 1];
-          if (prevMsg.role === 'user') {
-            const timeDiff = new Date(msg.created_at!).getTime() - new Date(prevMsg.created_at!).getTime();
-            responseTimes.push(timeDiff / 1000); // Convert to seconds
-          }
-        }
-      });
-      const avgResponseTime = responseTimes.length > 0 
-        ? (responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length).toFixed(2) 
-        : '0';
-
       setStats({
-        totalMessages: messages?.length || 0,
-        totalChats: chats?.length || 0,
-        messagesThisMonth,
-        chatsThisMonth,
-        favoriteModel,
+        totalMessages: (statsData as any)?.total_messages || 0,
+        totalChats: (statsData as any)?.total_chats || 0,
+        messagesThisMonth: (statsData as any)?.messages_this_month || 0,
+        chatsThisMonth: 0,
+        favoriteModel: (statsData as any)?.favorite_model || null,
         accountAgeDays,
         dailyUsage,
         modelUsage,
-        creditsUsedToday,
-        creditsUsedThisWeek,
-        creditsUsedThisMonth,
-        avgModelUse: parseFloat(avgModelUse.toFixed(2)),
+        creditsUsedToday: 0,
+        creditsUsedThisWeek: 0,
+        creditsUsedThisMonth: (statsData as any)?.messages_this_month || 0,
+        avgModelUse: 0,
         avgResponseTime: `${avgResponseTime}s`
       });
 
