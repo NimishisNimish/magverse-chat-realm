@@ -601,6 +601,10 @@ export type Database = {
           credits_remaining: number | null
           display_name: string | null
           email_digest_enabled: boolean | null
+          email_invoices_enabled: boolean | null
+          email_marketing_enabled: boolean | null
+          email_system_enabled: boolean | null
+          email_welcome_enabled: boolean | null
           id: string
           is_pro: boolean | null
           last_credit_reset: string | null
@@ -627,6 +631,10 @@ export type Database = {
           credits_remaining?: number | null
           display_name?: string | null
           email_digest_enabled?: boolean | null
+          email_invoices_enabled?: boolean | null
+          email_marketing_enabled?: boolean | null
+          email_system_enabled?: boolean | null
+          email_welcome_enabled?: boolean | null
           id: string
           is_pro?: boolean | null
           last_credit_reset?: string | null
@@ -653,6 +661,10 @@ export type Database = {
           credits_remaining?: number | null
           display_name?: string | null
           email_digest_enabled?: boolean | null
+          email_invoices_enabled?: boolean | null
+          email_marketing_enabled?: boolean | null
+          email_system_enabled?: boolean | null
+          email_welcome_enabled?: boolean | null
           id?: string
           is_pro?: boolean | null
           last_credit_reset?: string | null
@@ -914,6 +926,7 @@ export type Database = {
           id: string
         }[]
       }
+      get_user_dashboard_stats: { Args: { p_user_id: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

@@ -12,9 +12,8 @@ import { StatCardSkeleton } from "@/components/ui/skeleton";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { useCountUp } from "@/hooks/useCountUp";
 import ScrollProgressIndicator from "@/components/ScrollProgressIndicator";
-import { MilestoneProgress } from "@/components/MilestoneProgress";
-import { useMilestoneTracker } from "@/hooks/useMilestoneTracker";
 import { downloadDashboardPDF } from "@/utils/dashboardExport";
+import { ResponseTimeChart } from "@/components/ResponseTimeChart";
 import { 
   Zap, 
   MessageSquare, 
@@ -52,7 +51,6 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { getProgress } = useMilestoneTracker();
   
   const { user, profile } = useAuth();
   const { toast } = useToast();
@@ -96,11 +94,6 @@ const Dashboard = () => {
       accountAge: stats.accountAgeDays,
       creditsRemaining: profile?.credits_remaining || 0,
       subscriptionType: profile?.subscription_type || 'free',
-      milestoneProgress: {
-        messages: getProgress('messages'),
-        chats: getProgress('chats'),
-        images: getProgress('images'),
-      }
     };
 
     downloadDashboardPDF(dashboardStats, profile?.display_name || user?.email || 'User');
@@ -581,10 +574,18 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Milestone Progress */}
-        <div className="mb-8">
-          <MilestoneProgress />
-        </div>
+        {/* Response Time Analytics */}
+        {stats && stats.dailyUsage.length > 0 && (
+          <div className="mb-8">
+            <ResponseTimeChart 
+              data={stats.dailyUsage.map(day => ({
+                date: day.date,
+                avgTime: Math.random() * 3 + 1 // Placeholder for actual response time
+              }))} 
+              models={stats.modelUsage.map(m => m.model)}
+            />
+          </div>
+        )}
 
         {/* Credit Usage Stats */}
         {profile?.subscription_type !== 'lifetime' && (
