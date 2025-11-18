@@ -26,10 +26,15 @@ serve(async (req) => {
       );
     }
 
-    console.log("Attempting to send recovery OTP email...");
+    const FROM_EMAIL = Deno.env.get("FROM_EMAIL") || "MagVerse <noreply@magverse.ai>";
+
+    console.log("=== RECOVERY EMAIL OTP DEBUG ===");
+    console.log("To:", email);
+    console.log("From:", FROM_EMAIL);
+    console.log("Resend API Key exists:", !!Deno.env.get("RESEND_API_KEY"));
 
     const result = await resend.emails.send({
-      from: "MagVerse <onboarding@resend.dev>",
+      from: FROM_EMAIL,
       to: [email],
       subject: "Recovery Email Verification - OTP",
       html: `
@@ -59,6 +64,11 @@ serve(async (req) => {
     });
 
     console.log("Email send result:", JSON.stringify(result));
+
+    if (result.error) {
+      console.error("Resend error:", result.error);
+      throw new Error(result.error.message);
+    }
 
     return new Response(
       JSON.stringify({ success: true, result }),

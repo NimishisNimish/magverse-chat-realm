@@ -38,6 +38,15 @@ export default function ProfileSettings() {
   const [otp, setOtp] = useState('');
   const [sendingOtp, setSendingOtp] = useState(false);
   
+  // Email preferences state
+  const [emailPreferences, setEmailPreferences] = useState({
+    email_digest_enabled: true,
+    email_welcome_enabled: true,
+    email_invoices_enabled: true,
+    email_marketing_enabled: true,
+    email_system_enabled: true,
+  });
+  
   // Invoices state
   const [invoices, setInvoices] = useState<any[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(false);
@@ -379,7 +388,7 @@ export default function ProfileSettings() {
         </div>
 
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8">
+          <TabsList className="grid w-full grid-cols-5 mb-8">
             <TabsTrigger value="profile" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               Profile
@@ -387,6 +396,10 @@ export default function ProfileSettings() {
             <TabsTrigger value="security" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
               Security
+            </TabsTrigger>
+            <TabsTrigger value="emails" className="flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              Emails
             </TabsTrigger>
             <TabsTrigger value="recovery" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />

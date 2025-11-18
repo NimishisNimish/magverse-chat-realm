@@ -37,8 +37,8 @@ import AdminUserDetail from "./pages/AdminUserDetail";
 import AdminDashboard from "./pages/AdminDashboard";
 import Analytics from "./pages/Analytics";
 import AdminAnalyticsDashboard from "./pages/AdminAnalyticsDashboard";
-import Achievements from "./pages/Achievements";
 import AdminLogin from "./pages/AdminLogin";
+import AdminInvoiceEmailer from "./pages/AdminInvoiceEmailer";
 
 const queryClient = new QueryClient();
 
@@ -94,8 +94,8 @@ const AnimatedRoutes = () => {
         <Route path="/admin/traffic" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminTraffic /></PageTransition></ProtectedRoute>} />
         <Route path="/admin/user/:userId" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminUserDetail /></PageTransition></ProtectedRoute>} />
         <Route path="/image-gallery" element={<ProtectedRoute><PageTransition variant="slideRight"><ImageGallery /></PageTransition></ProtectedRoute>} />
-        <Route path="/achievements" element={<ProtectedRoute><PageTransition variant="slideRight"><Achievements /></PageTransition></ProtectedRoute>} />
         <Route path="/admin/insights" element={<ProtectedRoute><PageTransition variant="fade"><AdminInsights /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/invoice-emails" element={<ProtectedRoute><PageTransition variant="fade"><AdminInvoiceEmailer /></PageTransition></ProtectedRoute>} />
         <Route path="/admin-login" element={<PageTransition variant="scale"><AdminLogin /></PageTransition>} />
         <Route path="/support" element={<PageTransition variant="fade"><Support /></PageTransition>} />
         <Route path="*" element={<PageTransition variant="fade"><NotFound /></PageTransition>} />
