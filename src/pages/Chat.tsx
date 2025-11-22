@@ -10,6 +10,10 @@ import { RequestTimer } from "@/components/RequestTimer";
 import { ModelProgressBar } from "@/components/ModelProgressBar";
 import { useModelHealth } from "@/hooks/useModelHealth";
 import { AnimatePresence } from "framer-motion";
+import { CostEstimator } from "@/components/CostEstimator";
+import { ModelPresets } from "@/components/ModelPresets";
+import { SmartPresetSuggestion } from "@/components/SmartPresetSuggestion";
+import { logCreditUsage } from "@/hooks/useCostTracking";
 import {
   MessageSquarePlus, 
   Send, 
@@ -107,6 +111,7 @@ const Chat = () => {
   const [selectedModels, setSelectedModels] = useState<string[]>(["gpt-5-mini"]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -152,6 +157,18 @@ const Chat = () => {
   // Enable credit alerts and payment notifications
   useCreditAlerts();
   usePaymentNotifications();
+
+  const handlePresetSelect = (preset: any) => {
+    if (!preset) {
+      setSelectedPreset(null);
+      return;
+    }
+    setSelectedPreset(preset.id);
+    setSelectedModels(preset.models);
+    if (preset.settings?.webSearch) setWebSearchEnabled(true);
+    if (preset.settings?.searchMode) setSearchMode(preset.settings.searchMode);
+    if (preset.settings?.deepResearch) setDeepResearchMode(true);
+  };
 
   // Auto-resize textarea
   useEffect(() => {
@@ -1207,6 +1224,15 @@ const Chat = () => {
       setLoading(false);
       setProcessingFile(false);
       setIsDeepResearching(false);
+      
+      // Log credit usage for cost tracking
+      if (user) {
+        selectedModels.forEach(async (modelId) => {
+          const modelConfig = aiModels.find(m => m.id === modelId);
+          const creditCost = modelId.includes('mini') || modelId.includes('flash') ? 1 : modelId.includes('pro') ? 3 : 2;
+          await logCreditUsage(user.id, modelConfig?.name || modelId, creditCost, currentChatId || undefined, undefined, 'chat');
+        });
+      }
       
       // Deduct credits after successful responses
       const isPro = profile?.is_pro || profile?.subscription_type === 'monthly' || profile?.subscription_type === 'lifetime';
@@ -2730,6 +2756,32 @@ const Chat = () => {
                   </AnimatePresence>
                 </div>
               )}
+
+              {/* Model Presets */}
+              <div className="mb-4">
+                <ModelPresets onPresetSelect={handlePresetSelect} selectedPresetId={selectedPreset} />
+              </div>
+
+              {/* Smart Preset Suggestion */}
+              <SmartPresetSuggestion
+                message={input}
+                currentPreset={selectedPreset}
+                onApplyPreset={(presetId) => {
+                  const preset = { id: presetId, models: [], settings: {} };
+                  handlePresetSelect(preset);
+                }}
+              />
+
+              {/* Cost Estimator */}
+              <div className="mb-3 flex justify-end">
+                <CostEstimator
+                  selectedModels={selectedModels}
+                  hasAttachment={!!attachmentUrl}
+                  webSearchEnabled={webSearchEnabled}
+                  imageGenerationEnabled={imageGenerationMode}
+                  deepResearchEnabled={deepResearchMode}
+                />
+              </div>
 
               {/* File preview before upload */}
               {pendingFile && !uploading && !attachmentUrl && (
