@@ -49,6 +49,7 @@ interface UsageStats {
   creditsUsedThisMonth: number;
   avgModelUse: number;
   avgResponseTime: string;
+  responseTimeData?: Array<{ date: string; [key: string]: string | number }>;
 }
 
 const Dashboard = () => {
@@ -194,7 +195,45 @@ const Dashboard = () => {
         count
       }));
 
-      // Calculate response times
+      // Calculate response times per model per day
+      const responseTimesByModelAndDay: Record<string, Record<string, number[]>> = {};
+      recentMessages.forEach((msg, idx) => {
+        if (msg.role === 'assistant' && idx > 0 && msg.model) {
+          const prevMsg = recentMessages[idx - 1];
+          if (prevMsg.role === 'user') {
+            const timeDiff = new Date(msg.created_at!).getTime() - new Date(prevMsg.created_at!).getTime();
+            const responseTime = timeDiff / 1000;
+            const dateKey = msg.created_at!.split('T')[0];
+            const modelKey = msg.model.split('/').pop() || msg.model;
+            
+            if (!responseTimesByModelAndDay[dateKey]) {
+              responseTimesByModelAndDay[dateKey] = {};
+            }
+            if (!responseTimesByModelAndDay[dateKey][modelKey]) {
+              responseTimesByModelAndDay[dateKey][modelKey] = [];
+            }
+            responseTimesByModelAndDay[dateKey][modelKey].push(responseTime);
+          }
+        }
+      });
+
+      // Create response time chart data
+      const responseTimeData = last7Days.map(date => {
+        const dateFormatted = format(new Date(date), 'MMM dd');
+        const dayData: any = { date: dateFormatted };
+        
+        Object.keys(modelCount).forEach(fullModel => {
+          const model = fullModel.split('/').pop() || fullModel;
+          const times = responseTimesByModelAndDay[date]?.[model] || [];
+          if (times.length > 0) {
+            dayData[model] = parseFloat((times.reduce((a, b) => a + b, 0) / times.length).toFixed(2));
+          }
+        });
+        
+        return dayData;
+      });
+
+      // Calculate overall average response times
       const responseTimes: number[] = [];
       recentMessages.forEach((msg, idx) => {
         if (msg.role === 'assistant' && idx > 0) {
@@ -227,7 +266,8 @@ const Dashboard = () => {
         creditsUsedThisWeek: 0,
         creditsUsedThisMonth: (statsData as any)?.messages_this_month || 0,
         avgModelUse: 0,
-        avgResponseTime: `${avgResponseTime}s`
+        avgResponseTime: `${avgResponseTime}s`,
+        responseTimeData
       });
 
     } catch (error: any) {
@@ -582,14 +622,11 @@ const Dashboard = () => {
         </div>
 
         {/* Response Time Analytics */}
-        {stats && stats.dailyUsage.length > 0 && (
+        {stats && stats.responseTimeData && stats.responseTimeData.length > 0 && stats.modelUsage.length > 0 && (
           <div className="mb-6">
             <ChartErrorBoundary>
               <LazyResponseTimeChart
-                data={stats.dailyUsage.map(day => ({
-                  date: day.date,
-                  avgTime: Math.random() * 3 + 1
-                }))} 
+                data={stats.responseTimeData} 
                 models={stats.modelUsage.map(m => m.model)}
               />
             </ChartErrorBoundary>
@@ -685,7 +722,7 @@ const Dashboard = () => {
         )}
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
           <Link to="/chat">
             <Card className="glass-card hover:border-primary/50 transition-all cursor-pointer">
               <CardHeader>
