@@ -1,117 +1,75 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, CheckCircle2, XCircle, Clock, Zap, Brain, Bot, Globe, Sparkles, Cpu, Star } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { RefreshCw, CheckCircle2, XCircle, Clock, Zap, Brain, Bot, Globe, Sparkles, Cpu, Star, AlertTriangle } from "lucide-react";
+import { useModelHealth } from "@/hooks/useModelHealth";
 
-interface ModelStatus {
+interface ModelConfig {
   id: string;
   name: string;
-  status: 'operational' | 'degraded' | 'down';
-  avgResponseTime: number;
-  lastChecked: Date;
   icon: any;
   color: string;
 }
 
 const ModelStatus = () => {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [models, setModels] = useState<ModelStatus[]>([
-    { id: "gpt-5.1", name: "GPT-5.1", status: 'operational', avgResponseTime: 0, lastChecked: new Date(), icon: Bot, color: "text-accent" },
-    { id: "gpt-5-mini", name: "GPT-5 Mini", status: 'operational', avgResponseTime: 0, lastChecked: new Date(), icon: Sparkles, color: "text-purple-400" },
-    { id: "gpt-5-nano", name: "GPT-5 Nano", status: 'operational', avgResponseTime: 0, lastChecked: new Date(), icon: Star, color: "text-blue-400" },
-    { id: "gemini-3-flash", name: "Gemini 3 Flash", status: 'operational', avgResponseTime: 0, lastChecked: new Date(), icon: Zap, color: "text-primary" },
-    { id: "gemini-3-pro", name: "Gemini 3 Pro", status: 'operational', avgResponseTime: 0, lastChecked: new Date(), icon: Brain, color: "text-secondary" },
-    { id: "gemini-lite", name: "Gemini Lite", status: 'operational', avgResponseTime: 0, lastChecked: new Date(), icon: Cpu, color: "text-muted-foreground" },
-    { id: "claude", name: "Claude", status: 'operational', avgResponseTime: 0, lastChecked: new Date(), icon: Bot, color: "text-orange-400" },
-    { id: "perplexity", name: "Perplexity", status: 'operational', avgResponseTime: 0, lastChecked: new Date(), icon: Globe, color: "text-green-400" },
-    { id: "grok", name: "Grok", status: 'operational', avgResponseTime: 0, lastChecked: new Date(), icon: Zap, color: "text-cyan-400" },
-  ]);
-  const [checking, setChecking] = useState(false);
+  const { getAllModelHealth, attemptRecovery } = useModelHealth();
+  
+  const modelConfigs: ModelConfig[] = [
+    { id: "gpt-5.1", name: "GPT-5.1", icon: Bot, color: "text-accent" },
+    { id: "gpt-5-mini", name: "GPT-5 Mini", icon: Sparkles, color: "text-purple-400" },
+    { id: "gpt-5-nano", name: "GPT-5 Nano", icon: Star, color: "text-blue-400" },
+    { id: "gemini-3-flash", name: "Gemini 3 Flash", icon: Zap, color: "text-primary" },
+    { id: "gemini-3-pro", name: "Gemini 3 Pro", icon: Brain, color: "text-secondary" },
+    { id: "gemini-lite", name: "Gemini Lite", icon: Cpu, color: "text-muted-foreground" },
+    { id: "claude", name: "Claude", icon: Bot, color: "text-orange-400" },
+    { id: "perplexity", name: "Perplexity", icon: Globe, color: "text-green-400" },
+    { id: "grok", name: "Grok", icon: Zap, color: "text-cyan-400" },
+  ];
 
-  const checkModelStatus = async () => {
-    if (!user) return;
-    
-    setChecking(true);
-    
-    try {
-      // Query recent chat messages to determine model health
-      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-      
-      const { data: recentMessages, error } = await supabase
-        .from('chat_messages')
-        .select('model, created_at')
-        .gte('created_at', thirtyMinutesAgo)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Calculate status based on recent activity
-      const updatedModels = models.map(model => {
-        const modelMessages = recentMessages?.filter(m => 
-          m.model?.toLowerCase().includes(model.id.toLowerCase()) ||
-          m.model?.toLowerCase().includes(model.name.toLowerCase())
-        ) || [];
-
-        let status: 'operational' | 'degraded' | 'down' = 'operational';
-        
-        if (modelMessages.length === 0) {
-          status = 'degraded'; // No recent usage
-        } else if (modelMessages.length < 3) {
-          status = 'degraded'; // Low usage might indicate issues
-        }
-
-        // Calculate average response time (simulated based on message count)
-        const avgResponseTime = modelMessages.length > 0 
-          ? Math.random() * 3 + 1 // Simulate 1-4 second response times
-          : 0;
-
-        return {
-          ...model,
-          status,
-          avgResponseTime: parseFloat(avgResponseTime.toFixed(2)),
-          lastChecked: new Date()
-        };
-      });
-
-      setModels(updatedModels);
-      
-      toast({
-        title: "Status Updated",
-        description: "Model availability has been refreshed",
-      });
-    } catch (error: any) {
-      console.error('Error checking model status:', error);
-      toast({
-        title: "Status Check Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setChecking(false);
-    }
+  const handleRecoveryAttempt = () => {
+    modelConfigs.forEach(config => {
+      attemptRecovery(config.id);
+    });
   };
 
   useEffect(() => {
-    checkModelStatus();
-  }, [user]);
+    // Attempt recovery for disabled models on mount
+    handleRecoveryAttempt();
+  }, []);
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: 'healthy' | 'degraded' | 'down') => {
     switch (status) {
-      case 'operational':
+      case 'healthy':
         return <Badge className="bg-green-500/20 text-green-500 border-green-500"><CheckCircle2 className="w-3 h-3 mr-1" />Operational</Badge>;
       case 'degraded':
-        return <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500"><Clock className="w-3 h-3 mr-1" />Degraded</Badge>;
+        return <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500"><AlertTriangle className="w-3 h-3 mr-1" />Degraded</Badge>;
       case 'down':
         return <Badge className="bg-destructive/20 text-destructive border-destructive"><XCircle className="w-3 h-3 mr-1" />Down</Badge>;
-      default:
-        return <Badge variant="outline">Unknown</Badge>;
     }
+  };
+
+  const getModelData = () => {
+    const healthData = getAllModelHealth();
+    
+    return modelConfigs.map(config => {
+      const health = healthData.find(h => h.id === config.id);
+      
+      return {
+        ...config,
+        status: health?.status || 'healthy',
+        consecutiveFailures: health?.consecutiveFailures || 0,
+        lastFailure: health?.lastFailure,
+        lastSuccess: health?.lastSuccess,
+        totalRequests: health?.totalRequests || 0,
+        successfulRequests: health?.successfulRequests || 0,
+        isDisabled: health?.isDisabled || false,
+        successRate: health?.totalRequests 
+          ? ((health.successfulRequests / health.totalRequests) * 100).toFixed(1)
+          : 'N/A'
+      };
+    });
   };
 
   return (
@@ -121,17 +79,19 @@ const ModelStatus = () => {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-4xl font-bold mb-2">AI Model Status</h1>
-            <p className="text-muted-foreground">Real-time availability of AI models</p>
+            <p className="text-muted-foreground">Real-time health monitoring based on actual usage</p>
           </div>
-          <Button onClick={checkModelStatus} disabled={checking}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${checking ? 'animate-spin' : ''}`} />
-            Refresh Status
+          <Button onClick={handleRecoveryAttempt}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Check Recovery
           </Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {models.map((model) => {
+          {getModelData().map((model) => {
             const Icon = model.icon;
+            const hasData = model.totalRequests > 0;
+            
             return (
               <Card key={model.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
@@ -143,23 +103,50 @@ const ModelStatus = () => {
                     {getStatusBadge(model.status)}
                   </div>
                   <CardDescription>
-                    Last checked: {model.lastChecked.toLocaleTimeString()}
+                    {hasData ? (
+                      <>
+                        {model.lastSuccess && `Last success: ${new Date(model.lastSuccess).toLocaleTimeString()}`}
+                        {model.lastFailure && model.status !== 'healthy' && (
+                          <span className="text-destructive ml-2">
+                            Last failure: {new Date(model.lastFailure).toLocaleTimeString()}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      'No recent usage data'
+                    )}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {model.avgResponseTime > 0 && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Avg Response Time:</span>
-                        <span className="font-medium">{model.avgResponseTime}s</span>
-                      </div>
+                    {hasData ? (
+                      <>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Total Requests:</span>
+                          <span className="font-medium">{model.totalRequests}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Success Rate:</span>
+                          <span className="font-medium">{model.successRate}%</span>
+                        </div>
+                        {model.consecutiveFailures > 0 && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Consecutive Failures:</span>
+                            <span className="font-medium text-destructive">{model.consecutiveFailures}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Status:</span>
+                          <span className="font-medium">
+                            {model.isDisabled ? 'Temporarily Disabled' : 'Available'}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        This model hasn't been used yet. Status will appear after first usage.
+                      </p>
                     )}
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Recommended:</span>
-                      <span className="font-medium">
-                        {model.status === 'operational' ? 'Yes' : 'Use alternative'}
-                      </span>
-                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -169,13 +156,14 @@ const ModelStatus = () => {
 
         <Card className="mt-8">
           <CardHeader>
-            <CardTitle>About Model Status</CardTitle>
+            <CardTitle>About Model Health Monitoring</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>• <strong>Operational:</strong> Model is working normally with good response times</p>
-            <p>• <strong>Degraded:</strong> Model may have slower response times or reduced availability</p>
-            <p>• <strong>Down:</strong> Model is currently unavailable</p>
-            <p className="mt-4">Status is based on recent usage patterns and response times. If a model shows degraded or down status, try using an alternative model or check back later.</p>
+            <p>• <strong>Operational:</strong> Model is responding successfully to requests</p>
+            <p>• <strong>Degraded:</strong> Model has experienced 2+ consecutive failures but is still available</p>
+            <p>• <strong>Down:</strong> Model has 3+ consecutive failures and is temporarily disabled</p>
+            <p className="mt-4">Status is based on <strong>real usage data</strong> from your actual requests. Models automatically recover after successful responses. Disabled models are re-enabled after 5 minutes to test recovery.</p>
+            <p className="mt-2">If a model shows degraded or down status, it's recommended to use an alternative model until it recovers.</p>
           </CardContent>
         </Card>
       </div>
