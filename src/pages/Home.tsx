@@ -39,6 +39,17 @@ const Home = () => {
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
+
+  // Prefetch Chat page (most likely next destination)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const link = document.createElement('link');
+      link.rel = 'prefetch';
+      link.href = '/chat';
+      document.head.appendChild(link);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
   
   // Scroll animations for different sections
   const heroAnimation = useScrollAnimation({ threshold: 0.2 });

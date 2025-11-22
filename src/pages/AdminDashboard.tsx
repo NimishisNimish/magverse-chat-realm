@@ -18,6 +18,7 @@ import EmailCampaignAnalytics from "@/components/EmailCampaignAnalytics";
 import CronSchedulerAdmin from "@/components/CronSchedulerAdmin";
 import { Link } from "react-router-dom";
 import { ModelPerformanceLeaderboard } from "@/components/ModelPerformanceLeaderboard";
+import { WebhookConfiguration } from "@/components/WebhookConfiguration";
 
 interface UserData {
   id: string;
@@ -453,6 +454,7 @@ export default function AdminDashboard() {
       {/* New Advanced Analytics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         <CronSchedulerAdmin />
+        <WebhookConfiguration />
       </div>
 
       <div className="mt-6">

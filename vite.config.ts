@@ -10,6 +10,30 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor chunks
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-ui': [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-toast',
+            '@radix-ui/react-tabs',
+            '@radix-ui/react-select',
+            '@radix-ui/react-scroll-area',
+          ],
+          'vendor-query': ['@tanstack/react-query'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-charts': ['recharts', 'date-fns'],
+          'vendor-form': ['react-hook-form', '@hookform/resolvers', 'zod'],
+          'vendor-animation': ['framer-motion'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 800, // Warn if any chunk exceeds 800 KB
+  },
   plugins: [
     react(), 
     mode === "development" && componentTagger(),
@@ -40,7 +64,7 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MB
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB (increased for multiple chunks)
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/pqdgpxetysqcdcjwormb\.supabase\.co\/.*/i,
