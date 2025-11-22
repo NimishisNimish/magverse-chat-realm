@@ -13,6 +13,9 @@ interface ModelHealth {
   totalRequests: number;
   successfulRequests: number;
   isDisabled: boolean;
+  avgResponseTime: number;
+  recentFailureRate: number; // Failure rate in last 10 requests
+  failureHistory: Array<{ timestamp: Date; success: boolean }>; // Last 20 requests
 }
 
 const FAILURE_THRESHOLD = 3; // Disable after 3 consecutive failures
@@ -67,6 +70,9 @@ export const useModelHealth = () => {
           totalRequests: 0,
           successfulRequests: 0,
           isDisabled: false,
+          avgResponseTime: 0,
+          recentFailureRate: 0,
+          failureHistory: [],
         });
         return newMap;
       }
@@ -74,8 +80,8 @@ export const useModelHealth = () => {
     });
   }, []);
 
-  // Record success
-  const recordSuccess = useCallback(async (modelId: string, modelName: string) => {
+  // Record success with response time
+  const recordSuccess = useCallback(async (modelId: string, modelName: string, responseTime?: number) => {
     setModelHealthMap(prev => {
       const newMap = new Map(prev);
       const current = newMap.get(modelId) || {
@@ -88,9 +94,27 @@ export const useModelHealth = () => {
         totalRequests: 0,
         successfulRequests: 0,
         isDisabled: false,
+        avgResponseTime: 0,
+        recentFailureRate: 0,
+        failureHistory: [],
       };
 
       const wasDown = current.status === 'down';
+      
+      // Update failure history
+      const updatedHistory = [...current.failureHistory, { timestamp: new Date(), success: true }].slice(-20);
+      
+      // Calculate recent failure rate (last 10 requests)
+      const recentHistory = updatedHistory.slice(-10);
+      const recentFailures = recentHistory.filter(h => !h.success).length;
+      const recentFailureRate = recentHistory.length > 0 ? (recentFailures / recentHistory.length) * 100 : 0;
+      
+      // Update average response time
+      const newAvgResponseTime = responseTime 
+        ? current.totalRequests > 0
+          ? (current.avgResponseTime * current.totalRequests + responseTime) / (current.totalRequests + 1)
+          : responseTime
+        : current.avgResponseTime;
       
       newMap.set(modelId, {
         ...current,
@@ -100,6 +124,9 @@ export const useModelHealth = () => {
         totalRequests: current.totalRequests + 1,
         successfulRequests: current.successfulRequests + 1,
         isDisabled: false,
+        avgResponseTime: newAvgResponseTime,
+        recentFailureRate,
+        failureHistory: updatedHistory,
       });
 
       // Notify if model recovered
@@ -141,10 +168,29 @@ export const useModelHealth = () => {
         totalRequests: 0,
         successfulRequests: 0,
         isDisabled: false,
+        avgResponseTime: 0,
+        recentFailureRate: 0,
+        failureHistory: [],
       };
 
       const newFailures = current.consecutiveFailures + 1;
       const shouldDisable = newFailures >= FAILURE_THRESHOLD;
+      
+      // Update failure history
+      const updatedHistory = [...current.failureHistory, { timestamp: new Date(), success: false }].slice(-20);
+      
+      // Calculate recent failure rate (last 10 requests)
+      const recentHistory = updatedHistory.slice(-10);
+      const recentFailures = recentHistory.filter(h => !h.success).length;
+      const recentFailureRate = recentHistory.length > 0 ? (recentFailures / recentHistory.length) * 100 : 0;
+      
+      // Predictive alert: Check if failure rate is increasing
+      const olderHistory = updatedHistory.slice(-20, -10);
+      const olderFailures = olderHistory.filter(h => !h.success).length;
+      const olderFailureRate = olderHistory.length > 0 ? (olderFailures / olderHistory.length) * 100 : 0;
+      
+      // If failure rate doubled and is above 30%, send predictive warning
+      const isPredictedDegradation = recentFailureRate > 30 && recentFailureRate > olderFailureRate * 1.5;
       
       let newStatus: 'healthy' | 'degraded' | 'down' = 'healthy';
       if (shouldDisable) {
@@ -160,7 +206,37 @@ export const useModelHealth = () => {
         lastFailure: new Date(),
         totalRequests: current.totalRequests + 1,
         isDisabled: shouldDisable,
+        recentFailureRate,
+        failureHistory: updatedHistory,
       });
+
+      // Predictive warning before reaching degraded status
+      if (isPredictedDegradation && current.status === 'healthy' && !shouldDisable) {
+        toast({
+          title: `${modelName} Showing Warning Signs`,
+          description: `${modelName} failure rate is increasing (${recentFailureRate.toFixed(0)}%). Potential degradation predicted.`,
+          className: 'bg-orange-500/10 border-orange-500',
+        });
+        
+        // Send predictive admin notification
+        if (user) {
+          supabase.from('admin_notifications').insert({
+            title: `Predictive Alert: ${modelName}`,
+            message: `${modelName} showing concerning failure rate trend (${recentFailureRate.toFixed(1)}% in last 10 requests, up from ${olderFailureRate.toFixed(1)}%). Model may degrade soon without intervention.`,
+            notification_type: 'model_health',
+            metadata: { 
+              modelId, 
+              modelName, 
+              status: 'predictive_warning',
+              recentFailureRate: recentFailureRate.toFixed(1),
+              trend: 'increasing',
+              timestamp: new Date().toISOString() 
+            }
+          }).then(({ error: dbError }) => {
+            if (dbError) console.error('Failed to send predictive admin notification:', dbError);
+          });
+        }
+      }
 
       // Notify user of status change
       if (shouldDisable && !current.isDisabled) {
@@ -270,6 +346,28 @@ export const useModelHealth = () => {
     }
   }, [modelHealthMap, user]);
 
+  // Get models sorted by health score (for load balancing)
+  const getModelsByHealthScore = useCallback((): ModelHealth[] => {
+    const models = Array.from(modelHealthMap.values());
+    
+    return models
+      .filter(m => !m.isDisabled)
+      .sort((a, b) => {
+        // Calculate health scores (0-100)
+        const scoreA = (a.totalRequests > 0 ? (a.successfulRequests / a.totalRequests) * 100 : 100) 
+                       - a.consecutiveFailures * 20 
+                       - a.recentFailureRate * 0.5
+                       - (a.avgResponseTime / 100); // Penalize slower models
+        
+        const scoreB = (b.totalRequests > 0 ? (b.successfulRequests / b.totalRequests) * 100 : 100) 
+                       - b.consecutiveFailures * 20 
+                       - b.recentFailureRate * 0.5
+                       - (b.avgResponseTime / 100);
+        
+        return scoreB - scoreA; // Higher score first
+      });
+  }, [modelHealthMap]);
+
   return {
     initModel,
     recordSuccess,
@@ -279,5 +377,6 @@ export const useModelHealth = () => {
     getAllModelHealth,
     attemptRecovery,
     saveHealthSnapshot,
+    getModelsByHealthScore,
   };
 };
