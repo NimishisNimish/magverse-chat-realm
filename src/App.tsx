@@ -121,9 +121,9 @@ const AnimatedRoutes = () => {
           <Route path="/payment" element={<PageTransition variant="scale"><Payment /></PageTransition>} />
           <Route path="/image-gallery" element={<ProtectedRoute><PageTransition variant="slideRight"><ImageGallery /></PageTransition></ProtectedRoute>} />
           <Route path="/support" element={<PageTransition variant="fade"><Support /></PageTransition>} />
-          <Route path="/model-status" element={<ProtectedRoute><PageTransition variant="fade"><ModelStatus /></PageTransition></ProtectedRoute>} />
+          <Route path="/model-status" element={<AdminProtectedRoute><PageTransition variant="fade"><ModelStatus /></PageTransition></AdminProtectedRoute>} />
           <Route path="/status" element={<PageTransition variant="fade"><PublicModelStatus /></PageTransition>} />
-          <Route path="/cost-tracking" element={<ProtectedRoute><PageTransition variant="fade"><CostTracking /></PageTransition></ProtectedRoute>} />
+          <Route path="/cost-tracking" element={<AdminProtectedRoute><PageTransition variant="fade"><CostTracking /></PageTransition></AdminProtectedRoute>} />
           <Route path="/comparison" element={<ProtectedRoute><PageTransition variant="fade"><ModelComparison /></PageTransition></ProtectedRoute>} />
           
           {/* Admin routes (all lazy loaded) */}
