@@ -289,9 +289,6 @@ const Admin = () => {
               <Button onClick={() => navigate('/admin/activity')} variant="outline" size="sm">
                 User Activity
               </Button>
-              <Button onClick={() => navigate('/admin/payment-queue')} variant="outline" size="sm">
-                Payment Queue
-              </Button>
               <Button onClick={loadTransactions} variant="outline" size="sm" disabled={loading}>
                 <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                 Refresh

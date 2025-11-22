@@ -92,14 +92,11 @@ const Navbar = () => {
         </Link>
         
       <div className="flex items-center gap-4">
-        <div className="hidden md:flex items-center gap-6 mr-4">
-          <a href="#about" className="text-foreground hover:text-primary transition-colors">
-            About
-          </a>
-          <Link to="/support" className="text-foreground hover:text-primary transition-colors">
-            Support
-          </Link>
-        </div>
+          <div className="hidden md:flex items-center gap-6 mr-4">
+            <Link to="/support" className="text-foreground hover:text-primary transition-colors">
+              Support
+            </Link>
+          </div>
         
         <ThemeToggle />
         <ThemeCustomizer />

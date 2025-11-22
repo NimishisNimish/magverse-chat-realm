@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Navbar from '@/components/Navbar';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,6 +19,7 @@ import { generateInvoicePDF } from "@/utils/invoiceGenerator";
 export default function ProfileSettings() {
   const { user, profile, refreshProfile } = useAuth();
   const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
   
   // Profile Information State
   const [username, setUsername] = useState(profile?.username || '');
@@ -46,10 +48,27 @@ export default function ProfileSettings() {
     email_marketing_enabled: true,
     email_system_enabled: true,
   });
-  
-  // Invoices state
-  const [invoices, setInvoices] = useState<any[]>([]);
-  const [invoicesLoading, setInvoicesLoading] = useState(false);
+
+  // React Query for invoices
+  const { data: invoices = [], isLoading: invoicesLoading } = useQuery({
+    queryKey: ['user-invoices', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) {
+        console.error('Error loading invoices:', error);
+        return [];
+      }
+      return data || [];
+    },
+    enabled: !!user,
+    staleTime: 2 * 60 * 1000,
+    retry: 2,
+  });
 
   useEffect(() => {
     if (profile) {
@@ -64,45 +83,6 @@ export default function ProfileSettings() {
     }
   }, [profile, user]);
 
-  const loadInvoices = async () => {
-    if (!user) return;
-    
-    setInvoicesLoading(true);
-    
-    // Set timeout to prevent infinite loading
-    const timeoutId = setTimeout(() => {
-      setInvoicesLoading(false);
-      toast.error('Invoice loading timed out. Please try again.');
-    }, 10000); // 10 second timeout
-    
-    try {
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      clearTimeout(timeoutId);
-
-      if (error) {
-        console.error('Error loading invoices:', error);
-        // Don't throw - just set empty array
-        setInvoices([]);
-      } else {
-        setInvoices(data || []);
-      }
-    } catch (error: any) {
-      console.error('Exception loading invoices:', error);
-      setInvoices([]);
-    } finally {
-      clearTimeout(timeoutId);
-      setInvoicesLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadInvoices();
-  }, [user]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
