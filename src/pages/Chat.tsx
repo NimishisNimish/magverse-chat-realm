@@ -54,6 +54,7 @@ import {
 import Navbar from "@/components/Navbar";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { toast as sonnerToast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { generateChatPDF } from "@/utils/pdfGenerator";
@@ -71,7 +72,9 @@ import { TypingIndicator } from "@/components/TypingIndicator";
 import { RealtimeMessageSync } from "@/components/RealtimeMessageSync";
 import { MessageSources } from "@/components/MessageSources";
 import { SavePresetDialog } from "@/components/SavePresetDialog";
+import { BudgetAlertDialog } from "@/components/BudgetAlertDialog";
 import { renderWithCitations, getEstimatedResponseTime, recordResponseTime } from "@/utils/citationRenderer";
+import { calculateModelCost, estimateTokens, getModelTier } from "@/utils/modelPricing";
 import {
   Sheet,
   SheetContent,
@@ -149,6 +152,7 @@ const Chat = () => {
   const [modelProgress, setModelProgress] = useState<Map<string, { progress: number; status: 'waiting' | 'streaming' | 'complete' | 'error'; tokens: number; startTime?: number }>>(new Map());
   const [modelResponseTimes, setModelResponseTimes] = useState<Map<string, number[]>>(new Map());
   const [savePresetOpen, setSavePresetOpen] = useState(false);
+  const [budgetAlertOpen, setBudgetAlertOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
@@ -190,10 +194,59 @@ const Chat = () => {
 
   useEffect(() => {
     const chatId = searchParams.get('id');
+    const presetCode = searchParams.get('preset');
+    
     if (chatId && user) {
       loadChatMessages(chatId);
     }
+    
+    if (presetCode && user) {
+      loadSharedPreset(presetCode);
+    }
   }, [searchParams, user]);
+
+  const loadSharedPreset = async (shareCode: string) => {
+    try {
+      const { data: preset, error } = await supabase
+        .from('model_presets')
+        .select('*')
+        .eq('share_code', shareCode)
+        .single();
+
+      if (error) throw error;
+
+      if (preset) {
+        // Import the preset (create a copy for the user)
+        const { error: insertError } = await supabase
+          .from('model_presets')
+          .insert({
+            user_id: user!.id,
+            name: `${preset.name} (Shared)`,
+            description: preset.description,
+            task_type: preset.task_type,
+            models: preset.models,
+            settings: preset.settings,
+            is_system_preset: false,
+          });
+
+        if (insertError) throw insertError;
+
+        sonnerToast.success(`Imported preset: ${preset.name}`);
+        
+        // Apply the preset
+        const models = Array.isArray(preset.models) ? (preset.models as string[]) : [];
+        setSelectedModels(models);
+        
+        const settings = preset.settings as Record<string, any> || {};
+        if (settings.webSearch) setWebSearchEnabled(true);
+        if (settings.searchMode) setSearchMode(settings.searchMode);
+        if (settings.deepResearch) setDeepResearchMode(true);
+      }
+    } catch (error: any) {
+      console.error('Error loading shared preset:', error);
+      sonnerToast.error('Failed to import preset: ' + error.message);
+    }
+  };
 
   // Load saved images from localStorage
   useEffect(() => {
@@ -1096,10 +1149,26 @@ const Chat = () => {
               }
             }
 
-            console.log(`Streaming complete for ${modelConfig.name}`);
             
             // Track success with response time
             const responseTime = Date.now() - requestStartTime;
+            
+            // Calculate and log cost
+            const inputTokens = estimateTokens(input);
+            const outputTokens = estimateTokens(fullContent);
+            const costUsd = calculateModelCost(modelId, inputTokens, outputTokens);
+            
+            await logCreditUsage(
+              user!.id,
+              modelId,
+              1,
+              currentChatId || undefined,
+              undefined,
+              responseTime,
+              outputTokens,
+              costUsd,
+              getModelTier(modelId)
+            );
             
             // Record response time for future estimates
             recordResponseTime(modelId, responseTime, setModelResponseTimes);
@@ -1247,6 +1316,23 @@ const Chat = () => {
 
             // Mark as complete and record success with response time
             const responseTime = Date.now() - requestStartTime;
+            
+            // Calculate and log cost
+            const inputTokens = estimateTokens(input);
+            const outputTokens = estimateTokens(modelResponse.response);
+            const costUsd = calculateModelCost(modelId, inputTokens, outputTokens);
+            
+            await logCreditUsage(
+              user!.id,
+              modelId,
+              1,
+              currentChatId || undefined,
+              undefined,
+              responseTime,
+              outputTokens,
+              costUsd,
+              getModelTier(modelId)
+            );
             
             // Record response time for future estimates
             recordResponseTime(modelId, responseTime, setModelResponseTimes);
@@ -2876,6 +2962,8 @@ const Chat = () => {
                   webSearchEnabled={webSearchEnabled}
                   imageGenerationEnabled={imageGenerationMode}
                   deepResearchEnabled={deepResearchMode}
+                  inputText={input}
+                  onOpenBudgetSettings={() => setBudgetAlertOpen(true)}
                 />
               </div>
 
@@ -3117,6 +3205,12 @@ const Chat = () => {
             description: "Your model configuration has been saved as a preset.",
           });
         }}
+      />
+
+      {/* Budget Alert Dialog */}
+      <BudgetAlertDialog
+        open={budgetAlertOpen}
+        onOpenChange={setBudgetAlertOpen}
       />
 
     </div>

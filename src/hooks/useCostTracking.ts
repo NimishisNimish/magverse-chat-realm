@@ -8,6 +8,8 @@ export interface CreditLog {
   credits_used: number;
   request_type: string;
   created_at: string;
+  cost_usd?: number;
+  tokens_used?: number;
 }
 
 export interface ModelCostStats {
@@ -51,29 +53,31 @@ export const useCostTracking = (period: 'day' | 'week' | 'month' = 'day') => {
   });
 
   const totalCredits = creditLogs?.reduce((sum, log) => sum + log.credits_used, 0) || 0;
+  const totalCostUsd = creditLogs?.reduce((sum, log) => sum + (log.cost_usd || 0), 0) || 0;
 
-  const modelStats: ModelCostStats[] = creditLogs
-    ? Object.entries(
-        creditLogs.reduce((acc, log) => {
-          if (!acc[log.model]) {
-            acc[log.model] = { requests: 0, credits: 0 };
-          }
-          acc[log.model].requests++;
-          acc[log.model].credits += log.credits_used;
-          return acc;
-        }, {} as Record<string, { requests: number; credits: number }>)
-      ).map(([model, stats]) => ({
-        model,
-        total_requests: stats.requests,
-        total_credits: stats.credits,
-        avg_credits: Math.round((stats.credits / stats.requests) * 10) / 10,
-      }))
-    : [];
+  const modelStats: Record<string, ModelCostStats> = {};
+  creditLogs?.forEach(log => {
+    if (!modelStats[log.model]) {
+      modelStats[log.model] = {
+        model: log.model,
+        total_requests: 0,
+        total_credits: 0,
+        avg_credits: 0,
+      };
+    }
+    modelStats[log.model].total_requests++;
+    modelStats[log.model].total_credits += log.credits_used;
+  });
+
+  Object.values(modelStats).forEach(stat => {
+    stat.avg_credits = stat.total_credits / stat.total_requests;
+  });
 
   return {
     creditLogs,
     totalCredits,
-    modelStats,
+    totalCostUsd,
+    modelStats: Object.values(modelStats),
     isLoading,
   };
 };
@@ -84,7 +88,10 @@ export const logCreditUsage = async (
   creditsUsed: number,
   chatId?: string,
   messageId?: string,
-  requestType: string = 'chat'
+  responseTimeMs?: number,
+  tokensUsed?: number,
+  costUsd?: number,
+  pricingTier?: string
 ) => {
   const { error } = await supabase.from('credit_usage_logs').insert({
     user_id: userId,
@@ -92,7 +99,11 @@ export const logCreditUsage = async (
     message_id: messageId,
     model,
     credits_used: creditsUsed,
-    request_type: requestType,
+    request_type: 'chat',
+    response_time_ms: responseTimeMs,
+    tokens_used: tokensUsed,
+    cost_usd: costUsd || 0,
+    model_pricing_tier: pricingTier,
   });
 
   if (error) console.error('Error logging credit usage:', error);
