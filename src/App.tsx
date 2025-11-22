@@ -10,6 +10,7 @@ import CustomCursor from "@/components/CustomCursor";
 import { AnimatePresence } from "framer-motion";
 import PageTransition from "@/components/PageTransition";
 import { useUnifiedNotifications } from "@/hooks/useUnifiedNotifications";
+import { useAdminModelHealthNotifications } from "@/hooks/useAdminModelHealthNotifications";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
@@ -75,6 +76,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const AnimatedRoutes = () => {
   const location = useLocation();
   useUnifiedNotifications();
+  useAdminModelHealthNotifications();
   
   // Map routes to transition variants
   const getTransitionVariant = (pathname: string) => {

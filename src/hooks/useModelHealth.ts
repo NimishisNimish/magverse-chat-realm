@@ -75,7 +75,7 @@ export const useModelHealth = () => {
   }, []);
 
   // Record success
-  const recordSuccess = useCallback((modelId: string, modelName: string) => {
+  const recordSuccess = useCallback(async (modelId: string, modelName: string) => {
     setModelHealthMap(prev => {
       const newMap = new Map(prev);
       const current = newMap.get(modelId) || {
@@ -110,15 +110,15 @@ export const useModelHealth = () => {
           className: 'bg-green-500/10 border-green-500',
         });
         
-        // Log recovery to database if user is logged in
+        // Send admin notification
         if (user) {
           supabase.from('admin_notifications').insert({
-            title: 'Model Recovered',
-            message: `${modelName} has recovered and is operational`,
+            title: `Model Recovered: ${modelName}`,
+            message: `${modelName} has recovered and is now operational.`,
             notification_type: 'model_health',
-            metadata: { modelId, modelName, status: 'recovered' }
+            metadata: { modelId, modelName, status: 'recovered', timestamp: new Date().toISOString() }
           }).then(({ error }) => {
-            if (error) console.error('Failed to log recovery:', error);
+            if (error) console.error('Failed to send admin notification:', error);
           });
         }
       }
@@ -128,7 +128,7 @@ export const useModelHealth = () => {
   }, [toast, user]);
 
   // Record failure
-  const recordFailure = useCallback((modelId: string, modelName: string, error?: string) => {
+  const recordFailure = useCallback(async (modelId: string, modelName: string, error?: string) => {
     setModelHealthMap(prev => {
       const newMap = new Map(prev);
       const current = newMap.get(modelId) || {
@@ -170,15 +170,15 @@ export const useModelHealth = () => {
           variant: 'destructive',
         });
 
-        // Log to database if user is logged in
+        // Send admin notification
         if (user) {
           supabase.from('admin_notifications').insert({
-            title: 'Model Disabled',
-            message: `${modelName} disabled after ${FAILURE_THRESHOLD} consecutive failures: ${error || 'Unknown error'}`,
+            title: `Model Down: ${modelName}`,
+            message: `${modelName} has been disabled after ${FAILURE_THRESHOLD} consecutive failures. Error: ${error || 'Unknown'}`,
             notification_type: 'model_health',
-            metadata: { modelId, modelName, status: 'down', error }
+            metadata: { modelId, modelName, status: 'down', error: error || null, timestamp: new Date().toISOString() }
           }).then(({ error: dbError }) => {
-            if (dbError) console.error('Failed to log failure:', dbError);
+            if (dbError) console.error('Failed to send admin notification:', dbError);
           });
         }
       } else if (newStatus === 'degraded' && current.status === 'healthy') {
@@ -187,6 +187,18 @@ export const useModelHealth = () => {
           description: `${modelName} is experiencing issues. Consider using an alternative model.`,
           className: 'bg-yellow-500/10 border-yellow-500',
         });
+        
+        // Send admin notification
+        if (user) {
+          supabase.from('admin_notifications').insert({
+            title: `Model Degraded: ${modelName}`,
+            message: `${modelName} is experiencing issues (${newFailures} consecutive failures). Consider monitoring closely.`,
+            notification_type: 'model_health',
+            metadata: { modelId, modelName, status: 'degraded', error: error || null, timestamp: new Date().toISOString() }
+          }).then(({ error: dbError }) => {
+            if (dbError) console.error('Failed to send admin notification:', dbError);
+          });
+        }
       }
 
       return newMap;
@@ -233,6 +245,31 @@ export const useModelHealth = () => {
     }
   }, [modelHealthMap]);
 
+  // Save health snapshot to database for historical tracking
+  const saveHealthSnapshot = useCallback(async () => {
+    if (!user) return;
+    
+    const healthData = Array.from(modelHealthMap.values());
+    
+    for (const health of healthData) {
+      try {
+        await supabase
+          .from('model_health_history' as any)
+          .insert({
+            model_id: health.id,
+            model_name: health.name,
+            status: health.status,
+            consecutive_failures: health.consecutiveFailures,
+            total_requests: health.totalRequests,
+            successful_requests: health.successfulRequests,
+            is_disabled: health.isDisabled,
+          });
+      } catch (error) {
+        console.error(`Failed to save health snapshot for ${health.name}:`, error);
+      }
+    }
+  }, [modelHealthMap, user]);
+
   return {
     initModel,
     recordSuccess,
@@ -241,5 +278,6 @@ export const useModelHealth = () => {
     isModelAvailable,
     getAllModelHealth,
     attemptRecovery,
+    saveHealthSnapshot,
   };
 };

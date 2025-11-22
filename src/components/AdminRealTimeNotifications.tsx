@@ -112,6 +112,8 @@ export default function AdminRealTimeNotifications() {
         return <DollarSign className="h-4 w-4" />;
       case 'high_activity':
         return <Activity className="h-4 w-4" />;
+      case 'model_health':
+        return <Activity className="h-4 w-4 text-orange-500" />;
       default:
         return <Bell className="h-4 w-4" />;
     }
@@ -125,6 +127,8 @@ export default function AdminRealTimeNotifications() {
         return 'secondary' as const;
       case 'high_activity':
         return 'outline' as const;
+      case 'model_health':
+        return 'destructive' as const;
       default:
         return 'outline' as const;
     }
