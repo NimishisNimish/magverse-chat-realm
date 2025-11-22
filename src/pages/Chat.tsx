@@ -9,7 +9,9 @@ import { triggerSuccessConfetti } from "@/utils/confetti";
 import { RequestTimer } from "@/components/RequestTimer";
 import { ModelProgressBar } from "@/components/ModelProgressBar";
 import { ModelConnectionStatus } from "@/components/ModelConnectionStatus";
+import { LoadBalancerStatus } from "@/components/LoadBalancerStatus";
 import { useModelHealth } from "@/hooks/useModelHealth";
+import { useIntelligentLoadBalancer } from "@/hooks/useIntelligentLoadBalancer";
 import { AnimatePresence } from "framer-motion";
 import { CostEstimator } from "@/components/CostEstimator";
 import { ModelPresets } from "@/components/ModelPresets";
@@ -156,11 +158,17 @@ const Chat = () => {
   const [modelResponseTimes, setModelResponseTimes] = useState<Map<string, number[]>>(new Map());
   const [savePresetOpen, setSavePresetOpen] = useState(false);
   const [budgetAlertOpen, setBudgetAlertOpen] = useState(false);
+  const [routingDecisions, setRoutingDecisions] = useState<Map<string, any>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
-  // Model health monitoring
+  // Model health monitoring and load balancing
   const modelHealth = useModelHealth();
+  const loadBalancer = useIntelligentLoadBalancer({
+    enableAutoFailover: true,
+    healthThreshold: 30,
+    maxRetries: 3,
+  });
   const { toast } = useToast();
   const { user, profile, refreshProfile } = useAuth();
   const [searchParams] = useSearchParams();
@@ -909,76 +917,39 @@ const Chat = () => {
         throw new Error('Max retries exceeded');
       };
 
-      // Model fallback chains based on similar capabilities
-      const MODEL_FALLBACK_CHAINS: Record<string, string[]> = {
-        'gpt-5': ['gpt-5-mini', 'gemini-pro', 'claude'],
-        'gpt-5-mini': ['gemini-flash', 'gpt-5-nano'],
-        'gpt-5-nano': ['gemini-lite', 'gemini-flash'],
-        'gemini-pro': ['gpt-5', 'claude', 'gemini-flash'],
-        'gemini-flash': ['gpt-5-mini', 'gemini-lite'],
-        'gemini-lite': ['gemini-flash', 'gpt-5-nano'],
-        'claude': ['gpt-5', 'gemini-pro'],
-        'perplexity': ['grok', 'gemini-flash'],
-        'grok': ['perplexity', 'gemini-flash'],
-      };
-
-      // Smart load balancing: Sort models by health score
-      const sortedModels = modelHealth.getModelsByHealthScore();
-      const healthyModelIds = sortedModels.map(m => m.id);
-
-      // Filter out disabled models and implement fallback + load balancing
-      const { availableModels, fallbackMap } = selectedModels.reduce((acc, modelId) => {
-        const modelConfig = aiModels.find(m => m.id === modelId);
-        const isAvailable = modelHealth.isModelAvailable(modelId);
+      // Use intelligent load balancer to route models
+      const requiredCapabilities = imageGenerationMode ? ['text', 'image-gen'] : ['text'];
+      const routingResults = loadBalancer.routeModels(selectedModels, requiredCapabilities);
+      
+      // Extract routed models and store decisions
+      const routedModels: string[] = [];
+      const newRoutingDecisions = new Map<string, any>();
+      
+      routingResults.forEach((decision, originalId) => {
+        routedModels.push(decision.selectedModelId);
+        newRoutingDecisions.set(decision.selectedModelId, decision);
         
-        if (!isAvailable && modelConfig) {
-          // Find healthy fallback
-          const fallbackChain = MODEL_FALLBACK_CHAINS[modelId] || [];
-          const fallback = fallbackChain.find(fbId => 
-            modelHealth.isModelAvailable(fbId)
-          );
+        // Show notification if model was rerouted
+        if (decision.wasRerouted) {
+          const originalConfig = aiModels.find(m => m.id === originalId);
+          const selectedConfig = aiModels.find(m => m.id === decision.selectedModelId);
           
-          if (fallback) {
-            acc.availableModels.push(fallback);
-            acc.fallbackMap.set(fallback, modelConfig.name);
-            
-            const fallbackConfig = aiModels.find(m => m.id === fallback);
-            toast({
-              title: `${modelConfig.name} Unavailable`,
-              description: `Automatically switched to ${fallbackConfig?.name} as fallback.`,
-              className: 'bg-yellow-500/10 border-yellow-500',
-            });
-          } else {
-            toast({
-              title: `${modelConfig.name} Unavailable`,
-              description: `No healthy fallback available. This model has been skipped.`,
-              variant: 'destructive',
-            });
-          }
-        } else if (isAvailable) {
-          acc.availableModels.push(modelId);
+          console.log(`🔀 Load Balancer: ${originalConfig?.name} → ${selectedConfig?.name} (health: ${decision.healthScore.toFixed(0)})`);
         }
-        
-        return acc;
-      }, { 
-        availableModels: [] as string[], 
-        fallbackMap: new Map<string, string>() 
       });
-
-      // Remove duplicates and sort by health score for intelligent load distribution
-      const uniqueModels = [...new Set(availableModels)].sort((a, b) => {
-        const aIndex = healthyModelIds.indexOf(a);
-        const bIndex = healthyModelIds.indexOf(b);
-        return aIndex - bIndex; // Healthiest models first
-      });
+      
+      setRoutingDecisions(newRoutingDecisions);
+      
+      // Remove duplicates while preserving order
+      const uniqueModels = [...new Set(routedModels)];
 
       if (uniqueModels.length === 0) {
-        throw new Error('All selected models and their fallbacks are unavailable. Please try again later or select different models.');
+        throw new Error('All selected models are unavailable. Please try again later or select different models.');
       }
 
-      console.log('Load balanced model order:', uniqueModels.map(id => {
-        const health = modelHealth.getModelHealth(id);
-        return `${id} (score: ${health ? (health.successfulRequests / Math.max(health.totalRequests, 1) * 100).toFixed(1) : 'N/A'}%)`;
+      console.log('🎯 Intelligently routed models:', uniqueModels.map(id => {
+        const decision = Array.from(newRoutingDecisions.values()).find(d => d.selectedModelId === id);
+        return `${id} (health: ${decision?.healthScore.toFixed(0) || 'N/A'}, rerouted: ${decision?.wasRerouted || false})`;
       }).join(', '));
 
       const lovableAIModels = uniqueModels.filter(id => 
@@ -2277,6 +2248,41 @@ const Chat = () => {
           </div>
         </div>
         
+        {/* Load Balancer Stats */}
+        {(() => {
+          const stats = loadBalancer.getRoutingStats();
+          if (stats.totalRequests === 0) return null;
+          
+          return (
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                Load Balancer
+              </h3>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Total Requests</span>
+                  <span className="font-medium">{stats.totalRequests}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Auto-routed</span>
+                  <span className="font-medium text-blue-500">
+                    {stats.reroutedRequests} ({stats.rerouteRate.toFixed(1)}%)
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Avg Health</span>
+                  <span className={`font-medium ${
+                    stats.avgHealthScore >= 70 ? 'text-green-500' :
+                    stats.avgHealthScore >= 40 ? 'text-yellow-500' : 'text-red-500'
+                  }`}>
+                    {stats.avgHealthScore.toFixed(0)}/100
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+        
         {/* Deep Research Mode */}
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
@@ -2657,11 +2663,39 @@ const Chat = () => {
                         
                         {/* Feedback buttons for AI responses */}
                         {message.role === 'assistant' && currentChatId && (
-                          <FeedbackButtons
-                            messageId={message.id}
-                            chatId={currentChatId}
-                            model={message.model}
-                          />
+                          <>
+                            <FeedbackButtons
+                              messageId={message.id}
+                              chatId={currentChatId}
+                              model={message.model}
+                            />
+                            
+                            {/* Show load balancer status if model was rerouted */}
+                            {message.model && (() => {
+                              const decision = Array.from(routingDecisions.values()).find(
+                                d => d.selectedModelId === aiModels.find(m => m.name === message.model)?.id
+                              );
+                              if (!decision || !decision.wasRerouted) return null;
+                              
+                              const originalModel = aiModels.find(m => m.id === decision.originalModelId);
+                              const selectedModel = aiModels.find(m => m.id === decision.selectedModelId);
+                              
+                              if (!originalModel || !selectedModel) return null;
+                              
+                              return (
+                                <div className="mt-2">
+                                  <LoadBalancerStatus
+                                    originalModel={originalModel.name}
+                                    selectedModel={selectedModel.name}
+                                    wasRerouted={decision.wasRerouted}
+                                    reason={decision.reason}
+                                    healthScore={decision.healthScore}
+                                    alternativesCount={decision.alternativesConsidered?.length || 0}
+                                  />
+                                </div>
+                              );
+                            })()}
+                          </>
                         )}
                         
                         {/* Action buttons */}
