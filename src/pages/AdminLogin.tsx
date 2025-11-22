@@ -6,35 +6,52 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Shield } from 'lucide-react';
 import { toast } from 'sonner';
-
-const ADMIN_CREDENTIALS = {
-  username: 'Admin1',
-  password: 'www.Nimish.com'
-};
+import { supabase } from '@/integrations/supabase/client';
 
 export default function AdminLogin() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    setTimeout(() => {
-      if (username === ADMIN_CREDENTIALS.username && 
-          password === ADMIN_CREDENTIALS.password) {
-        // Store admin session
-        sessionStorage.setItem('admin_authenticated', 'true');
-        sessionStorage.setItem('admin_login_time', Date.now().toString());
+    try {
+      // Sign in with Supabase
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // Check if user has admin role
+        const { data: roleData, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', authData.user.id)
+          .eq('role', 'admin')
+          .single();
+
+        if (roleError || !roleData) {
+          await supabase.auth.signOut();
+          toast.error('Access denied. Admin privileges required.');
+          setLoading(false);
+          return;
+        }
+
         toast.success('Admin access granted');
         navigate('/admin');
-      } else {
-        toast.error('Invalid credentials');
       }
+    } catch (error: any) {
+      console.error('Login error:', error);
+      toast.error(error.message || 'Invalid credentials');
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   return (
@@ -50,15 +67,15 @@ export default function AdminLogin() {
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="username"
-                type="text"
-                placeholder="Enter admin username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                id="email"
+                type="email"
+                placeholder="admin@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
-                autoComplete="username"
+                autoComplete="email"
               />
             </div>
             <div className="space-y-2">
@@ -66,7 +83,7 @@ export default function AdminLogin() {
               <Input
                 id="password"
                 type="password"
-                placeholder="Enter admin password"
+                placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required

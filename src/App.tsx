@@ -10,6 +10,9 @@ import CustomCursor from "@/components/CustomCursor";
 import { AnimatePresence } from "framer-motion";
 import PageTransition from "@/components/PageTransition";
 import { useUnifiedNotifications } from "@/hooks/useUnifiedNotifications";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
+import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
 import AdminInsights from "./pages/AdminInsights";
 import Home from "./pages/Home";
 import Chat from "./pages/Chat";
@@ -31,7 +34,6 @@ import UserManagement from "./pages/UserManagement";
 import Support from "./pages/Support";
 import ImageGallery from "./pages/ImageGallery";
 import AdminUserActivity from "./pages/AdminUserActivity";
-
 import AdminTraffic from "./pages/AdminTraffic";
 import AdminUserDetail from "./pages/AdminUserDetail";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -40,7 +42,18 @@ import AdminAnalyticsDashboard from "./pages/AdminAnalyticsDashboard";
 import AdminLogin from "./pages/AdminLogin";
 import AdminInvoiceEmailer from "./pages/AdminInvoiceEmailer";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 2 * 60 * 1000, // 2 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -82,20 +95,20 @@ const AnimatedRoutes = () => {
         <Route path="/history" element={<ProtectedRoute><PageTransition variant={getTransitionVariant('/history')}><History /></PageTransition></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><PageTransition variant={getTransitionVariant('/profile')}><ProfileSettings /></PageTransition></ProtectedRoute>} />
         <Route path="/upgrade" element={<ProtectedRoute><PageTransition variant="fade"><Upgrade /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin" element={<ProtectedRoute><PageTransition variant={getTransitionVariant('/admin')}><Admin /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/dashboard" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminDashboard /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/analytics" element={<ProtectedRoute><PageTransition variant="slideUp"><Analytics /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/advanced-analytics" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminAnalyticsDashboard /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin" element={<AdminProtectedRoute><PageTransition variant={getTransitionVariant('/admin')}><Admin /></PageTransition></AdminProtectedRoute>} />
+        <Route path="/admin/dashboard" element={<AdminProtectedRoute><PageTransition variant="slideUp"><AdminDashboard /></PageTransition></AdminProtectedRoute>} />
+        <Route path="/admin/analytics" element={<AdminProtectedRoute><PageTransition variant="slideUp"><Analytics /></PageTransition></AdminProtectedRoute>} />
+        <Route path="/admin/advanced-analytics" element={<AdminProtectedRoute><PageTransition variant="slideUp"><AdminAnalyticsDashboard /></PageTransition></AdminProtectedRoute>} />
         <Route path="/payment" element={<PageTransition variant="scale"><Payment /></PageTransition>} />
         <Route path="/dashboard" element={<ProtectedRoute><PageTransition variant={getTransitionVariant('/dashboard')}><Dashboard /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/old-analytics" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminAnalytics /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/users" element={<ProtectedRoute><PageTransition variant="slideUp"><UserManagement /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/activity" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminUserActivity /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/traffic" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminTraffic /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/user/:userId" element={<ProtectedRoute><PageTransition variant="slideUp"><AdminUserDetail /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/old-analytics" element={<AdminProtectedRoute><PageTransition variant="slideUp"><AdminAnalytics /></PageTransition></AdminProtectedRoute>} />
+        <Route path="/admin/users" element={<AdminProtectedRoute><PageTransition variant="slideUp"><UserManagement /></PageTransition></AdminProtectedRoute>} />
+        <Route path="/admin/activity" element={<AdminProtectedRoute><PageTransition variant="slideUp"><AdminUserActivity /></PageTransition></AdminProtectedRoute>} />
+        <Route path="/admin/traffic" element={<AdminProtectedRoute><PageTransition variant="slideUp"><AdminTraffic /></PageTransition></AdminProtectedRoute>} />
+        <Route path="/admin/user/:userId" element={<AdminProtectedRoute><PageTransition variant="slideUp"><AdminUserDetail /></PageTransition></AdminProtectedRoute>} />
         <Route path="/image-gallery" element={<ProtectedRoute><PageTransition variant="slideRight"><ImageGallery /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/insights" element={<ProtectedRoute><PageTransition variant="fade"><AdminInsights /></PageTransition></ProtectedRoute>} />
-        <Route path="/admin/invoice-emails" element={<ProtectedRoute><PageTransition variant="fade"><AdminInvoiceEmailer /></PageTransition></ProtectedRoute>} />
+        <Route path="/admin/insights" element={<AdminProtectedRoute><PageTransition variant="fade"><AdminInsights /></PageTransition></AdminProtectedRoute>} />
+        <Route path="/admin/invoice-emails" element={<AdminProtectedRoute><PageTransition variant="fade"><AdminInvoiceEmailer /></PageTransition></AdminProtectedRoute>} />
         <Route path="/admin-login" element={<PageTransition variant="scale"><AdminLogin /></PageTransition>} />
         <Route path="/support" element={<PageTransition variant="fade"><Support /></PageTransition>} />
         <Route path="*" element={<PageTransition variant="fade"><NotFound /></PageTransition>} />
@@ -105,22 +118,25 @@ const AnimatedRoutes = () => {
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <CursorProvider>
-        <CustomCursor />
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <AuthProvider>
-              <AnimatedRoutes />
-            </AuthProvider>
-          </BrowserRouter>
-        </TooltipProvider>
-      </CursorProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+        <CursorProvider>
+          <CustomCursor />
+          <OfflineIndicator />
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <AuthProvider>
+                <AnimatedRoutes />
+              </AuthProvider>
+            </BrowserRouter>
+          </TooltipProvider>
+        </CursorProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
