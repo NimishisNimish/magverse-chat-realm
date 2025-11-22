@@ -3,6 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const MSG91_API_KEY = Deno.env.get("MSG91_API_KEY");
+const SLACK_WEBHOOK_URL = Deno.env.get("SLACK_WEBHOOK_URL");
+const DISCORD_WEBHOOK_URL = Deno.env.get("DISCORD_WEBHOOK_URL");
 
 interface AlertRequest {
   adminEmails: string[];
@@ -13,9 +15,186 @@ interface AlertRequest {
   metadata?: any;
 }
 
+interface SlackMessage {
+  text?: string;
+  blocks?: Array<{
+    type: string;
+    text?: { type: string; text: string };
+    fields?: Array<{ type: string; text: string }>;
+  }>;
+}
+
+interface DiscordEmbed {
+  title: string;
+  description: string;
+  color: number;
+  fields?: Array<{ name: string; value: string; inline?: boolean }>;
+  timestamp: string;
+  footer?: { text: string };
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const getStatusColor = (status: string): { slack: string; discord: number } => {
+  switch (status) {
+    case 'down':
+      return { slack: '#dc2626', discord: 0xdc2626 }; // Red
+    case 'degraded':
+      return { slack: '#eab308', discord: 0xeab308 }; // Yellow
+    case 'recovered':
+      return { slack: '#16a34a', discord: 0x16a34a }; // Green
+    case 'predictive_warning':
+      return { slack: '#f97316', discord: 0xf97316 }; // Orange
+    default:
+      return { slack: '#6b7280', discord: 0x6b7280 }; // Gray
+  }
+};
+
+const sendSlackNotification = async (
+  modelName: string,
+  status: string,
+  details: string,
+  metadata: any,
+  emoji: string
+) => {
+  if (!SLACK_WEBHOOK_URL) {
+    console.log('Slack webhook not configured, skipping');
+    return;
+  }
+
+  const colors = getStatusColor(status);
+  
+  const slackMessage: SlackMessage = {
+    text: `${emoji} Model Health Alert: ${modelName}`,
+    blocks: [
+      {
+        type: "header",
+        text: {
+          type: "plain_text",
+          text: `${emoji} ${modelName} - ${status.toUpperCase().replace('_', ' ')}`,
+        }
+      },
+      {
+        type: "section",
+        fields: [
+          {
+            type: "mrkdwn",
+            text: `*Status:*\n${status.toUpperCase().replace('_', ' ')}`
+          },
+          {
+            type: "mrkdwn",
+            text: `*Time:*\n${new Date().toLocaleString()}`
+          }
+        ]
+      },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*Details:*\n${details}`
+        }
+      }
+    ]
+  };
+
+  // Add metadata if available
+  if (metadata) {
+    slackMessage.blocks?.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*Additional Info:*\n\`\`\`${JSON.stringify(metadata, null, 2)}\`\`\``
+      }
+    });
+  }
+
+  try {
+    const response = await fetch(SLACK_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(slackMessage),
+    });
+
+    if (!response.ok) {
+      console.error(`Slack webhook failed: ${response.status} ${response.statusText}`);
+    } else {
+      console.log("✅ Slack notification sent");
+    }
+  } catch (error) {
+    console.error("Error sending Slack notification:", error);
+  }
+};
+
+const sendDiscordNotification = async (
+  modelName: string,
+  status: string,
+  details: string,
+  metadata: any,
+  emoji: string
+) => {
+  if (!DISCORD_WEBHOOK_URL) {
+    console.log('Discord webhook not configured, skipping');
+    return;
+  }
+
+  const colors = getStatusColor(status);
+  
+  const embed: DiscordEmbed = {
+    title: `${emoji} ${modelName} - ${status.toUpperCase().replace('_', ' ')}`,
+    description: details,
+    color: colors.discord,
+    fields: [
+      {
+        name: "Status",
+        value: status.toUpperCase().replace('_', ' '),
+        inline: true
+      },
+      {
+        name: "Time",
+        value: new Date().toLocaleString(),
+        inline: true
+      }
+    ],
+    timestamp: new Date().toISOString(),
+    footer: {
+      text: "Magverse AI Model Health Monitor"
+    }
+  };
+
+  // Add metadata fields
+  if (metadata) {
+    for (const [key, value] of Object.entries(metadata)) {
+      if (typeof value !== 'object') {
+        embed.fields?.push({
+          name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          value: String(value),
+          inline: true
+        });
+      }
+    }
+  }
+
+  try {
+    const response = await fetch(DISCORD_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        embeds: [embed],
+        username: "Magverse AI Monitor",
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`Discord webhook failed: ${response.status} ${response.statusText}`);
+    } else {
+      console.log("✅ Discord notification sent");
+    }
+  } catch (error) {
+    console.error("Error sending Discord notification:", error);
+  }
 };
 
 serve(async (req) => {
@@ -77,10 +256,6 @@ serve(async (req) => {
                     ` : ''}
                   </div>
 
-                  <p>
-                    <a href="https://your-app-url.com/model-status" class="button">View Model Status Dashboard</a>
-                  </p>
-
                   <p style="color: #666; font-size: 14px;">
                     This alert was sent at ${new Date().toLocaleString()} IST
                   </p>
@@ -141,11 +316,19 @@ serve(async (req) => {
       console.log(`✅ Sent SMS alerts to ${adminPhones.length} admin(s)`);
     }
 
+    // Send Slack notification
+    await sendSlackNotification(modelName, status, details, metadata, emoji);
+
+    // Send Discord notification
+    await sendDiscordNotification(modelName, status, details, metadata, emoji);
+
     return new Response(
       JSON.stringify({ 
         success: true, 
         emailsSent: adminEmails?.length || 0,
         smsSent: adminPhones?.length || 0,
+        slackSent: !!SLACK_WEBHOOK_URL,
+        discordSent: !!DISCORD_WEBHOOK_URL,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

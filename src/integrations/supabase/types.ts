@@ -47,6 +47,27 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_settings: {
+        Row: {
+          key: string
+          updated_at: string | null
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string | null
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       ai_custom_instructions: {
         Row: {
           created_at: string | null
@@ -1183,6 +1204,7 @@ export type Database = {
         }[]
       }
       get_user_dashboard_stats: { Args: { p_user_id: string }; Returns: Json }
+      get_webhook_urls: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
