@@ -154,8 +154,63 @@ export const useModelHealth = () => {
     });
   }, [toast, user]);
 
+  // Send alert notifications
+  const sendAlertNotification = useCallback(async (
+    modelName: string,
+    status: 'down' | 'degraded' | 'recovered' | 'predictive_warning',
+    details: string,
+    metadata?: any
+  ) => {
+    try {
+      // Get admin users with notification preferences
+      const { data: adminRoles } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'admin');
+
+      if (!adminRoles || adminRoles.length === 0) return;
+
+      const { data: adminProfiles } = await supabase
+        .from('profiles')
+        .select('id, recovery_email, phone_number')
+        .in('id', adminRoles.map(r => r.user_id));
+
+      const adminEmails = adminProfiles
+        ?.map(p => p.recovery_email)
+        .filter(Boolean) as string[];
+      
+      const adminPhones = adminProfiles
+        ?.map(p => p.phone_number)
+        .filter(Boolean) as string[];
+
+      if (adminEmails.length === 0 && adminPhones.length === 0) return;
+
+      // Send alerts via edge function
+      await supabase.functions.invoke('send-model-health-alert', {
+        body: {
+          adminEmails,
+          adminPhones,
+          modelName,
+          status,
+          details,
+          metadata,
+        }
+      });
+
+      console.log(`📧 Alert notifications sent for ${modelName} ${status}`);
+    } catch (error) {
+      console.error('Failed to send alert notifications:', error);
+    }
+  }, []);
+
   // Record failure
   const recordFailure = useCallback(async (modelId: string, modelName: string, error?: string) => {
+    // First, update the state synchronously
+    let shouldSendDownAlert = false;
+    let shouldSendDegradedAlert = false;
+    let shouldSendPredictiveAlert = false;
+    let alertData: any = {};
+
     setModelHealthMap(prev => {
       const newMap = new Map(prev);
       const current = newMap.get(modelId) || {
@@ -236,6 +291,9 @@ export const useModelHealth = () => {
             if (dbError) console.error('Failed to send predictive admin notification:', dbError);
           });
         }
+
+        shouldSendPredictiveAlert = true;
+        alertData.predictive = { recentFailureRate, olderFailureRate, trend: 'increasing' };
       }
 
       // Notify user of status change
@@ -257,6 +315,9 @@ export const useModelHealth = () => {
             if (dbError) console.error('Failed to send admin notification:', dbError);
           });
         }
+
+        shouldSendDownAlert = true;
+        alertData.down = { error, consecutiveFailures: FAILURE_THRESHOLD };
       } else if (newStatus === 'degraded' && current.status === 'healthy') {
         toast({
           title: `${modelName} Degraded`,
@@ -275,12 +336,213 @@ export const useModelHealth = () => {
             if (dbError) console.error('Failed to send admin notification:', dbError);
           });
         }
+
+        shouldSendDegradedAlert = true;
+        alertData.degraded = { error, consecutiveFailures: newFailures };
       }
 
       return newMap;
     });
-  }, [toast, user]);
+    
+    // Send email/SMS alerts after state update
+    if (shouldSendPredictiveAlert) {
+      await sendAlertNotification(
+        modelName,
+        'predictive_warning',
+        `${modelName} showing concerning failure rate trend (${alertData.predictive.recentFailureRate.toFixed(1)}% in last 10 requests). Model may degrade soon.`,
+        alertData.predictive
+      );
+    }
 
+    if (shouldSendDownAlert) {
+      await sendAlertNotification(
+        modelName,
+        'down',
+        `${modelName} has been disabled after ${FAILURE_THRESHOLD} consecutive failures. Error: ${error || 'Unknown'}`,
+        alertData.down
+      );
+    }
+
+    if (shouldSendDegradedAlert) {
+      await sendAlertNotification(
+        modelName,
+        'degraded',
+        `${modelName} is experiencing issues (${alertData.degraded.consecutiveFailures} consecutive failures). Consider monitoring closely.`,
+        alertData.degraded
+      );
+    }
+  }, [toast, user, sendAlertNotification]);
+      const newMap = new Map(prev);
+      const current = newMap.get(modelId) || {
+        id: modelId,
+        name: modelName,
+        status: 'healthy' as const,
+        consecutiveFailures: 0,
+        lastFailure: null,
+        lastSuccess: null,
+        totalRequests: 0,
+        successfulRequests: 0,
+        isDisabled: false,
+        avgResponseTime: 0,
+        recentFailureRate: 0,
+        failureHistory: [],
+      };
+
+      const newFailures = current.consecutiveFailures + 1;
+      const shouldDisable = newFailures >= FAILURE_THRESHOLD;
+      
+      // Update failure history
+      const updatedHistory = [...current.failureHistory, { timestamp: new Date(), success: false }].slice(-20);
+      
+      // Calculate recent failure rate (last 10 requests)
+      const recentHistory = updatedHistory.slice(-10);
+      const recentFailures = recentHistory.filter(h => !h.success).length;
+      const recentFailureRate = recentHistory.length > 0 ? (recentFailures / recentHistory.length) * 100 : 0;
+      
+      // Predictive alert: Check if failure rate is increasing
+      const olderHistory = updatedHistory.slice(-20, -10);
+      const olderFailures = olderHistory.filter(h => !h.success).length;
+      const olderFailureRate = olderHistory.length > 0 ? (olderFailures / olderHistory.length) * 100 : 0;
+      
+      // If failure rate doubled and is above 30%, send predictive warning
+      const isPredictedDegradation = recentFailureRate > 30 && recentFailureRate > olderFailureRate * 1.5;
+      
+      let newStatus: 'healthy' | 'degraded' | 'down' = 'healthy';
+      if (shouldDisable) {
+        newStatus = 'down';
+      } else if (newFailures >= 2) {
+        newStatus = 'degraded';
+      }
+
+      newMap.set(modelId, {
+        ...current,
+        status: newStatus,
+        consecutiveFailures: newFailures,
+        lastFailure: new Date(),
+        totalRequests: current.totalRequests + 1,
+        isDisabled: shouldDisable,
+        recentFailureRate,
+        failureHistory: updatedHistory,
+      });
+
+      // Predictive warning before reaching degraded status
+      if (isPredictedDegradation && current.status === 'healthy' && !shouldDisable) {
+        toast({
+          title: `${modelName} Showing Warning Signs`,
+          description: `${modelName} failure rate is increasing (${recentFailureRate.toFixed(0)}%). Potential degradation predicted.`,
+          className: 'bg-orange-500/10 border-orange-500',
+        });
+        
+        // Send predictive admin notification
+        if (user) {
+          supabase.from('admin_notifications').insert({
+            title: `Predictive Alert: ${modelName}`,
+            message: `${modelName} showing concerning failure rate trend (${recentFailureRate.toFixed(1)}% in last 10 requests, up from ${olderFailureRate.toFixed(1)}%). Model may degrade soon without intervention.`,
+            notification_type: 'model_health',
+            metadata: { 
+              modelId, 
+              modelName, 
+              status: 'predictive_warning',
+              recentFailureRate: recentFailureRate.toFixed(1),
+              trend: 'increasing',
+              timestamp: new Date().toISOString() 
+            }
+          }).then(({ error: dbError }) => {
+            if (dbError) console.error('Failed to send predictive admin notification:', dbError);
+          });
+        }
+
+        // Send email/SMS alert
+        await sendAlertNotification(
+          modelName,
+          'predictive_warning',
+          `${modelName} showing concerning failure rate trend (${recentFailureRate.toFixed(1)}% in last 10 requests). Model may degrade soon.`,
+          { recentFailureRate, olderFailureRate, trend: 'increasing' }
+        );
+      }
+
+      newMap.set(modelId, {
+      if (shouldDisable && !current.isDisabled) {
+        toast({
+          title: `${modelName} Disabled`,
+          description: `${modelName} has been temporarily disabled due to repeated failures. It will be automatically re-enabled when it recovers.`,
+          variant: 'destructive',
+        });
+
+        // Send admin notification
+        if (user) {
+          supabase.from('admin_notifications').insert({
+            title: `Model Down: ${modelName}`,
+            message: `${modelName} has been disabled after ${FAILURE_THRESHOLD} consecutive failures. Error: ${error || 'Unknown'}`,
+            notification_type: 'model_health',
+            metadata: { modelId, modelName, status: 'down', error: error || null, timestamp: new Date().toISOString() }
+          }).then(({ error: dbError }) => {
+            if (dbError) console.error('Failed to send admin notification:', dbError);
+          });
+        }
+
+        // Send email/SMS alert
+        await sendAlertNotification(
+          modelName,
+          'down',
+          `${modelName} has been disabled after ${FAILURE_THRESHOLD} consecutive failures. Error: ${error || 'Unknown'}`,
+          { error, consecutiveFailures: FAILURE_THRESHOLD }
+        );
+      } else if (newStatus === 'degraded' && current.status === 'healthy') {
+        toast({
+          title: `${modelName} Degraded`,
+          description: `${modelName} is experiencing issues. Consider using an alternative model.`,
+          className: 'bg-yellow-500/10 border-yellow-500',
+        });
+        
+        // Send admin notification
+        if (user) {
+          supabase.from('admin_notifications').insert({
+            title: `Model Degraded: ${modelName}`,
+            message: `${modelName} is experiencing issues (${newFailures} consecutive failures). Consider monitoring closely.`,
+            notification_type: 'model_health',
+            metadata: { modelId, modelName, status: 'degraded', error: error || null, timestamp: new Date().toISOString() }
+          }).then(({ error: dbError }) => {
+            if (dbError) console.error('Failed to send admin notification:', dbError);
+          });
+        }
+
+        // Send email/SMS alert
+        await sendAlertNotification(
+          modelName,
+          'degraded',
+          `${modelName} is experiencing issues (${newFailures} consecutive failures). Consider monitoring closely.`,
+          { error, consecutiveFailures: newFailures }
+        );
+      }
+
+      return newMap;
+    });
+    
+    // Handle async notifications after state update
+    const health = modelHealthMap.get(modelId);
+    if (!health) return;
+
+    const newFailures = health.consecutiveFailures + 1;
+    const shouldDisable = newFailures >= FAILURE_THRESHOLD;
+    const newStatus: 'healthy' | 'degraded' | 'down' = shouldDisable ? 'down' : newFailures >= 2 ? 'degraded' : 'healthy';
+
+    // Send alerts after state update
+    if (shouldDisable && !health.isDisabled) {
+      await sendAlertNotification(
+        modelName,
+        'down',
+        `${modelName} has been disabled after ${FAILURE_THRESHOLD} consecutive failures. Error: ${error || 'Unknown'}`,
+        { error, consecutiveFailures: FAILURE_THRESHOLD }
+      );
+    } else if (newStatus === 'degraded' && health.status === 'healthy') {
+      await sendAlertNotification(
+        modelName,
+        'degraded',
+        `${modelName} is experiencing issues (${newFailures} consecutive failures). Consider monitoring closely.`,
+        { error, consecutiveFailures: newFailures }
+      );
+    }
   // Get model health status
   const getModelHealth = useCallback((modelId: string): ModelHealth | undefined => {
     return modelHealthMap.get(modelId);
