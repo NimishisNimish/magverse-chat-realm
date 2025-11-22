@@ -61,6 +61,7 @@ import { generateChatPDF } from "@/utils/pdfGenerator";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useCreditAlerts } from "@/hooks/useCreditAlerts";
 import { usePaymentNotifications } from "@/hooks/usePaymentNotifications";
+import { useCreditLimitNotifications } from "@/hooks/useCreditLimitNotifications";
 import FilePreview from "@/components/FilePreview";
 import { FeedbackButtons } from "@/components/FeedbackButtons";
 import { CustomInstructionsButton } from "@/components/CustomInstructionsDialog";
@@ -166,6 +167,9 @@ const Chat = () => {
   // Enable credit alerts and payment notifications
   useCreditAlerts();
   usePaymentNotifications();
+  
+  // Enable credit limit notifications
+  useCreditLimitNotifications();
 
   const handlePresetSelect = (preset: any) => {
     if (!preset) {
