@@ -1181,14 +1181,14 @@ const Chat = () => {
             });
             modelHealth.recordSuccess(modelId, modelConfig.name, responseTime);
 
-            // Clear progress after delay
+            // Clear progress immediately after showing complete status
             setTimeout(() => {
               setModelProgress(prev => {
                 const newMap = new Map(prev);
                 newMap.delete(modelId);
                 return newMap;
               });
-            }, 3000);
+            }, 1000);
           }
         } catch (err: any) {
           console.error(`Error with ${modelConfig.name}:`, err);
@@ -1344,14 +1344,14 @@ const Chat = () => {
             });
             modelHealth.recordSuccess(modelId, modelConfig.name, responseTime);
 
-            // Clear progress after delay
+            // Clear progress immediately after showing complete status
             setTimeout(() => {
               setModelProgress(prev => {
                 const newMap = new Map(prev);
                 newMap.delete(modelId);
                 return newMap;
               });
-            }, 3000);
+            }, 1000);
           } else {
             const errorMsg = modelResponse?.response || 'No response received from model';
             console.error(`❌ ${modelConfig.name} error:`, errorMsg);

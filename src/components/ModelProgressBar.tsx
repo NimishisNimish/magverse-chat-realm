@@ -68,9 +68,7 @@ export const ModelProgressBar = ({
             </span>
           </div>
           <span className="text-xs text-muted-foreground tabular-nums">
-            {status === 'streaming' && currentTokens && estimatedTokens 
-              ? `${currentTokens}/${estimatedTokens} tokens`
-              : status === 'waiting' && estimatedTime
+            {status === 'waiting' && estimatedTime
               ? `~${estimatedTime}s`
               : `${Math.round(progress)}%`
             }
