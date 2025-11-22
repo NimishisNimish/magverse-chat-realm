@@ -357,20 +357,20 @@ const chatRequestSchema = z.object({
       z.string().max(MAX_MESSAGE_LENGTH, 'Message too long (max 10,000 characters)'),
       z.array(z.any()) // Allow array for vision models with image content
     ])
-  })).min(1, 'At least one message required').max(100, 'Too many messages').optional(),
+  })).min(1, 'At least one message required').max(100, 'Too many messages').nullish(),
   
   selectedModels: z.array(
     z.enum(VALID_MODELS)
   ).min(1, 'Select at least one model')
-   .max(MAX_MODELS_PER_REQUEST, `Maximum ${MAX_MODELS_PER_REQUEST} models per request`).optional(),
+   .max(MAX_MODELS_PER_REQUEST, `Maximum ${MAX_MODELS_PER_REQUEST} models per request`).nullish(),
   
   // Old format (single model)
-  model: z.enum(VALID_MODELS).optional(),
-  message: z.string().max(MAX_MESSAGE_LENGTH, 'Message too long').optional(),
+  model: z.enum(VALID_MODELS).nullish(),
+  message: z.string().max(MAX_MESSAGE_LENGTH, 'Message too long').nullish(),
   chatHistory: z.array(z.object({
     role: z.enum(['user', 'assistant', 'system']),
     content: z.string()
-  })).optional(),
+  })).nullish(),
   
   chatId: z.string().uuid().nullish(),
   
@@ -379,13 +379,13 @@ const chatRequestSchema = z.object({
     'Attachment must be from your storage bucket'
   ),
   
-  attachmentExtension: z.string().optional(),
+  attachmentExtension: z.string().nullish(),
   
-  webSearchEnabled: z.boolean().optional(),
-  searchMode: z.enum(['general', 'finance', 'academic']).optional(),
-  deepResearchMode: z.boolean().optional(),
-  deepResearch: z.boolean().optional(), // Alias for deepResearchMode
-  stream: z.boolean().optional(),
+  webSearchEnabled: z.boolean().nullish(),
+  searchMode: z.enum(['general', 'finance', 'academic']).nullish(),
+  deepResearchMode: z.boolean().nullish(),
+  deepResearch: z.boolean().nullish(), // Alias for deepResearchMode
+  stream: z.boolean().nullish(),
 }).refine((data) => {
   // Either new format (messages + selectedModels) or old format (model + message/chatHistory)
   const hasNewFormat = data.messages && data.selectedModels;
@@ -488,7 +488,10 @@ serve(async (req) => {
       );
     }
     
-    const { chatId, attachmentUrl, attachmentExtension, webSearchEnabled = false, searchMode = 'general', stream = false } = rawData;
+    const { chatId, attachmentUrl, attachmentExtension } = rawData;
+    const webSearchEnabled = rawData.webSearchEnabled ?? false;
+    const searchMode = rawData.searchMode ?? 'general';
+    const stream = rawData.stream ?? false;
     const deepResearchMode = rawData.deepResearchMode || rawData.deepResearch || false;
     
     // Auto-enable web search for Deep Research mode
