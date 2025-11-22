@@ -69,6 +69,7 @@ import { CollaborativeChatPresence } from "@/components/CollaborativeChatPresenc
 import { ConversationBranching } from "@/components/ConversationBranching";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { RealtimeMessageSync } from "@/components/RealtimeMessageSync";
+import { MessageSources } from "@/components/MessageSources";
 import {
   Sheet,
   SheetContent,
@@ -143,7 +144,7 @@ const Chat = () => {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [requestStartTime, setRequestStartTime] = useState<number>(0);
   const [isRequesting, setIsRequesting] = useState(false);
-  const [modelProgress, setModelProgress] = useState<Map<string, { progress: number; status: 'streaming' | 'complete' | 'error'; tokens: number }>>(new Map());
+  const [modelProgress, setModelProgress] = useState<Map<string, { progress: number; status: 'waiting' | 'streaming' | 'complete' | 'error'; tokens: number }>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
@@ -885,6 +886,15 @@ const Chat = () => {
       // Clear pending file after sending
       setPendingFile(null);
 
+      // Initialize progress tracking for ALL models with 'waiting' status
+      uniqueModels.forEach(modelId => {
+        setModelProgress(prev => {
+          const newMap = new Map(prev);
+          newMap.set(modelId, { progress: 0, status: 'waiting', tokens: 0 });
+          return newMap;
+        });
+      });
+
       // Process Lovable AI models (streaming)
       const lovablePromises = lovableAIModels.map(async (modelId) => {
         const modelConfig = aiModels.find(m => m.id === modelId);
@@ -893,7 +903,7 @@ const Chat = () => {
         // Initialize model health tracking
         modelHealth.initModel(modelId, modelConfig.name);
 
-        // Initialize progress tracking
+        // Update to streaming status when starting
         setModelProgress(prev => {
           const newMap = new Map(prev);
           newMap.set(modelId, { progress: 0, status: 'streaming', tokens: 0 });
@@ -1156,7 +1166,7 @@ const Chat = () => {
         // Initialize model health tracking
         modelHealth.initModel(modelId, modelConfig.name);
 
-        // Initialize progress tracking
+        // Update to streaming status when starting
         setModelProgress(prev => {
           const newMap = new Map(prev);
           newMap.set(modelId, { progress: 50, status: 'streaming', tokens: 0 }); // Show 50% for non-streaming
@@ -2451,34 +2461,9 @@ const Chat = () => {
                       </>
                     )}
                     
-                    {/* Sources display below AI responses */}
+                    {/* Sources display below AI responses using new component */}
                     {message.role === 'assistant' && message.sources && message.sources.length > 0 && (
-                      <div className="mt-4 pt-4 border-t border-glass-border">
-                        <div className="flex items-center gap-2 mb-2">
-                          <ExternalLink className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-sm font-semibold text-muted-foreground">Sources</span>
-                        </div>
-                        <div className="space-y-2">
-                          {message.sources.map((source, index) => (
-                            <a
-                              key={index}
-                              href={source.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-start gap-2 p-2 rounded-lg hover:bg-accent/10 transition-colors group"
-                            >
-                              <span className="text-xs font-mono text-accent shrink-0">[{index + 1}]</span>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm text-foreground group-hover:text-accent transition-colors truncate">
-                                  {source.title || source.url}
-                                </p>
-                                <p className="text-xs text-muted-foreground truncate">{source.url}</p>
-                              </div>
-                              <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-accent transition-colors shrink-0" />
-                            </a>
-                          ))}
-                        </div>
-                      </div>
+                      <MessageSources sources={message.sources} />
                     )}
                     
                      {/* Display generated images */}
