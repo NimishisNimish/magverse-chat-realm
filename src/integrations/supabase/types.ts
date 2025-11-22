@@ -914,6 +914,7 @@ export type Database = {
           created_at: string | null
           credits_remaining: number | null
           display_name: string | null
+          email_credit_alerts_enabled: boolean | null
           email_digest_enabled: boolean | null
           email_invoices_enabled: boolean | null
           email_marketing_enabled: boolean | null
@@ -944,6 +945,7 @@ export type Database = {
           created_at?: string | null
           credits_remaining?: number | null
           display_name?: string | null
+          email_credit_alerts_enabled?: boolean | null
           email_digest_enabled?: boolean | null
           email_invoices_enabled?: boolean | null
           email_marketing_enabled?: boolean | null
@@ -974,6 +976,7 @@ export type Database = {
           created_at?: string | null
           credits_remaining?: number | null
           display_name?: string | null
+          email_credit_alerts_enabled?: boolean | null
           email_digest_enabled?: boolean | null
           email_invoices_enabled?: boolean | null
           email_marketing_enabled?: boolean | null

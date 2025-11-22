@@ -13,8 +13,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Upload, Mail, Lock, User, Shield, FileText, Download } from 'lucide-react';
+import { Loader2, Upload, Mail, Lock, User, Shield, FileText, Download, Bell } from 'lucide-react';
 import { generateInvoicePDF } from "@/utils/invoiceGenerator";
+import { Switch } from "@/components/ui/switch";
 
 export default function ProfileSettings() {
   const { user, profile, refreshProfile } = useAuth();
@@ -47,6 +48,7 @@ export default function ProfileSettings() {
     email_invoices_enabled: true,
     email_marketing_enabled: true,
     email_system_enabled: true,
+    email_credit_alerts_enabled: true,
   });
 
   // React Query for invoices
@@ -76,7 +78,16 @@ export default function ProfileSettings() {
       setDisplayName(profile.display_name || '');
       setBio(profile.bio || '');
       setAvatarPreview(profile.avatar_url || null);
-      // Don't set recovery email from profile as the type doesn't exist yet
+      
+      // Load email preferences
+      setEmailPreferences({
+        email_digest_enabled: (profile as any).email_digest_enabled ?? true,
+        email_welcome_enabled: (profile as any).email_welcome_enabled ?? true,
+        email_invoices_enabled: (profile as any).email_invoices_enabled ?? true,
+        email_marketing_enabled: (profile as any).email_marketing_enabled ?? true,
+        email_system_enabled: (profile as any).email_system_enabled ?? true,
+        email_credit_alerts_enabled: (profile as any).email_credit_alerts_enabled ?? true,
+      });
     }
     if (user) {
       setCurrentEmail(user.email || '');
@@ -358,6 +369,28 @@ export default function ProfileSettings() {
     // Removed phone functionality
   };
 
+  const handleUpdateEmailPreferences = async () => {
+    if (!user) return;
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update(emailPreferences)
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      await refreshProfile();
+      toast.success('Email preferences updated successfully!');
+    } catch (error: any) {
+      console.error('Error updating email preferences:', error);
+      toast.error(error.message || 'Failed to update email preferences');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -539,6 +572,113 @@ export default function ProfileSettings() {
                 </Button>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* Email Preferences Tab */}
+          <TabsContent value="emails">
+            <Card className="p-6 space-y-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Bell className="h-5 w-5" />
+                <h3 className="text-lg font-semibold">Email Notifications</h3>
+              </div>
+              
+              <p className="text-sm text-muted-foreground mb-6">
+                Manage your email notification preferences
+              </p>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="credit-alerts">Credit Limit Alerts</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Get notified when you're running low on credits
+                    </p>
+                  </div>
+                  <Switch
+                    id="credit-alerts"
+                    checked={emailPreferences.email_credit_alerts_enabled}
+                    onCheckedChange={(checked) => 
+                      setEmailPreferences({ ...emailPreferences, email_credit_alerts_enabled: checked })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="digest">Weekly Digest</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Weekly summary of your AI usage and activity
+                    </p>
+                  </div>
+                  <Switch
+                    id="digest"
+                    checked={emailPreferences.email_digest_enabled}
+                    onCheckedChange={(checked) => 
+                      setEmailPreferences({ ...emailPreferences, email_digest_enabled: checked })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="invoices">Invoice Notifications</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Get notified about payment receipts and invoices
+                    </p>
+                  </div>
+                  <Switch
+                    id="invoices"
+                    checked={emailPreferences.email_invoices_enabled}
+                    onCheckedChange={(checked) => 
+                      setEmailPreferences({ ...emailPreferences, email_invoices_enabled: checked })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="marketing">Marketing & Updates</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Product updates, tips, and promotional offers
+                    </p>
+                  </div>
+                  <Switch
+                    id="marketing"
+                    checked={emailPreferences.email_marketing_enabled}
+                    onCheckedChange={(checked) => 
+                      setEmailPreferences({ ...emailPreferences, email_marketing_enabled: checked })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="system">System Notifications</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Important system updates and security alerts
+                    </p>
+                  </div>
+                  <Switch
+                    id="system"
+                    checked={emailPreferences.email_system_enabled}
+                    onCheckedChange={(checked) => 
+                      setEmailPreferences({ ...emailPreferences, email_system_enabled: checked })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4">
+                <Button
+                  onClick={handleUpdateEmailPreferences}
+                  disabled={loading}
+                  className="w-full"
+                >
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Preferences
+                </Button>
+              </div>
+            </Card>
           </TabsContent>
 
           {/* Recovery Tab */}

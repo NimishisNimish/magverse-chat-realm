@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AlertTriangle, XCircle, Info } from "lucide-react";
 
@@ -52,16 +53,17 @@ export const useCreditLimitNotifications = () => {
 
     // Define notification thresholds
     const thresholds = [
-      { percent: 80, message: `You've used 80% of your daily credits. ${creditsRemaining} remaining.`, icon: Info },
-      { percent: 90, message: `Running low! You've used 90% of your daily credits. Only ${creditsRemaining} left.`, icon: AlertTriangle },
-      { percent: 100, message: "You've reached your daily credit limit. Upgrade for more!", icon: XCircle }
+      { percent: 80, message: `You've used 80% of your daily credits. ${creditsRemaining} remaining.`, icon: Info, alertType: 'warning_80' as const },
+      { percent: 90, message: `Running low! You've used 90% of your daily credits. Only ${creditsRemaining} left.`, icon: AlertTriangle, alertType: 'warning_90' as const },
+      { percent: 100, message: "You've reached your daily credit limit. Upgrade for more!", icon: XCircle, alertType: 'limit_reached' as const }
     ];
 
     // Check each threshold and show notification if not already shown
-    thresholds.forEach(({ percent, message, icon: Icon }) => {
+    thresholds.forEach(async ({ percent, message, icon: Icon, alertType }) => {
       if (usagePercentage >= percent && !notificationShownRef.current.thresholds.has(percent)) {
         notificationShownRef.current.thresholds.add(percent);
         
+        // Show toast notification
         toast(message, {
           icon: <Icon className="w-5 h-5" />,
           duration: 6000,
@@ -71,6 +73,22 @@ export const useCreditLimitNotifications = () => {
           } : undefined,
           className: percent === 100 ? 'border-destructive' : percent === 90 ? 'border-yellow-500' : ''
         });
+
+        // Send email notification if enabled
+        try {
+          await supabase.functions.invoke('send-credit-alert-email', {
+            body: {
+              userId: profile.id,
+              alertType,
+              creditsRemaining,
+              creditsTotal,
+              subscriptionType
+            }
+          });
+        } catch (error) {
+          console.error('Failed to send credit alert email:', error);
+          // Don't show error to user, just log it
+        }
       }
     });
 
