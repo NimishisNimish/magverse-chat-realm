@@ -7,6 +7,9 @@ import ScrollProgressIndicator from "@/components/ScrollProgressIndicator";
 import { OnboardingTour } from "@/components/OnboardingTour";
 import { triggerSuccessConfetti } from "@/utils/confetti";
 import { RequestTimer } from "@/components/RequestTimer";
+import { ModelProgressBar } from "@/components/ModelProgressBar";
+import { useModelHealth } from "@/hooks/useModelHealth";
+import { AnimatePresence } from "framer-motion";
 import {
   MessageSquarePlus, 
   Send, 
@@ -135,8 +138,12 @@ const Chat = () => {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [requestStartTime, setRequestStartTime] = useState<number>(0);
   const [isRequesting, setIsRequesting] = useState(false);
+  const [modelProgress, setModelProgress] = useState<Map<string, { progress: number; status: 'streaming' | 'complete' | 'error'; tokens: number }>>(new Map());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Model health monitoring
+  const modelHealth = useModelHealth();
   const { toast } = useToast();
   const { user, profile, refreshProfile } = useAuth();
   const [searchParams] = useSearchParams();
@@ -762,11 +769,30 @@ const Chat = () => {
         throw new Error('Max retries exceeded');
       };
 
-      // Separate models into Lovable AI vs External APIs
-      const lovableAIModels = selectedModels.filter(id => 
+      // Filter out disabled models and separate into Lovable AI vs External APIs
+      const availableModels = selectedModels.filter(id => {
+        const modelConfig = aiModels.find(m => m.id === id);
+        const isAvailable = modelHealth.isModelAvailable(id);
+        
+        if (!isAvailable && modelConfig) {
+          toast({
+            title: `${modelConfig.name} Unavailable`,
+            description: `${modelConfig.name} is currently disabled due to health issues. It has been removed from your selection.`,
+            variant: 'destructive',
+          });
+        }
+        
+        return isAvailable;
+      });
+
+      if (availableModels.length === 0) {
+        throw new Error('No available models selected. All selected models are currently disabled due to health issues.');
+      }
+
+      const lovableAIModels = availableModels.filter(id => 
         ['gemini-flash', 'gemini-pro', 'gemini-lite', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano'].includes(id)
       );
-      const externalModels = selectedModels.filter(id => 
+      const externalModels = availableModels.filter(id => 
         ['claude', 'perplexity', 'grok'].includes(id)
       );
 
@@ -779,6 +805,16 @@ const Chat = () => {
       const lovablePromises = lovableAIModels.map(async (modelId) => {
         const modelConfig = aiModels.find(m => m.id === modelId);
         if (!modelConfig) return;
+
+        // Initialize model health tracking
+        modelHealth.initModel(modelId, modelConfig.name);
+
+        // Initialize progress tracking
+        setModelProgress(prev => {
+          const newMap = new Map(prev);
+          newMap.set(modelId, { progress: 0, status: 'streaming', tokens: 0 });
+          return newMap;
+        });
 
         const assistantMessageId = Date.now().toString() + Math.random() + modelId;
         const placeholderMessage: Message = {
@@ -848,6 +884,9 @@ const Chat = () => {
             throw new Error(errorData.error || `HTTP ${response.status}`);
           }
 
+          // Track full content for progress
+          let fullContent = '';
+
           // Handle image generation (non-streaming) vs regular streaming
           if (imageGenerationMode) {
             // Non-streaming mode for image generation
@@ -878,7 +917,6 @@ const Chat = () => {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
-            let fullContent = '';
             let streamDone = false;
 
             while (!streamDone) {
@@ -908,6 +946,17 @@ const Chat = () => {
                   
                   if (content) {
                     fullContent += content;
+                    
+                    // Update progress (estimate based on content length)
+                    const estimatedMaxTokens = 2000;
+                    const currentTokens = Math.floor(fullContent.length / 4); // Rough token estimate
+                    const progress = Math.min((currentTokens / estimatedMaxTokens) * 100, 95);
+                    
+                    setModelProgress(prev => {
+                      const newMap = new Map(prev);
+                      newMap.set(modelId, { progress, status: 'streaming', tokens: currentTokens });
+                      return newMap;
+                    });
                     
                     // Update the message in real-time
                     setMessages(prev => prev.map(msg => 
@@ -948,9 +997,35 @@ const Chat = () => {
             }
 
             console.log(`Streaming complete for ${modelConfig.name}`);
+            
+            // Mark as complete and record success
+            setModelProgress(prev => {
+              const newMap = new Map(prev);
+              newMap.set(modelId, { progress: 100, status: 'complete', tokens: Math.floor(fullContent.length / 4) });
+              return newMap;
+            });
+            modelHealth.recordSuccess(modelId, modelConfig.name);
+
+            // Clear progress after delay
+            setTimeout(() => {
+              setModelProgress(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(modelId);
+                return newMap;
+              });
+            }, 3000);
           }
         } catch (err: any) {
           console.error(`Error with ${modelConfig.name}:`, err);
+          
+          // Record failure
+          modelHealth.recordFailure(modelId, modelConfig.name, err.message);
+          
+          setModelProgress(prev => {
+            const newMap = new Map(prev);
+            newMap.set(modelId, { progress: 0, status: 'error', tokens: 0 });
+            return newMap;
+          });
           
           setMessages(prev => prev.map(msg => 
             msg.id === assistantMessageId 
@@ -967,6 +1042,15 @@ const Chat = () => {
               : msg
           ));
           
+          // Clear error progress after delay
+          setTimeout(() => {
+            setModelProgress(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(modelId);
+              return newMap;
+            });
+          }, 5000);
+          
           if (err.message.includes('Rate limit')) {
             toast({
               title: `${modelConfig.name} rate limited`,
@@ -977,10 +1061,20 @@ const Chat = () => {
         }
       });
 
-      // Process External API models (Claude, Perplexity) via chat-with-ai
+      // Process external models (non-streaming through chat-with-ai)
       const externalPromises = externalModels.map(async (modelId) => {
         const modelConfig = aiModels.find(m => m.id === modelId);
         if (!modelConfig) return;
+
+        // Initialize model health tracking
+        modelHealth.initModel(modelId, modelConfig.name);
+
+        // Initialize progress tracking
+        setModelProgress(prev => {
+          const newMap = new Map(prev);
+          newMap.set(modelId, { progress: 50, status: 'streaming', tokens: 0 }); // Show 50% for non-streaming
+          return newMap;
+        });
 
         const assistantMessageId = Date.now().toString() + Math.random() + modelId;
         const placeholderMessage: Message = {
@@ -1043,6 +1137,23 @@ const Chat = () => {
                   }
                 : msg
             ));
+
+            // Mark as complete and record success
+            setModelProgress(prev => {
+              const newMap = new Map(prev);
+              newMap.set(modelId, { progress: 100, status: 'complete', tokens: Math.floor(modelResponse.response.length / 4) });
+              return newMap;
+            });
+            modelHealth.recordSuccess(modelId, modelConfig.name);
+
+            // Clear progress after delay
+            setTimeout(() => {
+              setModelProgress(prev => {
+                const newMap = new Map(prev);
+                newMap.delete(modelId);
+                return newMap;
+              });
+            }, 3000);
           } else {
             const errorMsg = modelResponse?.response || 'No response received from model';
             console.error(`❌ ${modelConfig.name} error:`, errorMsg);
@@ -1050,6 +1161,15 @@ const Chat = () => {
           }
         } catch (err: any) {
           console.error(`Error with ${modelConfig.name}:`, err);
+          
+          // Record failure
+          modelHealth.recordFailure(modelId, modelConfig.name, err.message);
+
+          setModelProgress(prev => {
+            const newMap = new Map(prev);
+            newMap.set(modelId, { progress: 0, status: 'error', tokens: 0 });
+            return newMap;
+          });
           
           setMessages(prev => prev.map(msg => 
             msg.id === assistantMessageId 
@@ -1063,6 +1183,15 @@ const Chat = () => {
                 }
               : msg
           ));
+          
+          // Clear error progress after delay
+          setTimeout(() => {
+            setModelProgress(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(modelId);
+              return newMap;
+            });
+          }, 5000);
           
           toast({
             title: `${modelConfig.name} error`,
@@ -2575,6 +2704,30 @@ const Chat = () => {
               {isRequesting && (
                 <div className="mb-3">
                   <RequestTimer startTime={requestStartTime} isActive={isRequesting} />
+                </div>
+              )}
+
+              {/* Model Progress Bars */}
+              {modelProgress.size > 0 && (
+                <div className="mb-3 space-y-2">
+                  <AnimatePresence>
+                    {Array.from(modelProgress.entries()).map(([modelId, progress]) => {
+                      const modelConfig = aiModels.find(m => m.id === modelId);
+                      if (!modelConfig) return null;
+                      
+                      return (
+                        <ModelProgressBar
+                          key={modelId}
+                          modelName={modelConfig.name}
+                          modelColor={modelConfig.color}
+                          progress={progress.progress}
+                          status={progress.status}
+                          currentTokens={progress.tokens}
+                          estimatedTokens={2000}
+                        />
+                      );
+                    })}
+                  </AnimatePresence>
                 </div>
               )}
 
