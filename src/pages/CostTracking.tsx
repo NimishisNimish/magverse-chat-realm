@@ -4,6 +4,7 @@ import { useCostTracking } from '@/hooks/useCostTracking';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DollarSign, TrendingDown, TrendingUp, Zap } from 'lucide-react';
+import { useAdminActivityLog } from '@/hooks/useAdminActivityLog';
 import {
   BarChart,
   Bar,
@@ -28,6 +29,13 @@ export default function CostTracking() {
   const [period, setPeriod] = useState<'day' | 'week' | 'month'>('week');
   const { creditLogs, totalCredits, modelStats, isLoading } = useCostTracking(period);
   const { profile } = useAuth();
+  
+  // Log admin activity
+  useAdminActivityLog({
+    activityType: 'page_view',
+    pagePath: '/cost-tracking',
+    metadata: { page: 'Cost Tracking', period }
+  });
 
   const pieData = modelStats.map((stat) => ({
     name: stat.model,
