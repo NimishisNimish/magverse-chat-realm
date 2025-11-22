@@ -20,6 +20,7 @@ import { Link } from "react-router-dom";
 import { LazyModelPerformanceLeaderboard } from "@/components/LazyCharts";
 import { ChartErrorBoundary } from "@/components/ChartErrorBoundary";
 import { WebhookConfiguration } from "@/components/WebhookConfiguration";
+import { AdminCostMetricsWidget } from "@/components/AdminCostMetricsWidget";
 
 interface UserData {
   id: string;
@@ -371,6 +372,9 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Cost Metrics Widget */}
+      <AdminCostMetricsWidget />
 
       {/* Activity Feed */}
       <AdminActivityFeed />

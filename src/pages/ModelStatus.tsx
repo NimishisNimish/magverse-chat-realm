@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, CheckCircle2, XCircle, Clock, Zap, Brain, Bot, Globe, Sparkles, Cpu, Star, AlertTriangle } from "lucide-react";
 import { useModelHealth } from "@/hooks/useModelHealth";
 import { ModelUptimeChart } from "@/components/ModelUptimeChart";
+import { useAdminActivityLog } from "@/hooks/useAdminActivityLog";
 
 interface ModelConfig {
   id: string;
@@ -16,6 +17,13 @@ interface ModelConfig {
 
 const ModelStatus = () => {
   const { getAllModelHealth, attemptRecovery } = useModelHealth();
+  
+  // Log admin activity
+  useAdminActivityLog({
+    activityType: 'page_view',
+    pagePath: '/model-status',
+    metadata: { page: 'Model Status' }
+  });
   
   const modelConfigs: ModelConfig[] = [
     { id: "gpt-5", name: "GPT-5.1", icon: Bot, color: "text-accent" },
