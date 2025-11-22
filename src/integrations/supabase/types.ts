@@ -918,6 +918,17 @@ export type Database = {
           total_sent: number
         }[]
       }
+      get_chat_history_with_counts: {
+        Args: { p_user_id: string }
+        Returns: {
+          created_at: string
+          id: string
+          message_count: number
+          title: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
       get_inactive_users: {
         Args: { days?: number }
         Returns: {

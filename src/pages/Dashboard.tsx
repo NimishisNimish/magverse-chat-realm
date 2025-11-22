@@ -110,20 +110,25 @@ const Dashboard = () => {
     setLoading(true);
     setError(null);
 
-    // Set a timeout to prevent infinite loading
-    const timeoutId = setTimeout(() => {
-      if (loading) {
-        setError('Request timed out. Please try refreshing the page.');
-        setLoading(false);
-      }
-    }, 15000); // 15 seconds
-
     try {
-      // Use database function for optimized stats
-      const { data: statsData, error: statsError } = await supabase
-        .rpc('get_user_dashboard_stats', { p_user_id: user.id });
+      console.log('📊 Starting dashboard data load for user:', user.id);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      if (statsError) throw statsError;
+      const { data: statsData, error: statsError } = await supabase
+        .rpc('get_user_dashboard_stats', { p_user_id: user.id })
+        .abortSignal(controller.signal);
+
+      clearTimeout(timeoutId);
+
+      if (statsError) {
+        console.error('❌ Stats error:', statsError);
+        if (statsError.message?.includes('aborted')) {
+          throw new Error('Dashboard is taking longer than expected. Please try refreshing.');
+        }
+        throw statsError;
+      }
 
       // Get limited data for charts - only last 30 days
       const thirtyDaysAgo = new Date();
@@ -212,11 +217,16 @@ const Dashboard = () => {
 
       clearTimeout(timeoutId);
       setLoading(false);
-    } catch (error) {
-      console.error("Error loading stats:", error);
-      clearTimeout(timeoutId);
-      setError('Failed to load dashboard data. Please try again.');
+    } catch (error: any) {
+      console.error('❌ Dashboard error:', error);
+      setError(error.message || 'Failed to load dashboard data');
       setLoading(false);
+      
+      toast({
+        title: "Loading Error",
+        description: error.message || "Please try refreshing the page",
+        variant: "destructive",
+      });
     }
   };
 

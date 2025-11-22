@@ -33,32 +33,18 @@ const History = () => {
     queryKey: ['chat-history', user?.id],
     queryFn: async () => {
       if (!user) return [];
-
-      const { data: chatData, error } = await supabase
-        .from('chat_history')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false })
-        .limit(100);
+      
+      const { data, error } = await supabase
+        .rpc('get_chat_history_with_counts', { p_user_id: user.id });
 
       if (error) throw error;
-
-      const chatsWithCounts = await Promise.all(
-        (chatData || []).map(async (chat) => {
-          const { count } = await supabase
-            .from('chat_messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('chat_id', chat.id);
-
-          return { ...chat, message_count: count || 0 };
-        })
-      );
-
-      return chatsWithCounts;
+      return data || [];
     },
     enabled: !!user,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
   // Mutations
@@ -67,12 +53,27 @@ const History = () => {
       await supabase.from('chat_messages').delete().eq('chat_id', chatId);
       await supabase.from('chat_history').delete().eq('id', chatId);
     },
+    onMutate: async (chatId) => {
+      await queryClient.cancelQueries({ queryKey: ['chat-history'] });
+      const previousChats = queryClient.getQueryData(['chat-history', user?.id]);
+      
+      queryClient.setQueryData(['chat-history', user?.id], (old: any[]) => 
+        old?.filter(chat => chat.id !== chatId) || []
+      );
+      
+      return { previousChats };
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat-history'] });
       toast({ title: "Chat deleted successfully" });
     },
-    onError: (error: any) => {
+    onError: (error: any, _variables, context) => {
+      if (context?.previousChats) {
+        queryClient.setQueryData(['chat-history', user?.id], context.previousChats);
+      }
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-history'] });
     },
   });
 
@@ -84,13 +85,30 @@ const History = () => {
         .eq('id', chatId);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat-history'] });
+    onMutate: async ({ chatId, newTitle }) => {
+      await queryClient.cancelQueries({ queryKey: ['chat-history'] });
+      const previousChats = queryClient.getQueryData(['chat-history', user?.id]);
+      
+      queryClient.setQueryData(['chat-history', user?.id], (old: any[]) => 
+        old?.map(chat => chat.id === chatId ? { ...chat, title: newTitle } : chat) || []
+      );
+      
       setEditingId(null);
+      setEditTitle('');
+      
+      return { previousChats };
+    },
+    onSuccess: () => {
       toast({ title: "Chat renamed successfully" });
     },
-    onError: (error: any) => {
+    onError: (error: any, _variables, context) => {
+      if (context?.previousChats) {
+        queryClient.setQueryData(['chat-history', user?.id], context.previousChats);
+      }
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-history'] });
     },
   });
 
