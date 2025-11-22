@@ -6,6 +6,7 @@ import { MessageSkeleton } from "@/components/ui/skeleton";
 import ScrollProgressIndicator from "@/components/ScrollProgressIndicator";
 import { OnboardingTour } from "@/components/OnboardingTour";
 import { triggerSuccessConfetti } from "@/utils/confetti";
+import { RequestTimer } from "@/components/RequestTimer";
 import {
   MessageSquarePlus, 
   Send, 
@@ -40,7 +41,8 @@ import {
   Palette,
   MessageCircle,
   FileText,
-  File as FileIcon
+  File as FileIcon,
+  Activity
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -70,13 +72,14 @@ import {
 
 const aiModels = [
   { id: "gpt-5-mini", name: "GPT-5 Mini", icon: Sparkles, color: "text-purple-400", model: "openai/gpt-5-mini" },
-  { id: "gemini-flash", name: "Gemini Flash", icon: Zap, color: "text-primary", model: "google/gemini-2.5-flash" },
-  { id: "gemini-pro", name: "Gemini 2.5 Pro", icon: Brain, color: "text-secondary", model: "google/gemini-2.5-pro" },
+  { id: "gemini-flash", name: "Gemini 3 Flash", icon: Zap, color: "text-primary", model: "google/gemini-2.5-flash" },
+  { id: "gemini-pro", name: "Gemini 3 Pro", icon: Brain, color: "text-secondary", model: "google/gemini-2.5-pro" },
   { id: "gemini-lite", name: "Gemini Lite", icon: Cpu, color: "text-muted-foreground", model: "google/gemini-2.5-flash-lite" },
-  { id: "gpt-5", name: "GPT-5", icon: Bot, color: "text-accent", model: "openai/gpt-5" },
+  { id: "gpt-5", name: "GPT-5.1", icon: Bot, color: "text-accent", model: "openai/gpt-5" },
   { id: "gpt-5-nano", name: "GPT-5 Nano", icon: Star, color: "text-blue-400", model: "openai/gpt-5-nano" },
   { id: "claude", name: "Claude", icon: Bot, color: "text-orange-400", model: "anthropic/claude-3.5-sonnet" },
   { id: "perplexity", name: "Perplexity", icon: Globe, color: "text-green-400", model: "perplexity/llama-3.1-sonar-large-128k-online" },
+  { id: "grok", name: "Grok", icon: Zap, color: "text-cyan-400", model: "grok" },
 ];
 
 interface Message {
@@ -130,6 +133,8 @@ const Chat = () => {
   const [upscalingImageId, setUpscalingImageId] = useState<string | null>(null);
   const [messageCount, setMessageCount] = useState(0);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [requestStartTime, setRequestStartTime] = useState<number>(0);
+  const [isRequesting, setIsRequesting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
@@ -684,6 +689,10 @@ const Chat = () => {
     setMessageCount(prev => prev + 1);
     setInput("");
 
+    // Start request timer
+    setRequestStartTime(Date.now());
+    setIsRequesting(true);
+
     // Frontend timeout (slightly longer than backend to avoid race conditions)
     const timeoutMs = deepResearchMode ? 330000 : 140000; // 5.5 min for Deep Research, 2.3 min for regular
     const timeout = new Promise((_, reject) => {
@@ -1158,6 +1167,21 @@ const Chat = () => {
       } else if (error.message?.includes('Image') || error.message?.includes('image')) {
         errorMessage = "Failed to process image. Try:\n• Re-uploading the image\n• Using a different format (JPG, PNG)\n• Ensuring the file is under 10MB";
       } else if (error.message?.includes('timeout')) {
+        // Auto-fallback to Gemini Flash on timeout
+        if (!selectedModels.includes('gemini-flash')) {
+          toast({
+            title: "Timeout - Retrying with Gemini 3 Flash",
+            description: "The selected models timed out. Automatically retrying with a faster model...",
+          });
+          
+          // Retry with Gemini Flash
+          setSelectedModels(['gemini-flash']);
+          setTimeout(() => {
+            handleSend();
+          }, 1000);
+          return;
+        }
+        
         errorMessage = deepResearchMode 
           ? "Deep Research timed out. The AI models are taking too long. Try:\n• Selecting only 1-2 AI models\n• Breaking complex questions into smaller parts\n• Simplifying your query\n• Trying again in a moment"
           : "Request timed out. The AI models are taking too long. Try:\n• Selecting only 1-2 AI models instead of multiple\n• Simplifying your question\n• Trying again in a moment";
@@ -1184,6 +1208,7 @@ const Chat = () => {
       setLoading(false);
       setProcessingFile(false);
       setIsDeepResearching(false);
+      setIsRequesting(false);
       
       // Attachments already cleared at the start of handleSend
       // DO NOT clear: selectedModels, deepResearchMode, webSearchEnabled, searchMode
@@ -2543,6 +2568,13 @@ const Chat = () => {
                 <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
                   <MessageCircle className="w-3 h-3" />
                   <span>{messageCount} messages in conversation</span>
+                </div>
+              )}
+
+              {/* Request Timer */}
+              {isRequesting && (
+                <div className="mb-3">
+                  <RequestTimer startTime={requestStartTime} isActive={isRequesting} />
                 </div>
               )}
 

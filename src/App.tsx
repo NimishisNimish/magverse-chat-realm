@@ -67,6 +67,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return user ? <>{children}</> : <Navigate to="/auth" />;
 };
 
+import ModelStatus from "./pages/ModelStatus";
+
 const AnimatedRoutes = () => {
   const location = useLocation();
   useUnifiedNotifications();
@@ -111,6 +113,7 @@ const AnimatedRoutes = () => {
         <Route path="/admin/invoice-emails" element={<AdminProtectedRoute><PageTransition variant="fade"><AdminInvoiceEmailer /></PageTransition></AdminProtectedRoute>} />
         <Route path="/admin-login" element={<PageTransition variant="scale"><AdminLogin /></PageTransition>} />
         <Route path="/support" element={<PageTransition variant="fade"><Support /></PageTransition>} />
+        <Route path="/model-status" element={<ProtectedRoute><PageTransition variant="fade"><ModelStatus /></PageTransition></ProtectedRoute>} />
         <Route path="*" element={<PageTransition variant="fade"><NotFound /></PageTransition>} />
       </Routes>
     </AnimatePresence>
