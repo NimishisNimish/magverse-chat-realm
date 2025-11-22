@@ -685,11 +685,11 @@ const Chat = () => {
     setInput("");
 
     // Frontend timeout (slightly longer than backend to avoid race conditions)
-    const timeoutMs = deepResearchMode ? 330000 : 180000; // 5.5 min for Deep Research, 3 min for regular
+    const timeoutMs = deepResearchMode ? 330000 : 140000; // 5.5 min for Deep Research, 2.3 min for regular
     const timeout = new Promise((_, reject) => {
       const timeoutMessage = deepResearchMode 
-        ? 'Deep Research timed out. The AI models may be experiencing high load. Try: selecting fewer models, simplifying your question, or trying again.'
-        : 'Request timed out. The AI models may be experiencing high load. Try: selecting 1-2 models instead of multiple, simplifying your question, or trying again.';
+        ? 'Deep Research timed out. Try: selecting fewer models, simplifying your question, or trying again.'
+        : 'Request timed out. Try: selecting 1-2 models, simplifying your question, or trying again.';
       setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
     });
 
@@ -758,7 +758,7 @@ const Chat = () => {
         ['gemini-flash', 'gemini-pro', 'gemini-lite', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano'].includes(id)
       );
       const externalModels = selectedModels.filter(id => 
-        ['claude', 'perplexity'].includes(id)
+        ['claude', 'perplexity', 'grok'].includes(id)
       );
 
       const allAIResponses: Message[] = [];
@@ -990,6 +990,7 @@ const Chat = () => {
           const modelMapping: Record<string, string> = {
             'claude': 'claude',
             'perplexity': 'perplexity',
+            'grok': 'grok',
           };
 
           const { data, error } = await supabase.functions.invoke('chat-with-ai', {

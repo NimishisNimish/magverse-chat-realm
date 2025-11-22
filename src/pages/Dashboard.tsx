@@ -113,20 +113,11 @@ const Dashboard = () => {
     try {
       console.log('📊 Starting dashboard data load for user:', user.id);
       
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-
       const { data: statsData, error: statsError } = await supabase
-        .rpc('get_user_dashboard_stats', { p_user_id: user.id })
-        .abortSignal(controller.signal);
-
-      clearTimeout(timeoutId);
+        .rpc('get_user_dashboard_stats', { p_user_id: user.id });
 
       if (statsError) {
         console.error('❌ Stats error:', statsError);
-        if (statsError.message?.includes('aborted')) {
-          throw new Error('Dashboard is taking longer than expected. Please try refreshing.');
-        }
         throw statsError;
       }
 
@@ -215,18 +206,17 @@ const Dashboard = () => {
         avgResponseTime: `${avgResponseTime}s`
       });
 
-      clearTimeout(timeoutId);
-      setLoading(false);
     } catch (error: any) {
       console.error('❌ Dashboard error:', error);
       setError(error.message || 'Failed to load dashboard data');
-      setLoading(false);
       
       toast({
         title: "Loading Error",
         description: error.message || "Please try refreshing the page",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
