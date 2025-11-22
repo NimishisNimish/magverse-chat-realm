@@ -36,15 +36,18 @@ export const CostEstimator = ({
   inputText = '',
   onOpenBudgetSettings,
 }: CostEstimatorProps) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [monthlySpending, setMonthlySpending] = useState(0);
   const [budgetAlert, setBudgetAlert] = useState<any>(null);
 
+  // Only show budget settings for lifetime pro users
+  const isLifetimePro = profile?.subscription_type === 'lifetime';
+
   useEffect(() => {
-    if (user) {
+    if (user && isLifetimePro) {
       loadSpendingData();
     }
-  }, [user]);
+  }, [user, isLifetimePro]);
 
   const loadSpendingData = async () => {
     if (!user) return;
@@ -154,7 +157,7 @@ export const CostEstimator = ({
         </TooltipContent>
       </Tooltip>
 
-      {user && (
+      {user && isLifetimePro && (
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

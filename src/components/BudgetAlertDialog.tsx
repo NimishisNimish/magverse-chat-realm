@@ -25,7 +25,12 @@ export const BudgetAlertDialog = ({
   const [alertThreshold, setAlertThreshold] = useState(80);
   const [loading, setLoading] = useState(false);
   const [existingBudget, setExistingBudget] = useState<any>(null);
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+
+  // Only allow lifetime pro users to access budget alerts
+  if (!profile || profile.subscription_type !== 'lifetime') {
+    return null;
+  }
 
   useEffect(() => {
     if (open && user) {
