@@ -399,11 +399,13 @@ export type Database = {
       credit_usage_logs: {
         Row: {
           chat_id: string | null
+          cost_usd: number | null
           created_at: string
           credits_used: number
           id: string
           message_id: string | null
           model: string
+          model_pricing_tier: string | null
           request_type: string
           response_time_ms: number | null
           tokens_used: number | null
@@ -411,11 +413,13 @@ export type Database = {
         }
         Insert: {
           chat_id?: string | null
+          cost_usd?: number | null
           created_at?: string
           credits_used?: number
           id?: string
           message_id?: string | null
           model: string
+          model_pricing_tier?: string | null
           request_type?: string
           response_time_ms?: number | null
           tokens_used?: number | null
@@ -423,11 +427,13 @@ export type Database = {
         }
         Update: {
           chat_id?: string | null
+          cost_usd?: number | null
           created_at?: string
           credits_used?: number
           id?: string
           message_id?: string | null
           model?: string
+          model_pricing_tier?: string | null
           request_type?: string
           response_time_ms?: number | null
           tokens_used?: number | null
@@ -712,10 +718,13 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          is_shared: boolean | null
           is_system_preset: boolean | null
           models: Json
           name: string
           settings: Json | null
+          share_code: string | null
+          shared_at: string | null
           task_type: string
           usage_count: number | null
           user_id: string | null
@@ -724,10 +733,13 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_shared?: boolean | null
           is_system_preset?: boolean | null
           models?: Json
           name: string
           settings?: Json | null
+          share_code?: string | null
+          shared_at?: string | null
           task_type?: string
           usage_count?: number | null
           user_id?: string | null
@@ -736,10 +748,13 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_shared?: boolean | null
           is_system_preset?: boolean | null
           models?: Json
           name?: string
           settings?: Json | null
+          share_code?: string | null
+          shared_at?: string | null
           task_type?: string
           usage_count?: number | null
           user_id?: string | null
@@ -1059,6 +1074,48 @@ export type Database = {
         }
         Relationships: []
       }
+      user_budget_alerts: {
+        Row: {
+          alert_threshold_percent: number | null
+          budget_limit_usd: number
+          created_at: string | null
+          current_spending_usd: number | null
+          id: string
+          is_active: boolean | null
+          last_alert_sent: string | null
+          period_end: string | null
+          period_start: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          alert_threshold_percent?: number | null
+          budget_limit_usd: number
+          created_at?: string | null
+          current_spending_usd?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_alert_sent?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          alert_threshold_percent?: number | null
+          budget_limit_usd?: number
+          created_at?: string | null
+          current_spending_usd?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_alert_sent?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -1161,6 +1218,7 @@ export type Database = {
       cleanup_expired_phone_codes: { Args: never; Returns: undefined }
       cleanup_old_pending_transactions: { Args: never; Returns: undefined }
       expire_monthly_subscriptions: { Args: never; Returns: undefined }
+      generate_share_code: { Args: never; Returns: string }
       generate_verification_code: {
         Args: { p_user_id: string }
         Returns: string
