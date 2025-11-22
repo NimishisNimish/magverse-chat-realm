@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -6,12 +6,12 @@ import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MessageSquare, Trash2, Edit2, Calendar, GitCompare } from "lucide-react";
+import { MessageSquare, Trash2, Edit2, Calendar, GitCompare, Search, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ChatHistorySkeleton } from "@/components/ui/skeleton";
 import ScrollProgressIndicator from "@/components/ScrollProgressIndicator";
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Virtuoso } from 'react-virtuoso';
 
 interface ChatHistory {
@@ -22,33 +22,68 @@ interface ChatHistory {
   message_count?: number;
 }
 
+const CHATS_PER_PAGE = 20;
+
 const History = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [selectedChats, setSelectedChats] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // React Query for all chat history (virtual scrolling)
-  const { data: chats = [], isLoading: loading } = useQuery({
+  // React Query with infinite scroll
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: loading,
+  } = useInfiniteQuery({
     queryKey: ['chat-history', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
+    queryFn: async ({ pageParam = 0 }) => {
+      if (!user) return { data: [], nextPage: null };
+      
+      const start = pageParam * CHATS_PER_PAGE;
+      const end = start + CHATS_PER_PAGE - 1;
       
       const { data, error } = await supabase
-        .rpc('get_chat_history_with_counts', { p_user_id: user.id });
+        .rpc('get_chat_history_with_counts', { p_user_id: user.id })
+        .range(start, end);
 
       if (error) throw error;
-      return data || [];
+      
+      return {
+        data: data || [],
+        nextPage: data && data.length === CHATS_PER_PAGE ? pageParam + 1 : null,
+      };
     },
+    getNextPageParam: (lastPage) => lastPage.nextPage,
     enabled: !!user,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    initialPageParam: 0,
   });
+
+  // Flatten all pages into single array
+  const allChats = useMemo(
+    () => data?.pages.flatMap((page) => page.data) ?? [],
+    [data]
+  );
+
+  // Filter chats based on search query
+  const filteredChats = useMemo(() => {
+    if (!searchQuery.trim()) return allChats;
+    
+    const query = searchQuery.toLowerCase();
+    return allChats.filter((chat) =>
+      chat.title?.toLowerCase().includes(query)
+    );
+  }, [allChats, searchQuery]);
 
   // Mutations
   const deleteMutation = useMutation({
@@ -56,27 +91,12 @@ const History = () => {
       await supabase.from('chat_messages').delete().eq('chat_id', chatId);
       await supabase.from('chat_history').delete().eq('id', chatId);
     },
-    onMutate: async (chatId) => {
-      await queryClient.cancelQueries({ queryKey: ['chat-history'] });
-      const previousChats = queryClient.getQueryData(['chat-history', user?.id]);
-      
-      queryClient.setQueryData(['chat-history', user?.id], (old: any[]) => 
-        old?.filter(chat => chat.id !== chatId) || []
-      );
-      
-      return { previousChats };
-    },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-history'] });
       toast({ title: "Chat deleted successfully" });
     },
-    onError: (error: any, _variables, context) => {
-      if (context?.previousChats) {
-        queryClient.setQueryData(['chat-history', user?.id], context.previousChats);
-      }
+    onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat-history'] });
     },
   });
 
@@ -88,30 +108,14 @@ const History = () => {
         .eq('id', chatId);
       if (error) throw error;
     },
-    onMutate: async ({ chatId, newTitle }) => {
-      await queryClient.cancelQueries({ queryKey: ['chat-history'] });
-      const previousChats = queryClient.getQueryData(['chat-history', user?.id]);
-      
-      queryClient.setQueryData(['chat-history', user?.id], (old: any[]) => 
-        old?.map(chat => chat.id === chatId ? { ...chat, title: newTitle } : chat) || []
-      );
-      
+    onSuccess: () => {
       setEditingId(null);
       setEditTitle('');
-      
-      return { previousChats };
-    },
-    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat-history'] });
       toast({ title: "Chat renamed successfully" });
     },
-    onError: (error: any, _variables, context) => {
-      if (context?.previousChats) {
-        queryClient.setQueryData(['chat-history', user?.id], context.previousChats);
-      }
+    onError: (error: any) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat-history'] });
     },
   });
 
@@ -156,18 +160,32 @@ const History = () => {
       <ScrollProgressIndicator />
       <Navbar />
       <div className="container mx-auto px-4 pt-24 pb-12">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold gradient-text">Chat History</h1>
-          {selectedChats.length > 0 && (
-            <Button
-              onClick={handleCompareSelected}
-              disabled={selectedChats.length < 2 || selectedChats.length > 3}
-              className="gap-2"
-            >
-              <GitCompare className="w-4 h-4" />
-              Compare Selected ({selectedChats.length})
-            </Button>
-          )}
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-4xl font-bold gradient-text">Chat History</h1>
+            {selectedChats.length > 0 && (
+              <Button
+                onClick={handleCompareSelected}
+                disabled={selectedChats.length < 2 || selectedChats.length > 3}
+                className="gap-2"
+              >
+                <GitCompare className="w-4 h-4" />
+                Compare Selected ({selectedChats.length})
+              </Button>
+            )}
+          </div>
+          
+          {/* Search Input */}
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search chats by title..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
         </div>
         
         {loading ? (
@@ -176,22 +194,31 @@ const History = () => {
               <ChatHistorySkeleton key={i} />
             ))}
           </div>
-        ) : chats.length === 0 ? (
+        ) : filteredChats.length === 0 && searchQuery ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">No chats found matching "{searchQuery}"</p>
+          </div>
+        ) : allChats.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground">No chat history yet. Start a conversation!</p>
           </div>
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground mb-4">
-              Showing {chats.length} {chats.length === 1 ? 'conversation' : 'conversations'}
+              Showing {filteredChats.length} of {allChats.length} {allChats.length === 1 ? 'conversation' : 'conversations'}
             </p>
             
-            {/* Virtual scrolling list with react-virtuoso */}
+            {/* Virtual scrolling list with infinite scroll */}
             <Virtuoso
-              style={{ height: Math.min(chats.length * 140, window.innerHeight - 300) }}
-              totalCount={chats.length}
+              style={{ height: Math.min(filteredChats.length * 140 + 100, window.innerHeight - 300) }}
+              totalCount={filteredChats.length}
+              endReached={() => {
+                if (hasNextPage && !isFetchingNextPage && !searchQuery) {
+                  fetchNextPage();
+                }
+              }}
               itemContent={(index) => {
-                const chat = chats[index];
+                const chat = filteredChats[index];
                 return (
                   <div className="px-4 pb-4">
                     <div className="glass-card p-6 rounded-xl hover:shadow-lg transition-all card-hover-effect">
@@ -259,6 +286,20 @@ const History = () => {
                     </div>
                   </div>
                 );
+              }}
+              components={{
+                Footer: () => {
+                  if (!hasNextPage || searchQuery) return null;
+                  return (
+                    <div className="flex justify-center py-8">
+                      {isFetchingNextPage ? (
+                        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      ) : (
+                        <p className="text-sm text-muted-foreground">All chats loaded</p>
+                      )}
+                    </div>
+                  );
+                },
               }}
             />
           </div>
