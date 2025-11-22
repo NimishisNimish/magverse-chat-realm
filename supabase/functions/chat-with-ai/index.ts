@@ -48,6 +48,7 @@ const RATE_LIMIT_REQUESTS = 10;
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
 const API_TIMEOUT_MS = 120000; // 120 seconds (2 minutes) for regular queries
 const DEEP_RESEARCH_TIMEOUT_MS = 300000; // 300 seconds (5 minutes) for deep research mode
+const SLOW_MODEL_TIMEOUT_MS = 180000; // 180 seconds (3 minutes) for Claude, Perplexity, and Grok
 
 // Provider configuration with direct API endpoints
 const providerConfig: Record<string, any> = {
@@ -864,7 +865,14 @@ serve(async (req) => {
       const makeAPICall = async (retries = 3, delay = 2000): Promise<any> => {
         for (let attempt = 0; attempt <= retries; attempt++) {
           try {
-            const timeout = deepResearchMode ? DEEP_RESEARCH_TIMEOUT_MS : API_TIMEOUT_MS;
+            // Use longer timeout for slow models (Claude, Perplexity, Grok)
+            const isSlowModel = ['claude', 'perplexity', 'grok'].includes(modelId);
+            const timeout = deepResearchMode 
+              ? DEEP_RESEARCH_TIMEOUT_MS 
+              : isSlowModel 
+                ? SLOW_MODEL_TIMEOUT_MS 
+                : API_TIMEOUT_MS;
+            
             const timeoutPromise = new Promise((_, reject) => 
               setTimeout(() => reject(new Error(`${modelId} request timed out after ${timeout/1000}s`)), timeout)
             );
