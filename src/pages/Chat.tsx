@@ -1564,9 +1564,16 @@ const Chat = () => {
     const modelConfig = aiModels.find(m => m.name === modelName);
     if (!modelConfig) return;
 
-    // Mark message as retrying
+    // Clear any previous error state for this model
+    setModelProgress(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(modelConfig.id);
+      return newMap;
+    });
+
+    // Mark message as retrying and clear error flag
     setMessages(prev => prev.map(m => 
-      m.id === messageId ? { ...m, retrying: true } : m
+      m.id === messageId ? { ...m, retrying: true, error: false } : m
     ));
 
     try {
@@ -1665,8 +1672,24 @@ const Chat = () => {
       
       // Restore error state
       setMessages(prev => prev.map(m => 
-        m.id === messageId ? { ...m, retrying: false } : m
+        m.id === messageId ? { ...m, retrying: false, error: true } : m
       ));
+
+      // Set error state in progress
+      setModelProgress(prev => {
+        const newMap = new Map(prev);
+        newMap.set(modelConfig.id, { progress: 0, status: 'error', tokens: 0 });
+        return newMap;
+      });
+
+      // Clear error progress after delay
+      setTimeout(() => {
+        setModelProgress(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(modelConfig.id);
+          return newMap;
+        });
+      }, 5000);
 
       toast({
         title: "Retry failed",
