@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Sparkles, LogOut, Zap, User, History, MessageSquare, Settings, LayoutDashboard, BarChart3, Shield, Crown, Users, Activity } from "lucide-react";
+import { Sparkles, LogOut, Zap, User, History, MessageSquare, Settings, LayoutDashboard, BarChart3, Shield, Crown, Users, Activity, DollarSign } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ThemeCustomizer } from "@/components/ThemeCustomizer";
@@ -217,6 +217,18 @@ const Navbar = () => {
                       </DropdownMenuItem>
                     </>
                   )}
+                  <DropdownMenuItem asChild>
+                    <Link to="/model-status" className="cursor-pointer">
+                      <Activity className="w-4 h-4 mr-2" />
+                      Model Status
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/cost-tracking" className="cursor-pointer">
+                      <DollarSign className="w-4 h-4 mr-2" />
+                      Cost Tracking
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={signOut} className="cursor-pointer text-destructive focus:text-destructive">
                     <LogOut className="w-4 h-4 mr-2" />

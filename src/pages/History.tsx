@@ -5,7 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MessageSquare, Trash2, Edit2, Calendar } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { MessageSquare, Trash2, Edit2, Calendar, GitCompare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ChatHistorySkeleton } from "@/components/ui/skeleton";
@@ -23,6 +24,7 @@ interface ChatHistory {
 const History = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [selectedChats, setSelectedChats] = useState<string[]>([]);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -128,12 +130,44 @@ const History = () => {
     navigate(`/chat?id=${chatId}`);
   };
 
+  const handleToggleSelect = (chatId: string) => {
+    setSelectedChats((prev) =>
+      prev.includes(chatId)
+        ? prev.filter((id) => id !== chatId)
+        : [...prev, chatId]
+    );
+  };
+
+  const handleCompareSelected = () => {
+    if (selectedChats.length < 2 || selectedChats.length > 3) {
+      toast({
+        title: "Invalid Selection",
+        description: "Please select 2-3 chats to compare",
+        variant: "destructive",
+      });
+      return;
+    }
+    navigate(`/comparison?chats=${selectedChats.join(',')}`);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <ScrollProgressIndicator />
       <Navbar />
       <div className="container mx-auto px-4 pt-24 pb-12">
-        <h1 className="text-4xl font-bold gradient-text mb-8">Chat History</h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-4xl font-bold gradient-text">Chat History</h1>
+          {selectedChats.length > 0 && (
+            <Button
+              onClick={handleCompareSelected}
+              disabled={selectedChats.length < 2 || selectedChats.length > 3}
+              className="gap-2"
+            >
+              <GitCompare className="w-4 h-4" />
+              Compare Selected ({selectedChats.length})
+            </Button>
+          )}
+        </div>
         
         {loading ? (
           <div className="space-y-4">
@@ -154,6 +188,11 @@ const History = () => {
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <div className="flex items-start gap-4">
+                  <Checkbox
+                    checked={selectedChats.includes(chat.id)}
+                    onCheckedChange={() => handleToggleSelect(chat.id)}
+                    className="mt-1.5"
+                  />
                   <MessageSquare className="w-6 h-6 text-accent mt-1" />
                   
                   <div className="flex-1 min-w-0">

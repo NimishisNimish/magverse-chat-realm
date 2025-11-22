@@ -125,6 +125,33 @@ export type Database = {
           },
         ]
       }
+      chat_comparisons: {
+        Row: {
+          chat_ids: Json
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          user_id: string
+        }
+        Insert: {
+          chat_ids?: Json
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          user_id: string
+        }
+        Update: {
+          chat_ids?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       chat_history: {
         Row: {
           created_at: string | null
@@ -155,6 +182,7 @@ export type Database = {
           chat_id: string
           content: string
           created_at: string | null
+          credits_consumed: number | null
           id: string
           model: string | null
           role: string
@@ -165,6 +193,7 @@ export type Database = {
           chat_id: string
           content: string
           created_at?: string | null
+          credits_consumed?: number | null
           id?: string
           model?: string | null
           role: string
@@ -175,6 +204,7 @@ export type Database = {
           chat_id?: string
           content?: string
           created_at?: string | null
+          credits_consumed?: number | null
           id?: string
           model?: string | null
           role?: string
@@ -186,6 +216,51 @@ export type Database = {
             columns: ["chat_id"]
             isOneToOne: false
             referencedRelation: "chat_history"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comparison_ratings: {
+        Row: {
+          category: string
+          chat_id: string
+          comparison_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          rating: number | null
+        }
+        Insert: {
+          category: string
+          chat_id: string
+          comparison_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          rating?: number | null
+        }
+        Update: {
+          category?: string
+          chat_id?: string
+          comparison_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          rating?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comparison_ratings_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chat_history"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comparison_ratings_comparison_id_fkey"
+            columns: ["comparison_id"]
+            isOneToOne: false
+            referencedRelation: "chat_comparisons"
             referencedColumns: ["id"]
           },
         ]
@@ -299,6 +374,60 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      credit_usage_logs: {
+        Row: {
+          chat_id: string | null
+          created_at: string
+          credits_used: number
+          id: string
+          message_id: string | null
+          model: string
+          request_type: string
+          response_time_ms: number | null
+          tokens_used: number | null
+          user_id: string
+        }
+        Insert: {
+          chat_id?: string | null
+          created_at?: string
+          credits_used?: number
+          id?: string
+          message_id?: string | null
+          model: string
+          request_type?: string
+          response_time_ms?: number | null
+          tokens_used?: number | null
+          user_id: string
+        }
+        Update: {
+          chat_id?: string | null
+          created_at?: string
+          credits_used?: number
+          id?: string
+          message_id?: string | null
+          model?: string
+          request_type?: string
+          response_time_ms?: number | null
+          tokens_used?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_usage_logs_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chat_history"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_usage_logs_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_campaigns: {
         Row: {
@@ -521,6 +650,45 @@ export type Database = {
         }
         Relationships: []
       }
+      model_presets: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_system_preset: boolean | null
+          models: Json
+          name: string
+          settings: Json | null
+          task_type: string
+          usage_count: number | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_system_preset?: boolean | null
+          models?: Json
+          name: string
+          settings?: Json | null
+          task_type?: string
+          usage_count?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_system_preset?: boolean | null
+          models?: Json
+          name?: string
+          settings?: Json | null
+          task_type?: string
+          usage_count?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       password_reset_attempts: {
         Row: {
           created_at: string | null
@@ -588,6 +756,47 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preset_performance: {
+        Row: {
+          avg_rating: number | null
+          avg_response_time: number | null
+          id: string
+          preset_id: string
+          success_rate: number | null
+          total_uses: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avg_rating?: number | null
+          avg_response_time?: number | null
+          id?: string
+          preset_id: string
+          success_rate?: number | null
+          total_uses?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avg_rating?: number | null
+          avg_response_time?: number | null
+          id?: string
+          preset_id?: string
+          success_rate?: number | null
+          total_uses?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preset_performance_preset_id_fkey"
+            columns: ["preset_id"]
+            isOneToOne: false
+            referencedRelation: "model_presets"
             referencedColumns: ["id"]
           },
         ]
