@@ -43,6 +43,7 @@ import AdminAnalyticsDashboard from "./pages/AdminAnalyticsDashboard";
 import AdminLogin from "./pages/AdminLogin";
 import AdminInvoiceEmailer from "./pages/AdminInvoiceEmailer";
 import ModelStatus from "./pages/ModelStatus";
+import PublicModelStatus from "./pages/PublicModelStatus";
 import CostTracking from "./pages/CostTracking";
 import ModelComparison from "./pages/ModelComparison";
 
@@ -119,6 +120,7 @@ const AnimatedRoutes = () => {
         <Route path="/admin-login" element={<PageTransition variant="scale"><AdminLogin /></PageTransition>} />
         <Route path="/support" element={<PageTransition variant="fade"><Support /></PageTransition>} />
         <Route path="/model-status" element={<ProtectedRoute><PageTransition variant="fade"><ModelStatus /></PageTransition></ProtectedRoute>} />
+        <Route path="/status" element={<PageTransition variant="fade"><PublicModelStatus /></PageTransition>} />
         <Route path="/cost-tracking" element={<ProtectedRoute><PageTransition variant="fade"><CostTracking /></PageTransition></ProtectedRoute>} />
         <Route path="/comparison" element={<ProtectedRoute><PageTransition variant="fade"><ModelComparison /></PageTransition></ProtectedRoute>} />
         <Route path="*" element={<PageTransition variant="fade"><NotFound /></PageTransition>} />

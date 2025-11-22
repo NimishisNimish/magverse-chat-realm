@@ -814,7 +814,11 @@ const Chat = () => {
         'grok': ['perplexity', 'gemini-flash'],
       };
 
-      // Filter out disabled models and implement fallback
+      // Smart load balancing: Sort models by health score
+      const sortedModels = modelHealth.getModelsByHealthScore();
+      const healthyModelIds = sortedModels.map(m => m.id);
+
+      // Filter out disabled models and implement fallback + load balancing
       const { availableModels, fallbackMap } = selectedModels.reduce((acc, modelId) => {
         const modelConfig = aiModels.find(m => m.id === modelId);
         const isAvailable = modelHealth.isModelAvailable(modelId);
@@ -853,12 +857,21 @@ const Chat = () => {
         fallbackMap: new Map<string, string>() 
       });
 
-      // Remove duplicates (in case fallback is already selected)
-      const uniqueModels = [...new Set(availableModels)];
+      // Remove duplicates and sort by health score for intelligent load distribution
+      const uniqueModels = [...new Set(availableModels)].sort((a, b) => {
+        const aIndex = healthyModelIds.indexOf(a);
+        const bIndex = healthyModelIds.indexOf(b);
+        return aIndex - bIndex; // Healthiest models first
+      });
 
       if (uniqueModels.length === 0) {
         throw new Error('All selected models and their fallbacks are unavailable. Please try again later or select different models.');
       }
+
+      console.log('Load balanced model order:', uniqueModels.map(id => {
+        const health = modelHealth.getModelHealth(id);
+        return `${id} (score: ${health ? (health.successfulRequests / Math.max(health.totalRequests, 1) * 100).toFixed(1) : 'N/A'}%)`;
+      }).join(', '));
 
       const lovableAIModels = uniqueModels.filter(id => 
         ['gemini-flash', 'gemini-pro', 'gemini-lite', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano'].includes(id)
@@ -1069,13 +1082,16 @@ const Chat = () => {
 
             console.log(`Streaming complete for ${modelConfig.name}`);
             
+            // Track success with response time
+            const responseTime = Date.now() - requestStartTime;
+            
             // Mark as complete and record success
             setModelProgress(prev => {
               const newMap = new Map(prev);
               newMap.set(modelId, { progress: 100, status: 'complete', tokens: Math.floor(fullContent.length / 4) });
               return newMap;
             });
-            modelHealth.recordSuccess(modelId, modelConfig.name);
+            modelHealth.recordSuccess(modelId, modelConfig.name, responseTime);
 
             // Clear progress after delay
             setTimeout(() => {
@@ -1209,13 +1225,14 @@ const Chat = () => {
                 : msg
             ));
 
-            // Mark as complete and record success
+            // Mark as complete and record success with response time
+            const responseTime = Date.now() - requestStartTime;
             setModelProgress(prev => {
               const newMap = new Map(prev);
               newMap.set(modelId, { progress: 100, status: 'complete', tokens: Math.floor(modelResponse.response.length / 4) });
               return newMap;
             });
-            modelHealth.recordSuccess(modelId, modelConfig.name);
+            modelHealth.recordSuccess(modelId, modelConfig.name, responseTime);
 
             // Clear progress after delay
             setTimeout(() => {
