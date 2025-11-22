@@ -1411,7 +1411,7 @@ const Chat = () => {
         selectedModels.forEach(async (modelId) => {
           const modelConfig = aiModels.find(m => m.id === modelId);
           const creditCost = modelId.includes('mini') || modelId.includes('flash') ? 1 : modelId.includes('pro') ? 3 : 2;
-          await logCreditUsage(user.id, modelConfig?.name || modelId, creditCost, currentChatId || undefined, undefined, 'chat');
+          await logCreditUsage(user.id, modelConfig?.name || modelId, creditCost, currentChatId || undefined);
         });
       }
       
