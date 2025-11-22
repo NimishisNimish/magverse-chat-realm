@@ -13,7 +13,9 @@ import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { useCountUp } from "@/hooks/useCountUp";
 import ScrollProgressIndicator from "@/components/ScrollProgressIndicator";
 import { downloadDashboardPDF } from "@/utils/dashboardExport";
-import { ResponseTimeChart } from "@/components/ResponseTimeChart";
+import { LazyResponseTimeChart } from "@/components/LazyCharts";
+import { ChartErrorBoundary } from "@/components/ChartErrorBoundary";
+import { useInViewport } from "@/hooks/useInViewport";
 import { ModelHealthWidget } from "@/components/ModelHealthWidget";
 import { useAutomatedFailoverTesting } from "@/hooks/useAutomatedFailoverTesting";
 import { 
@@ -26,7 +28,8 @@ import {
   BarChart3,
   AlertTriangle,
   RefreshCw,
-  FileText
+  FileText,
+  Loader2
 } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
@@ -59,6 +62,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { ref: statsRef, isVisible: statsVisible } = useScrollAnimation();
   const { ref: chartsRef, isVisible: chartsVisible } = useScrollAnimation();
+  const { ref: chartContainerRef, isInViewport: chartsInView } = useInViewport();
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Enable automated failover testing for admin users
@@ -145,7 +149,7 @@ const Dashboard = () => {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const [messagesRes, profileRes] = await Promise.all([
+      const [messagesRes, profileRes] = await Promise.allSettled([
         supabase
           .from('chat_messages')
           .select('created_at, model, role')
@@ -160,8 +164,8 @@ const Dashboard = () => {
           .single()
       ]);
 
-      const recentMessages = messagesRes.data || [];
-      const profileData = profileRes.data;
+      const recentMessages = messagesRes.status === 'fulfilled' ? messagesRes.value.data || [] : [];
+      const profileData = profileRes.status === 'fulfilled' ? profileRes.value.data : null;
 
       // Process daily usage
       const last7Days = Array.from({ length: 7 }, (_, i) => {
@@ -580,13 +584,15 @@ const Dashboard = () => {
         {/* Response Time Analytics */}
         {stats && stats.dailyUsage.length > 0 && (
           <div className="mb-6">
-            <ResponseTimeChart
-              data={stats.dailyUsage.map(day => ({
-                date: day.date,
-                avgTime: Math.random() * 3 + 1 // Placeholder for actual response time
-              }))} 
-              models={stats.modelUsage.map(m => m.model)}
-            />
+            <ChartErrorBoundary>
+              <LazyResponseTimeChart
+                data={stats.dailyUsage.map(day => ({
+                  date: day.date,
+                  avgTime: Math.random() * 3 + 1
+                }))} 
+                models={stats.modelUsage.map(m => m.model)}
+              />
+            </ChartErrorBoundary>
           </div>
         )}
 
