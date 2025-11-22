@@ -15,10 +15,21 @@ interface ResponseTimeChartProps {
 
 const MODEL_COLORS: { [key: string]: string } = {
   'gpt-4': 'hsl(var(--primary))',
+  'gpt-4o': 'hsl(var(--primary))',
+  'gpt-4o-mini': 'hsl(var(--secondary))',
   'gpt-3.5-turbo': 'hsl(var(--secondary))',
+  'claude-3-5-sonnet-20241022': 'hsl(var(--accent))',
+  'claude-3-5-haiku-20241022': 'hsl(var(--chart-1))',
   'claude': 'hsl(var(--accent))',
-  'gemini': 'hsl(var(--chart-1))',
-  'llama': 'hsl(var(--chart-2))',
+  'gemini-2.0-flash-exp': 'hsl(var(--chart-2))',
+  'gemini-exp-1206': 'hsl(var(--chart-3))',
+  'gemini': 'hsl(var(--chart-2))',
+  'llama-3.3-70b-versatile': 'hsl(var(--chart-4))',
+  'llama': 'hsl(var(--chart-4))',
+  'deepseek-chat': 'hsl(var(--chart-5))',
+  'deepseek': 'hsl(var(--chart-5))',
+  'perplexity': 'hsl(280 100% 70%)',
+  'sonar': 'hsl(280 100% 70%)',
 };
 
 export const ResponseTimeChart = ({ data, models }: ResponseTimeChartProps) => {
