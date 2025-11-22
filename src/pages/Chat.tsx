@@ -8,6 +8,7 @@ import { OnboardingTour } from "@/components/OnboardingTour";
 import { triggerSuccessConfetti } from "@/utils/confetti";
 import { RequestTimer } from "@/components/RequestTimer";
 import { ModelProgressBar } from "@/components/ModelProgressBar";
+import { ModelConnectionStatus } from "@/components/ModelConnectionStatus";
 import { useModelHealth } from "@/hooks/useModelHealth";
 import { AnimatePresence } from "framer-motion";
 import { CostEstimator } from "@/components/CostEstimator";
@@ -148,6 +149,7 @@ const Chat = () => {
   const [upscalingImageId, setUpscalingImageId] = useState<string | null>(null);
   const [messageCount, setMessageCount] = useState(0);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [retryAttempts, setRetryAttempts] = useState<Map<string, number>>(new Map());
   const [requestStartTime, setRequestStartTime] = useState<number>(0);
   const [isRequesting, setIsRequesting] = useState(false);
   const [modelProgress, setModelProgress] = useState<Map<string, { progress: number; status: 'waiting' | 'streaming' | 'complete' | 'error'; tokens: number; startTime?: number }>>(new Map());
@@ -816,31 +818,52 @@ const Chat = () => {
       console.log(`Sending ${conversationHistory.length} messages for full context (${allMessages.length} total in history)`);
 
       // Helper function for retry with exponential backoff
+      const isTemporaryError = (status: number) => {
+        // 429: Rate limit, 500-504: Server errors, 408: Timeout
+        return status === 429 || status === 408 || (status >= 500 && status <= 504);
+      };
+
       const fetchWithRetry = async (
         url: string, 
         options: RequestInit, 
-        maxRetries = 3, 
-        baseDelay = 1000
+        maxRetries = 4, 
+        baseDelay = 1000,
+        onRetry?: (attempt: number, delay: number) => void
       ): Promise<Response> => {
         for (let attempt = 0; attempt <= maxRetries; attempt++) {
           try {
-            const response = await fetch(url, options);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
             
-            // Handle rate limiting
-            if (response.status === 429) {
+            const response = await fetch(url, {
+              ...options,
+              signal: controller.signal,
+            });
+            
+            clearTimeout(timeoutId);
+            
+            // Handle rate limiting and temporary server errors
+            if (isTemporaryError(response.status)) {
               if (attempt < maxRetries) {
                 const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff
-                console.log(`Rate limited. Retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+                const errorType = response.status === 429 ? 'Rate limit' : 
+                                 response.status === 408 ? 'Timeout' : 'Server error';
                 
-                toast({
-                  title: "Rate limit reached",
-                  description: `Waiting ${delay / 1000}s before retry (${attempt + 1}/${maxRetries})...`,
+                console.log(`${errorType} (${response.status}). Retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+                
+                if (onRetry) {
+                  onRetry(attempt + 1, delay);
+                }
+                
+                sonnerToast.info(`${errorType} - Auto-retrying`, {
+                  description: `Retry ${attempt + 1}/${maxRetries} in ${(delay / 1000).toFixed(1)}s...`,
+                  duration: Math.min(delay, 3000),
                 });
                 
                 await new Promise(resolve => setTimeout(resolve, delay));
                 continue;
               } else {
-                throw new Error('Rate limit exceeded. Please try again in a few moments.');
+                throw new Error(`${response.status === 429 ? 'Rate limit' : 'Server error'} persists. Please try again later.`);
               }
             }
             
@@ -849,14 +872,37 @@ const Chat = () => {
               throw new Error('Credits exhausted. Please add credits to your Lovable AI workspace.');
             }
             
+            // Handle other non-2xx responses
+            if (!response.ok && response.status !== 429 && !isTemporaryError(response.status)) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
             return response;
           } catch (error: any) {
-            if (attempt === maxRetries || error.message.includes('Credits exhausted')) {
+            const isAbortError = error.name === 'AbortError';
+            const shouldRetry = isAbortError || 
+                               error.message.includes('fetch') || 
+                               error.message.includes('network');
+            
+            if (attempt === maxRetries || error.message.includes('Credits exhausted') || !shouldRetry) {
               throw error;
             }
-            // Network errors - retry with backoff
+            
+            // Network errors or timeouts - retry with exponential backoff
             const delay = baseDelay * Math.pow(2, attempt);
-            console.log(`Network error. Retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+            const errorType = isAbortError ? 'Request timeout' : 'Network error';
+            
+            console.log(`${errorType}. Retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+            
+            if (onRetry) {
+              onRetry(attempt + 1, delay);
+            }
+            
+            sonnerToast.warning(`${errorType} - Auto-retrying`, {
+              description: `Retry ${attempt + 1}/${maxRetries} in ${(delay / 1000).toFixed(1)}s...`,
+              duration: Math.min(delay, 3000),
+            });
+            
             await new Promise(resolve => setTimeout(resolve, delay));
           }
         }
@@ -991,17 +1037,19 @@ const Chat = () => {
           // Image generation requires non-streaming mode to get complete response
           const shouldStream = !imageGenerationMode;
           
-          const response = await fetchWithRetry(CHAT_URL, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxZGdweGV0eXNxY2Rjandvcm1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3NTcwMDMsImV4cCI6MjA3NzMzMzAwM30.AspAeB_iUnc-XJmDNhdV5_HYTMLg32LM1bVAdwM6A5E`,
-            },
-            body: JSON.stringify({
-              model: modelConfig.model,
-              messages: (() => {
-                // Prepare messages with multimodal content (images)
-                const formattedMessages = conversationHistory.map(m => {
+          const response = await fetchWithRetry(
+            CHAT_URL, 
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxZGdweGV0eXNxY2Rjandvcm1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3NTcwMDMsImV4cCI6MjA3NzMzMzAwM30.AspAeB_iUnc-XJmDNhdV5_HYTMLg32LM1bVAdwM6A5E`,
+              },
+              body: JSON.stringify({
+                model: modelConfig.model,
+                messages: (() => {
+                  // Prepare messages with multimodal content (images)
+                  const formattedMessages = conversationHistory.map(m => {
                   if (m.attachmentFile?.url) {
                     return {
                       role: m.role,
@@ -1032,10 +1080,20 @@ const Chat = () => {
               generateImage: imageGenerationMode,
               webSearchEnabled,
               searchMode: searchMode,
-              deepResearch: deepResearchMode,
-            }),
-          });
-
+                deepResearch: deepResearchMode,
+              }),
+            },
+            4, // maxRetries
+            1000, // baseDelay
+            (attempt, delay) => {
+              // Update retry attempt tracking for UI
+              setRetryAttempts(prev => {
+                const newMap = new Map(prev);
+                newMap.set(modelId, attempt);
+                return newMap;
+              });
+            }
+          );
           if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || `HTTP ${response.status}`);
@@ -1185,6 +1243,13 @@ const Chat = () => {
             });
             modelHealth.recordSuccess(modelId, modelConfig.name, responseTime);
 
+            // Clear retry attempts for this model
+            setRetryAttempts(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(modelId);
+              return newMap;
+            });
+
             // Clear progress immediately after showing complete status
             setTimeout(() => {
               setModelProgress(prev => {
@@ -1220,6 +1285,13 @@ const Chat = () => {
                 }
               : msg
           ));
+          
+          // Clear retry attempts for this model
+          setRetryAttempts(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(modelId);
+            return newMap;
+          });
           
           // Clear error progress after delay
           setTimeout(() => {
@@ -1348,6 +1420,13 @@ const Chat = () => {
             });
             modelHealth.recordSuccess(modelId, modelConfig.name, responseTime);
 
+            // Clear retry attempts for this model
+            setRetryAttempts(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(modelId);
+              return newMap;
+            });
+
             // Clear progress immediately after showing complete status
             setTimeout(() => {
               setModelProgress(prev => {
@@ -1385,6 +1464,13 @@ const Chat = () => {
                 }
               : msg
           ));
+          
+          // Clear retry attempts for this model
+          setRetryAttempts(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(modelId);
+            return newMap;
+          });
           
           // Clear error progress after delay
           setTimeout(() => {
@@ -2151,24 +2237,41 @@ const Chat = () => {
             {aiModels.map(model => {
               const Icon = model.icon;
               const isSelected = selectedModels.includes(model.id);
+              const healthStatus = modelHealth.getModelHealth(model.id);
+              
               return (
-                <button
-                  key={model.id}
-                  onClick={() => toggleModel(model.id)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
-                    isSelected 
-                      ? 'glass-card border-accent/50 shadow-lg shadow-accent/20' 
-                      : 'hover:bg-muted/20'
-                  }`}
-                >
-                  <div className={`w-8 h-8 rounded-lg ${isSelected ? 'bg-accent/20' : 'bg-muted/20'} flex items-center justify-center`}>
-                    <Icon className={`w-4 h-4 ${isSelected ? model.color : 'text-muted-foreground'}`} />
-                  </div>
-                  <span className={`font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
-                    {model.name}
-                  </span>
-                  {isSelected && <Circle className="w-1.5 h-1.5 ml-auto fill-accent text-accent" />}
-                </button>
+                <div key={model.id} className="space-y-2">
+                  <button
+                    onClick={() => toggleModel(model.id)}
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
+                      isSelected 
+                        ? 'glass-card border-accent/50 shadow-lg shadow-accent/20' 
+                        : 'hover:bg-muted/20'
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg ${isSelected ? 'bg-accent/20' : 'bg-muted/20'} flex items-center justify-center`}>
+                      <Icon className={`w-4 h-4 ${isSelected ? model.color : 'text-muted-foreground'}`} />
+                    </div>
+                    <span className={`font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
+                      {model.name}
+                    </span>
+                    {isSelected && <Circle className="w-1.5 h-1.5 ml-auto fill-accent text-accent" />}
+                  </button>
+                  
+                  {isSelected && healthStatus && (
+                    <div className="pl-11">
+                      <ModelConnectionStatus
+                        modelId={model.id}
+                        modelName={model.name}
+                        status={healthStatus.status}
+                        avgResponseTime={healthStatus.avgResponseTime}
+                        recentFailureRate={healthStatus.recentFailureRate}
+                        lastCheck={healthStatus.lastSuccess || healthStatus.lastFailure || undefined}
+                        className="text-xs"
+                      />
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -2946,6 +3049,8 @@ const Chat = () => {
                           currentTokens={progress.tokens}
                           estimatedTokens={2000}
                           estimatedTime={progress.status === 'waiting' ? estimatedTime : remainingTime}
+                          retryAttempt={retryAttempts.get(modelId)}
+                          maxRetries={4}
                         />
                       );
                     })}

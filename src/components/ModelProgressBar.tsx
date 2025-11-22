@@ -10,6 +10,8 @@ interface ModelProgressBarProps {
   estimatedTokens?: number;
   currentTokens?: number;
   estimatedTime?: number; // in seconds
+  retryAttempt?: number;
+  maxRetries?: number;
 }
 
 export const ModelProgressBar = ({ 
@@ -19,7 +21,9 @@ export const ModelProgressBar = ({
   status,
   estimatedTokens,
   currentTokens,
-  estimatedTime
+  estimatedTime,
+  retryAttempt,
+  maxRetries = 4,
 }: ModelProgressBarProps) => {
   const getStatusIcon = () => {
     switch (status) {
@@ -41,6 +45,9 @@ export const ModelProgressBar = ({
       case 'waiting':
         return 'Waiting...';
       case 'streaming':
+        if (retryAttempt && retryAttempt > 0) {
+          return `Retrying (${retryAttempt}/${maxRetries})`;
+        }
         return 'Processing';
       case 'complete':
         return 'Complete';
