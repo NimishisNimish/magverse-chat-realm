@@ -17,7 +17,8 @@ import UserSegmentationDashboard from "@/components/UserSegmentationDashboard";
 import EmailCampaignAnalytics from "@/components/EmailCampaignAnalytics";
 import CronSchedulerAdmin from "@/components/CronSchedulerAdmin";
 import { Link } from "react-router-dom";
-import { ModelPerformanceLeaderboard } from "@/components/ModelPerformanceLeaderboard";
+import { LazyModelPerformanceLeaderboard } from "@/components/LazyCharts";
+import { ChartErrorBoundary } from "@/components/ChartErrorBoundary";
 import { WebhookConfiguration } from "@/components/WebhookConfiguration";
 
 interface UserData {
@@ -376,7 +377,9 @@ export default function AdminDashboard() {
 
       {/* Model Performance Leaderboard */}
       <div className="mt-6">
-        <ModelPerformanceLeaderboard />
+        <ChartErrorBoundary>
+          <LazyModelPerformanceLeaderboard />
+        </ChartErrorBoundary>
       </div>
 
           {/* Users Grid */}

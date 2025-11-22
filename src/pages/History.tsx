@@ -21,23 +21,27 @@ interface ChatHistory {
   message_count?: number;
 }
 
+const CHATS_PER_PAGE = 20;
+
 const History = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [selectedChats, setSelectedChats] = useState<string[]>([]);
+  const [page, setPage] = useState(0);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // React Query for chat history
+  // React Query for paginated chat history
   const { data: chats = [], isLoading: loading } = useQuery({
-    queryKey: ['chat-history', user?.id],
+    queryKey: ['chat-history', user?.id, page],
     queryFn: async () => {
       if (!user) return [];
       
       const { data, error } = await supabase
-        .rpc('get_chat_history_with_counts', { p_user_id: user.id });
+        .rpc('get_chat_history_with_counts', { p_user_id: user.id })
+        .range(page * CHATS_PER_PAGE, (page + 1) * CHATS_PER_PAGE - 1);
 
       if (error) throw error;
       return data || [];
@@ -251,6 +255,29 @@ const History = () => {
               </div>
             ))}
             </div>
+            
+            {/* Pagination */}
+            {chats.length >= CHATS_PER_PAGE || page > 0 ? (
+              <div className="flex justify-center gap-4 mt-8">
+                <Button 
+                  onClick={() => setPage(p => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                  variant="outline"
+                >
+                  Previous
+                </Button>
+                <span className="flex items-center px-4 text-muted-foreground">
+                  Page {page + 1}
+                </span>
+                <Button 
+                  onClick={() => setPage(p => p + 1)}
+                  disabled={chats.length < CHATS_PER_PAGE}
+                  variant="outline"
+                >
+                  Next
+                </Button>
+              </div>
+            ) : null}
           </div>
         )}
       </div>
