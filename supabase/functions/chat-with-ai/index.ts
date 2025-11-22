@@ -14,7 +14,7 @@ const ERROR_MESSAGES = {
   SERVER_ERROR: 'An error occurred processing your request',
 };
 
-const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY'); // Single key for all OpenRouter models
+const sudoApiKey = Deno.env.get('SUDO_API_KEY'); // Sudo API for Claude and Grok
 const deepseekApiKey = Deno.env.get('DEEPSEEK_API_KEY');
 const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
 const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
@@ -26,7 +26,7 @@ const llamaNvidiaApiKey = Deno.env.get('LLAMA_NVIDIA_NIM_API_KEY');
 
 // Debug: Log API key availability (not the actual keys)
 console.log('🔑 API Keys loaded:', {
-  openrouter: !!openRouterApiKey, // Single key for Claude, Grok
+  sudo: !!sudoApiKey, // Unified key for Claude, Grok
   deepseek: !!deepseekApiKey,
   google: !!googleApiKey,
   perplexity: !!perplexityApiKey,
@@ -170,46 +170,39 @@ const providerConfig: Record<string, any> = {
     },
   },
   claude: {
-    provider: 'nvidia-nim',
-    apiKey: llamaNvidiaApiKey,
-    endpoint: 'https://integrate.api.nvidia.com/v1/chat/completions',
-    model: 'meta/llama-3.3-70b-instruct',
+    provider: 'sudo',
+    apiKey: sudoApiKey,
+    endpoint: 'https://sudoapp.dev/api/v1/chat/completions',
+    model: 'claude-sonnet-4-20250514',
     supportsStreaming: false,
     headers: () => {
-      if (!llamaNvidiaApiKey) {
-        throw new Error('NVIDIA NIM API key is not configured. Please add your API key in Settings.');
+      if (!sudoApiKey) {
+        throw new Error('Sudo API key is not configured. Please add your API key in Settings.');
       }
-      console.log('🔑 NVIDIA NIM (Claude replacement) headers generated:', {
-        hasApiKey: !!llamaNvidiaApiKey,
-        keyLength: llamaNvidiaApiKey?.length,
-        keyStart: llamaNvidiaApiKey?.substring(0, 8) + '...'
-      });
+      console.log('🔑 Sudo (Claude) headers generated');
       return {
-        'Authorization': `Bearer ${llamaNvidiaApiKey}`,
+        'Authorization': `Bearer ${sudoApiKey}`,
         'Content-Type': 'application/json',
       };
     },
     bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
-      model: 'meta/llama-3.3-70b-instruct',
+      model: 'claude-sonnet-4-20250514',
       messages,
       temperature: 0.7,
-      max_tokens: 4000,
+      max_tokens: 4096,
       stream: false,
     }),
     responseTransform: (data: any) => {
-      console.log('📊 NVIDIA NIM (Claude) raw response:', JSON.stringify(data, null, 2));
+      console.log('📊 Sudo (Claude) raw response:', JSON.stringify(data, null, 2));
       
-      // NVIDIA NIM uses standard OpenAI format
-      const content = data.choices?.[0]?.message?.content || 
-                     data.choices?.[0]?.text ||
-                     '';
+      const content = data.choices?.[0]?.message?.content || '';
       
-      console.log('✅ NVIDIA NIM (Claude) extracted content length:', content.length);
-      console.log('✅ NVIDIA NIM (Claude) content preview:', content.substring(0, 200));
+      console.log('✅ Sudo (Claude) extracted content length:', content.length);
+      console.log('✅ Sudo (Claude) content preview:', content.substring(0, 200));
       
       if (!content) {
-        console.error('❌ No content in NVIDIA NIM response');
-        return 'Error: No response content from NVIDIA NIM (Claude)';
+        console.error('❌ No content in Sudo (Claude) response');
+        return 'Error: No response content from Claude';
       }
       
       return content;
@@ -236,22 +229,34 @@ const providerConfig: Record<string, any> = {
     },
   },
   grok: {
-    provider: 'openrouter',
-    apiKey: openRouterApiKey,
-    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-    model: 'x-ai/grok-4',
-    headers: () => ({
-      'Authorization': `Bearer ${openRouterApiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://pqdgpxetysqcdcjwormb.supabase.co',
-      'X-Title': 'MagVerse AI Chat',
-    }),
+    provider: 'sudo',
+    apiKey: sudoApiKey,
+    endpoint: 'https://sudoapp.dev/api/v1/chat/completions',
+    model: 'grok-2-1212',
+    headers: () => {
+      if (!sudoApiKey) {
+        throw new Error('Sudo API key is not configured. Please add your API key in Settings.');
+      }
+      return {
+        'Authorization': `Bearer ${sudoApiKey}`,
+        'Content-Type': 'application/json',
+      };
+    },
     bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
-      model: 'x-ai/grok-4',
+      model: 'grok-2-1212',
       messages,
       temperature: 0.7,
       max_tokens: 2000,
+      stream: false,
     }),
+    responseTransform: (data: any) => {
+      const content = data.choices?.[0]?.message?.content || '';
+      if (!content) {
+        console.error('❌ No content in Sudo (Grok) response');
+        return 'Error: No response content from Grok';
+      }
+      return content;
+    },
   },
   deepseek: {
     provider: 'nvidia-nim',
