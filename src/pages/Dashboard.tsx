@@ -14,6 +14,8 @@ import { useCountUp } from "@/hooks/useCountUp";
 import ScrollProgressIndicator from "@/components/ScrollProgressIndicator";
 import { downloadDashboardPDF } from "@/utils/dashboardExport";
 import { ResponseTimeChart } from "@/components/ResponseTimeChart";
+import { ModelHealthWidget } from "@/components/ModelHealthWidget";
+import { useAutomatedFailoverTesting } from "@/hooks/useAutomatedFailoverTesting";
 import { 
   Zap, 
   MessageSquare, 
@@ -57,6 +59,10 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { ref: statsRef, isVisible: statsVisible } = useScrollAnimation();
   const { ref: chartsRef, isVisible: chartsVisible } = useScrollAnimation();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Enable automated failover testing for admin users
+  useAutomatedFailoverTesting(isAdmin);
 
   // Count-up animations for key stats
   const totalMessagesCount = useCountUp({ end: stats?.totalMessages || 0, duration: 2000 });
@@ -70,10 +76,24 @@ const Dashboard = () => {
       return;
     }
     loadStats();
+    checkAdminStatus();
 
     // Manual refresh only - removed auto-refresh to prevent constant reloading
     // Users can manually refresh using browser refresh or a refresh button
   }, [user]);
+
+  const checkAdminStatus = async () => {
+    if (!user) return;
+    
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'admin')
+      .single();
+
+    setIsAdmin(!!data);
+  };
 
   const handleManualRefresh = async () => {
     setRefreshing(true);

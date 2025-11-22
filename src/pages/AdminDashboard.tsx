@@ -17,6 +17,7 @@ import UserSegmentationDashboard from "@/components/UserSegmentationDashboard";
 import EmailCampaignAnalytics from "@/components/EmailCampaignAnalytics";
 import CronSchedulerAdmin from "@/components/CronSchedulerAdmin";
 import { Link } from "react-router-dom";
+import { ModelPerformanceLeaderboard } from "@/components/ModelPerformanceLeaderboard";
 
 interface UserData {
   id: string;
@@ -371,6 +372,11 @@ export default function AdminDashboard() {
 
       {/* Activity Feed */}
       <AdminActivityFeed />
+
+      {/* Model Performance Leaderboard */}
+      <div className="mt-6">
+        <ModelPerformanceLeaderboard />
+      </div>
 
           {/* Users Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
