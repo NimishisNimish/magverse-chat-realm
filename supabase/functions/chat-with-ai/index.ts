@@ -348,20 +348,29 @@ async function performWebSearch(query: string, searchMode: string = 'general'): 
   }
 }
 
-// Validation schema
+// Validation schema - supports both old and new formats
 const chatRequestSchema = z.object({
+  // New format (multi-model)
   messages: z.array(z.object({
     role: z.enum(['user', 'assistant', 'system']),
     content: z.union([
       z.string().max(MAX_MESSAGE_LENGTH, 'Message too long (max 10,000 characters)'),
       z.array(z.any()) // Allow array for vision models with image content
     ])
-  })).min(1, 'At least one message required').max(100, 'Too many messages'),
+  })).min(1, 'At least one message required').max(100, 'Too many messages').optional(),
   
   selectedModels: z.array(
     z.enum(VALID_MODELS)
   ).min(1, 'Select at least one model')
-   .max(MAX_MODELS_PER_REQUEST, `Maximum ${MAX_MODELS_PER_REQUEST} models per request`),
+   .max(MAX_MODELS_PER_REQUEST, `Maximum ${MAX_MODELS_PER_REQUEST} models per request`).optional(),
+  
+  // Old format (single model)
+  model: z.enum(VALID_MODELS).optional(),
+  message: z.string().max(MAX_MESSAGE_LENGTH, 'Message too long').optional(),
+  chatHistory: z.array(z.object({
+    role: z.enum(['user', 'assistant', 'system']),
+    content: z.string()
+  })).optional(),
   
   chatId: z.string().uuid().nullish(),
   
@@ -375,7 +384,15 @@ const chatRequestSchema = z.object({
   webSearchEnabled: z.boolean().optional(),
   searchMode: z.enum(['general', 'finance', 'academic']).optional(),
   deepResearchMode: z.boolean().optional(),
+  deepResearch: z.boolean().optional(), // Alias for deepResearchMode
   stream: z.boolean().optional(),
+}).refine((data) => {
+  // Either new format (messages + selectedModels) or old format (model + message/chatHistory)
+  const hasNewFormat = data.messages && data.selectedModels;
+  const hasOldFormat = data.model && (data.message || data.chatHistory);
+  return hasNewFormat || hasOldFormat;
+}, {
+  message: 'Either provide messages+selectedModels (new format) or model+message/chatHistory (old format)'
 });
 
 /**
@@ -434,7 +451,45 @@ serve(async (req) => {
       );
     }
 
-    const { messages, selectedModels, chatId, attachmentUrl, attachmentExtension, webSearchEnabled = false, searchMode = 'general', deepResearchMode = false, stream = false } = validationResult.data;
+    const rawData = validationResult.data;
+    
+    // Handle both old and new formats
+    let messages: Array<{role: string, content: any}>;
+    let selectedModels: string[];
+    
+    if (rawData.messages && rawData.selectedModels) {
+      // New format
+      messages = rawData.messages;
+      selectedModels = rawData.selectedModels;
+    } else if (rawData.model) {
+      // Old format - convert to new format
+      selectedModels = [rawData.model];
+      
+      if (rawData.chatHistory && rawData.chatHistory.length > 0) {
+        // Use chat history as messages
+        messages = rawData.chatHistory;
+        // Add the new message if provided
+        if (rawData.message) {
+          messages.push({ role: 'user', content: rawData.message });
+        }
+      } else if (rawData.message) {
+        // Just the single message
+        messages = [{ role: 'user', content: rawData.message }];
+      } else {
+        return new Response(
+          JSON.stringify({ error: 'No message or chat history provided' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } else {
+      return new Response(
+        JSON.stringify({ error: 'Invalid request format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const { chatId, attachmentUrl, attachmentExtension, webSearchEnabled = false, searchMode = 'general', stream = false } = rawData;
+    const deepResearchMode = rawData.deepResearchMode || rawData.deepResearch || false;
     
     // Auto-enable web search for Deep Research mode
     const effectiveWebSearchEnabled = deepResearchMode ? true : webSearchEnabled;
