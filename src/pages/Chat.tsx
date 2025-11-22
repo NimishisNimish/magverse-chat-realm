@@ -231,6 +231,21 @@ const Chat = () => {
     loadCustomInstructions();
   }, [user]);
 
+  // Periodic health snapshot saving (every 5 minutes)
+  useEffect(() => {
+    if (!user) return;
+    
+    // Save initial snapshot
+    modelHealth.saveHealthSnapshot();
+    
+    // Save every 5 minutes
+    const interval = setInterval(() => {
+      modelHealth.saveHealthSnapshot();
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [user, modelHealth]);
+
   const loadChatMessages = async (chatId: string) => {
     try {
       setLoading(true);
@@ -786,30 +801,69 @@ const Chat = () => {
         throw new Error('Max retries exceeded');
       };
 
-      // Filter out disabled models and separate into Lovable AI vs External APIs
-      const availableModels = selectedModels.filter(id => {
-        const modelConfig = aiModels.find(m => m.id === id);
-        const isAvailable = modelHealth.isModelAvailable(id);
+      // Model fallback chains based on similar capabilities
+      const MODEL_FALLBACK_CHAINS: Record<string, string[]> = {
+        'gpt-5': ['gpt-5-mini', 'gemini-pro', 'claude'],
+        'gpt-5-mini': ['gemini-flash', 'gpt-5-nano'],
+        'gpt-5-nano': ['gemini-lite', 'gemini-flash'],
+        'gemini-pro': ['gpt-5', 'claude', 'gemini-flash'],
+        'gemini-flash': ['gpt-5-mini', 'gemini-lite'],
+        'gemini-lite': ['gemini-flash', 'gpt-5-nano'],
+        'claude': ['gpt-5', 'gemini-pro'],
+        'perplexity': ['grok', 'gemini-flash'],
+        'grok': ['perplexity', 'gemini-flash'],
+      };
+
+      // Filter out disabled models and implement fallback
+      const { availableModels, fallbackMap } = selectedModels.reduce((acc, modelId) => {
+        const modelConfig = aiModels.find(m => m.id === modelId);
+        const isAvailable = modelHealth.isModelAvailable(modelId);
         
         if (!isAvailable && modelConfig) {
-          toast({
-            title: `${modelConfig.name} Unavailable`,
-            description: `${modelConfig.name} is currently disabled due to health issues. It has been removed from your selection.`,
-            variant: 'destructive',
-          });
+          // Find healthy fallback
+          const fallbackChain = MODEL_FALLBACK_CHAINS[modelId] || [];
+          const fallback = fallbackChain.find(fbId => 
+            modelHealth.isModelAvailable(fbId)
+          );
+          
+          if (fallback) {
+            acc.availableModels.push(fallback);
+            acc.fallbackMap.set(fallback, modelConfig.name);
+            
+            const fallbackConfig = aiModels.find(m => m.id === fallback);
+            toast({
+              title: `${modelConfig.name} Unavailable`,
+              description: `Automatically switched to ${fallbackConfig?.name} as fallback.`,
+              className: 'bg-yellow-500/10 border-yellow-500',
+            });
+          } else {
+            toast({
+              title: `${modelConfig.name} Unavailable`,
+              description: `No healthy fallback available. This model has been skipped.`,
+              variant: 'destructive',
+            });
+          }
+        } else if (isAvailable) {
+          acc.availableModels.push(modelId);
         }
         
-        return isAvailable;
+        return acc;
+      }, { 
+        availableModels: [] as string[], 
+        fallbackMap: new Map<string, string>() 
       });
 
-      if (availableModels.length === 0) {
-        throw new Error('No available models selected. All selected models are currently disabled due to health issues.');
+      // Remove duplicates (in case fallback is already selected)
+      const uniqueModels = [...new Set(availableModels)];
+
+      if (uniqueModels.length === 0) {
+        throw new Error('All selected models and their fallbacks are unavailable. Please try again later or select different models.');
       }
 
-      const lovableAIModels = availableModels.filter(id => 
+      const lovableAIModels = uniqueModels.filter(id => 
         ['gemini-flash', 'gemini-pro', 'gemini-lite', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano'].includes(id)
       );
-      const externalModels = availableModels.filter(id => 
+      const externalModels = uniqueModels.filter(id => 
         ['claude', 'perplexity', 'grok'].includes(id)
       );
 

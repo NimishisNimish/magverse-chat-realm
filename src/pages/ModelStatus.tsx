@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, CheckCircle2, XCircle, Clock, Zap, Brain, Bot, Globe, Sparkles, Cpu, Star, AlertTriangle } from "lucide-react";
 import { useModelHealth } from "@/hooks/useModelHealth";
+import { ModelUptimeChart } from "@/components/ModelUptimeChart";
 
 interface ModelConfig {
   id: string;
@@ -17,11 +18,11 @@ const ModelStatus = () => {
   const { getAllModelHealth, attemptRecovery } = useModelHealth();
   
   const modelConfigs: ModelConfig[] = [
-    { id: "gpt-5.1", name: "GPT-5.1", icon: Bot, color: "text-accent" },
+    { id: "gpt-5", name: "GPT-5.1", icon: Bot, color: "text-accent" },
     { id: "gpt-5-mini", name: "GPT-5 Mini", icon: Sparkles, color: "text-purple-400" },
     { id: "gpt-5-nano", name: "GPT-5 Nano", icon: Star, color: "text-blue-400" },
-    { id: "gemini-3-flash", name: "Gemini 3 Flash", icon: Zap, color: "text-primary" },
-    { id: "gemini-3-pro", name: "Gemini 3 Pro", icon: Brain, color: "text-secondary" },
+    { id: "gemini-flash", name: "Gemini 3 Flash", icon: Zap, color: "text-primary" },
+    { id: "gemini-pro", name: "Gemini 3 Pro", icon: Brain, color: "text-secondary" },
     { id: "gemini-lite", name: "Gemini Lite", icon: Cpu, color: "text-muted-foreground" },
     { id: "claude", name: "Claude", icon: Bot, color: "text-orange-400" },
     { id: "perplexity", name: "Perplexity", icon: Globe, color: "text-green-400" },
@@ -154,6 +155,14 @@ const ModelStatus = () => {
           })}
         </div>
 
+        <ModelUptimeChart 
+          models={modelConfigs.map(config => ({
+            id: config.id,
+            name: config.name,
+            color: config.color,
+          }))}
+        />
+
         <Card className="mt-8">
           <CardHeader>
             <CardTitle>About Model Health Monitoring</CardTitle>
@@ -163,7 +172,7 @@ const ModelStatus = () => {
             <p>• <strong>Degraded:</strong> Model has experienced 2+ consecutive failures but is still available</p>
             <p>• <strong>Down:</strong> Model has 3+ consecutive failures and is temporarily disabled</p>
             <p className="mt-4">Status is based on <strong>real usage data</strong> from your actual requests. Models automatically recover after successful responses. Disabled models are re-enabled after 5 minutes to test recovery.</p>
-            <p className="mt-2">If a model shows degraded or down status, it's recommended to use an alternative model until it recovers.</p>
+            <p className="mt-2">If a model shows degraded or down status, it's recommended to use an alternative model until it recovers. The system will automatically switch to healthy alternatives when possible.</p>
           </CardContent>
         </Card>
       </div>

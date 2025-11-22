@@ -650,6 +650,42 @@ export type Database = {
         }
         Relationships: []
       }
+      model_health_history: {
+        Row: {
+          consecutive_failures: number | null
+          id: string
+          is_disabled: boolean | null
+          model_id: string
+          model_name: string
+          recorded_at: string | null
+          status: string
+          successful_requests: number | null
+          total_requests: number | null
+        }
+        Insert: {
+          consecutive_failures?: number | null
+          id?: string
+          is_disabled?: boolean | null
+          model_id: string
+          model_name: string
+          recorded_at?: string | null
+          status: string
+          successful_requests?: number | null
+          total_requests?: number | null
+        }
+        Update: {
+          consecutive_failures?: number | null
+          id?: string
+          is_disabled?: boolean | null
+          model_id?: string
+          model_name?: string
+          recorded_at?: string | null
+          status?: string
+          successful_requests?: number | null
+          total_requests?: number | null
+        }
+        Relationships: []
+      }
       model_presets: {
         Row: {
           created_at: string
