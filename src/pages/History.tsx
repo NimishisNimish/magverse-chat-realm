@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import { ChatHistorySkeleton } from "@/components/ui/skeleton";
 import ScrollProgressIndicator from "@/components/ScrollProgressIndicator";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Virtuoso } from 'react-virtuoso';
 
 interface ChatHistory {
   id: string;
@@ -21,27 +22,23 @@ interface ChatHistory {
   message_count?: number;
 }
 
-const CHATS_PER_PAGE = 20;
-
 const History = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [selectedChats, setSelectedChats] = useState<string[]>([]);
-  const [page, setPage] = useState(0);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // React Query for paginated chat history
+  // React Query for all chat history (virtual scrolling)
   const { data: chats = [], isLoading: loading } = useQuery({
-    queryKey: ['chat-history', user?.id, page],
+    queryKey: ['chat-history', user?.id],
     queryFn: async () => {
       if (!user) return [];
       
       const { data, error } = await supabase
-        .rpc('get_chat_history_with_counts', { p_user_id: user.id })
-        .range(page * CHATS_PER_PAGE, (page + 1) * CHATS_PER_PAGE - 1);
+        .rpc('get_chat_history_with_counts', { p_user_id: user.id });
 
       if (error) throw error;
       return data || [];
@@ -185,99 +182,85 @@ const History = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="grid gap-4">{chats.map((chat, index) => (
-              <div 
-                key={chat.id} 
-                className="glass-card p-6 rounded-xl hover:shadow-lg transition-all stagger-item card-hover-effect"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <div className="flex items-start gap-4">
-                  <Checkbox
-                    checked={selectedChats.includes(chat.id)}
-                    onCheckedChange={() => handleToggleSelect(chat.id)}
-                    className="mt-1.5"
-                  />
-                  <MessageSquare className="w-6 h-6 text-accent mt-1" />
-                  
-                  <div className="flex-1 min-w-0">
-                    {editingId === chat.id ? (
-                      <Input
-                        value={editTitle}
-                        onChange={(e) => setEditTitle(e.target.value)}
-                        onBlur={() => renameChat(chat.id, editTitle)}
-                        onKeyDown={(e) => e.key === 'Enter' && renameChat(chat.id, editTitle)}
-                        className="mb-2"
-                        autoFocus
-                      />
-                    ) : (
-                      <h3 
-                        className="text-lg font-semibold mb-2 cursor-pointer hover:text-accent"
-                        onClick={() => openChat(chat.id)}
-                        onDoubleClick={() => {
-                          setEditingId(chat.id);
-                          setEditTitle(chat.title);
-                        }}
-                      >
-                        {chat.title}
-                      </h3>
-                    )}
-                    
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
-                        {format(new Date(chat.updated_at), 'MMM dd, yyyy')}
-                      </span>
-                      <span>{chat.message_count} messages</span>
+            <p className="text-sm text-muted-foreground mb-4">
+              Showing {chats.length} {chats.length === 1 ? 'conversation' : 'conversations'}
+            </p>
+            
+            {/* Virtual scrolling list with react-virtuoso */}
+            <Virtuoso
+              style={{ height: Math.min(chats.length * 140, window.innerHeight - 300) }}
+              totalCount={chats.length}
+              itemContent={(index) => {
+                const chat = chats[index];
+                return (
+                  <div className="px-4 pb-4">
+                    <div className="glass-card p-6 rounded-xl hover:shadow-lg transition-all card-hover-effect">
+                      <div className="flex items-start gap-4">
+                        <Checkbox
+                          checked={selectedChats.includes(chat.id)}
+                          onCheckedChange={() => handleToggleSelect(chat.id)}
+                          className="mt-1.5"
+                        />
+                        <MessageSquare className="w-6 h-6 text-accent mt-1" />
+                        
+                        <div className="flex-1 min-w-0">
+                          {editingId === chat.id ? (
+                            <Input
+                              value={editTitle}
+                              onChange={(e) => setEditTitle(e.target.value)}
+                              onBlur={() => renameChat(chat.id, editTitle)}
+                              onKeyDown={(e) => e.key === 'Enter' && renameChat(chat.id, editTitle)}
+                              className="mb-2"
+                              autoFocus
+                            />
+                          ) : (
+                            <h3 
+                              className="text-lg font-semibold mb-2 cursor-pointer hover:text-accent"
+                              onClick={() => openChat(chat.id)}
+                              onDoubleClick={() => {
+                                setEditingId(chat.id);
+                                setEditTitle(chat.title);
+                              }}
+                            >
+                              {chat.title}
+                            </h3>
+                          )}
+                          
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-4 h-4" />
+                              {format(new Date(chat.updated_at), 'MMM dd, yyyy')}
+                            </span>
+                            <span>{chat.message_count} messages</span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEditingId(chat.id);
+                              setEditTitle(chat.title);
+                            }}
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteChat(chat.id)}
+                            className="hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setEditingId(chat.id);
-                        setEditTitle(chat.title);
-                      }}
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteChat(chat.id)}
-                      className="hover:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-            </div>
-            
-            {/* Pagination */}
-            {chats.length >= CHATS_PER_PAGE || page > 0 ? (
-              <div className="flex justify-center gap-4 mt-8">
-                <Button 
-                  onClick={() => setPage(p => Math.max(0, p - 1))}
-                  disabled={page === 0}
-                  variant="outline"
-                >
-                  Previous
-                </Button>
-                <span className="flex items-center px-4 text-muted-foreground">
-                  Page {page + 1}
-                </span>
-                <Button 
-                  onClick={() => setPage(p => p + 1)}
-                  disabled={chats.length < CHATS_PER_PAGE}
-                  variant="outline"
-                >
-                  Next
-                </Button>
-              </div>
-            ) : null}
+                );
+              }}
+            />
           </div>
         )}
       </div>
