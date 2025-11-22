@@ -1,14 +1,15 @@
 import { Progress } from "@/components/ui/progress";
-import { Bot, CheckCircle2, XCircle } from "lucide-react";
+import { Bot, CheckCircle2, XCircle, Clock, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface ModelProgressBarProps {
   modelName: string;
   modelColor: string;
   progress: number;
-  status: 'streaming' | 'complete' | 'error';
+  status: 'waiting' | 'streaming' | 'complete' | 'error';
   estimatedTokens?: number;
   currentTokens?: number;
+  estimatedTime?: number; // in seconds
 }
 
 export const ModelProgressBar = ({ 
@@ -17,7 +18,8 @@ export const ModelProgressBar = ({
   progress, 
   status,
   estimatedTokens,
-  currentTokens 
+  currentTokens,
+  estimatedTime
 }: ModelProgressBarProps) => {
   const getStatusIcon = () => {
     switch (status) {
@@ -25,19 +27,27 @@ export const ModelProgressBar = ({
         return <CheckCircle2 className="w-4 h-4 text-green-500" />;
       case 'error':
         return <XCircle className="w-4 h-4 text-destructive" />;
+      case 'waiting':
+        return <Clock className={`w-4 h-4 ${modelColor} opacity-60`} />;
+      case 'streaming':
+        return <Loader2 className={`w-4 h-4 ${modelColor} animate-spin`} />;
       default:
         return <Bot className={`w-4 h-4 ${modelColor} animate-pulse`} />;
     }
   };
 
-  const getStatusColor = () => {
+  const getStatusLabel = () => {
     switch (status) {
+      case 'waiting':
+        return 'Waiting...';
+      case 'streaming':
+        return 'Processing';
       case 'complete':
-        return 'bg-green-500';
+        return 'Complete';
       case 'error':
-        return 'bg-destructive';
+        return 'Failed';
       default:
-        return 'bg-primary';
+        return 'Processing';
     }
   };
 
@@ -46,22 +56,37 @@ export const ModelProgressBar = ({
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="flex items-center gap-3 px-4 py-2 rounded-lg border bg-card/50 backdrop-blur"
+      className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-card/50 backdrop-blur-sm shadow-sm"
     >
       {getStatusIcon()}
-      <div className="flex-1 space-y-1">
+      <div className="flex-1 space-y-1.5">
         <div className="flex items-center justify-between text-sm">
-          <span className={`font-medium ${modelColor}`}>{modelName}</span>
-          <span className="text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span className={`font-semibold ${modelColor}`}>{modelName}</span>
+            <span className="text-xs text-muted-foreground font-medium px-2 py-0.5 rounded-full bg-muted/50">
+              {getStatusLabel()}
+            </span>
+          </div>
+          <span className="text-xs text-muted-foreground tabular-nums">
             {status === 'streaming' && currentTokens && estimatedTokens 
               ? `${currentTokens}/${estimatedTokens} tokens`
+              : status === 'waiting' && estimatedTime
+              ? `~${estimatedTime}s`
               : `${Math.round(progress)}%`
             }
           </span>
         </div>
         <Progress 
           value={progress} 
-          className={`h-1.5 ${status === 'complete' ? '[&>div]:bg-green-500' : status === 'error' ? '[&>div]:bg-destructive' : ''}`}
+          className={`h-2 ${
+            status === 'complete' 
+              ? '[&>div]:bg-green-500' 
+              : status === 'error' 
+              ? '[&>div]:bg-destructive' 
+              : status === 'waiting'
+              ? '[&>div]:bg-muted-foreground/30'
+              : '[&>div]:bg-primary'
+          }`}
         />
       </div>
     </motion.div>
