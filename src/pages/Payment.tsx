@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
+import { useQuery } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,13 +26,26 @@ const Payment = () => {
   const [paymentNote, setPaymentNote] = useState("");
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [uploadingProof, setUploadingProof] = useState(false);
-  const {
-    user
-  } = useAuth();
-  const {
-    toast
-  } = useToast();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
+
+  // React Query for transaction history
+  const { data: transactions = [] } = useQuery({
+    queryKey: ['user-transactions', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      return data || [];
+    },
+    enabled: !!user,
+    staleTime: 60 * 1000,
+  });
   const plans = {
     monthly: {
       name: "Pro Yearly",

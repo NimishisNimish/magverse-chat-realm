@@ -352,7 +352,7 @@ const Dashboard = () => {
         )}
 
         {/* Current Plan */}
-        <Card className="glass-card mb-8">
+        <Card className="glass-card mb-6">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -407,7 +407,7 @@ const Dashboard = () => {
         {/* Usage Statistics */}
         <div 
           ref={statsRef} 
-          className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 animate-on-scroll fade-in-up ${statsVisible ? 'is-visible' : ''}`}
+          className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6 animate-on-scroll fade-in-up ${statsVisible ? 'is-visible' : ''}`}
         >
           <Card className="glass-card stagger-item card-hover-effect" style={{ animationDelay: '0.0s' }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -493,7 +493,7 @@ const Dashboard = () => {
         {/* Credit Usage Analytics & Model Usage Charts */}
         <div 
           ref={chartsRef}
-          className={`grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 animate-on-scroll scale-in ${chartsVisible ? 'is-visible' : ''}`}
+          className={`grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 animate-on-scroll scale-in ${chartsVisible ? 'is-visible' : ''}`}
         >
           <Card className="glass-card stagger-item" style={{ animationDelay: '0.4s' }}>
             <CardHeader>
@@ -559,8 +559,8 @@ const Dashboard = () => {
 
         {/* Response Time Analytics */}
         {stats && stats.dailyUsage.length > 0 && (
-          <div className="mb-8">
-            <ResponseTimeChart 
+          <div className="mb-6">
+            <ResponseTimeChart
               data={stats.dailyUsage.map(day => ({
                 date: day.date,
                 avgTime: Math.random() * 3 + 1 // Placeholder for actual response time
@@ -572,7 +572,7 @@ const Dashboard = () => {
 
         {/* Credit Usage Stats */}
         {profile?.subscription_type !== 'lifetime' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <Card className="glass-card">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Credits Used Today</CardTitle>
