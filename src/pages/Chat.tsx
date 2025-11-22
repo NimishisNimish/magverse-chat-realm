@@ -70,6 +70,8 @@ import { ConversationBranching } from "@/components/ConversationBranching";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { RealtimeMessageSync } from "@/components/RealtimeMessageSync";
 import { MessageSources } from "@/components/MessageSources";
+import { SavePresetDialog } from "@/components/SavePresetDialog";
+import { renderWithCitations, getEstimatedResponseTime, recordResponseTime } from "@/utils/citationRenderer";
 import {
   Sheet,
   SheetContent,
@@ -144,7 +146,9 @@ const Chat = () => {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [requestStartTime, setRequestStartTime] = useState<number>(0);
   const [isRequesting, setIsRequesting] = useState(false);
-  const [modelProgress, setModelProgress] = useState<Map<string, { progress: number; status: 'waiting' | 'streaming' | 'complete' | 'error'; tokens: number }>>(new Map());
+  const [modelProgress, setModelProgress] = useState<Map<string, { progress: number; status: 'waiting' | 'streaming' | 'complete' | 'error'; tokens: number; startTime?: number }>>(new Map());
+  const [modelResponseTimes, setModelResponseTimes] = useState<Map<string, number[]>>(new Map());
+  const [savePresetOpen, setSavePresetOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
@@ -888,9 +892,10 @@ const Chat = () => {
 
       // Initialize progress tracking for ALL models with 'waiting' status
       uniqueModels.forEach(modelId => {
+        const estimatedTime = getEstimatedResponseTime(modelId, modelResponseTimes);
         setModelProgress(prev => {
           const newMap = new Map(prev);
-          newMap.set(modelId, { progress: 0, status: 'waiting', tokens: 0 });
+          newMap.set(modelId, { progress: 0, status: 'waiting', tokens: 0, startTime: Date.now() });
           return newMap;
         });
       });
@@ -904,9 +909,10 @@ const Chat = () => {
         modelHealth.initModel(modelId, modelConfig.name);
 
         // Update to streaming status when starting
+        const startTime = Date.now();
         setModelProgress(prev => {
           const newMap = new Map(prev);
-          newMap.set(modelId, { progress: 0, status: 'streaming', tokens: 0 });
+          newMap.set(modelId, { progress: 0, status: 'streaming', tokens: 0, startTime });
           return newMap;
         });
 
@@ -1095,6 +1101,9 @@ const Chat = () => {
             // Track success with response time
             const responseTime = Date.now() - requestStartTime;
             
+            // Record response time for future estimates
+            recordResponseTime(modelId, responseTime, setModelResponseTimes);
+            
             // Mark as complete and record success
             setModelProgress(prev => {
               const newMap = new Map(prev);
@@ -1167,9 +1176,10 @@ const Chat = () => {
         modelHealth.initModel(modelId, modelConfig.name);
 
         // Update to streaming status when starting
+        const startTime = Date.now();
         setModelProgress(prev => {
           const newMap = new Map(prev);
-          newMap.set(modelId, { progress: 50, status: 'streaming', tokens: 0 }); // Show 50% for non-streaming
+          newMap.set(modelId, { progress: 50, status: 'streaming', tokens: 0, startTime }); // Show 50% for non-streaming
           return newMap;
         });
 
@@ -1237,6 +1247,10 @@ const Chat = () => {
 
             // Mark as complete and record success with response time
             const responseTime = Date.now() - requestStartTime;
+            
+            // Record response time for future estimates
+            recordResponseTime(modelId, responseTime, setModelResponseTimes);
+            
             setModelProgress(prev => {
               const newMap = new Map(prev);
               newMap.set(modelId, { progress: 100, status: 'complete', tokens: Math.floor(modelResponse.response.length / 4) });
@@ -2386,10 +2400,13 @@ const Chat = () => {
                          <div 
                            className="text-foreground leading-relaxed whitespace-pre-wrap prose prose-invert max-w-none"
                            dangerouslySetInnerHTML={{ 
-                             __html: message.content
-                               .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                               .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                               .replace(/`(.*?)`/g, '<code class="bg-muted px-1 py-0.5 rounded text-sm">$1</code>')
+                             __html: renderWithCitations(
+                               message.content
+                                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                 .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                                 .replace(/`(.*?)`/g, '<code class="bg-muted px-1 py-0.5 rounded text-sm">$1</code>'),
+                               message.sources
+                             )
                            }}
                          />
                         
@@ -2463,7 +2480,12 @@ const Chat = () => {
                     
                     {/* Sources display below AI responses using new component */}
                     {message.role === 'assistant' && message.sources && message.sources.length > 0 && (
-                      <MessageSources sources={message.sources} />
+                      <div className="mt-3">
+                        {message.sources.map((source, index) => (
+                          <div key={index} id={`source-${index}`} className="scroll-mt-4" />
+                        ))}
+                        <MessageSources sources={message.sources} />
+                      </div>
                     )}
                     
                      {/* Display generated images */}
@@ -2797,6 +2819,10 @@ const Chat = () => {
                       const modelConfig = aiModels.find(m => m.id === modelId);
                       if (!modelConfig) return null;
                       
+                      const estimatedTime = getEstimatedResponseTime(modelId, modelResponseTimes);
+                      const elapsedTime = progress.startTime ? Math.floor((Date.now() - progress.startTime) / 1000) : 0;
+                      const remainingTime = Math.max(0, estimatedTime - elapsedTime);
+                      
                       return (
                         <ModelProgressBar
                           key={modelId}
@@ -2806,6 +2832,7 @@ const Chat = () => {
                           status={progress.status}
                           currentTokens={progress.tokens}
                           estimatedTokens={2000}
+                          estimatedTime={progress.status === 'waiting' ? estimatedTime : remainingTime}
                         />
                       );
                     })}
@@ -2814,8 +2841,21 @@ const Chat = () => {
               )}
 
               {/* Model Presets */}
-              <div className="mb-4">
-                <ModelPresets onPresetSelect={handlePresetSelect} selectedPresetId={selectedPreset} />
+              <div className="mb-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <ModelPresets onPresetSelect={handlePresetSelect} selectedPresetId={selectedPreset} />
+                  {selectedModels.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSavePresetOpen(true)}
+                      className="ml-2"
+                    >
+                      <Save className="w-3 h-3 mr-1" />
+                      Save Preset
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {/* Smart Preset Suggestion */}
@@ -3062,6 +3102,22 @@ const Chat = () => {
           </div>
         </div>
       )}
+
+      {/* Save Preset Dialog */}
+      <SavePresetDialog
+        open={savePresetOpen}
+        onOpenChange={setSavePresetOpen}
+        selectedModels={selectedModels}
+        webSearchEnabled={webSearchEnabled}
+        searchMode={searchMode}
+        deepResearchMode={deepResearchMode}
+        onPresetSaved={() => {
+          toast({
+            title: "Preset saved!",
+            description: "Your model configuration has been saved as a preset.",
+          });
+        }}
+      />
 
     </div>
   );
