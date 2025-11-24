@@ -85,15 +85,14 @@ import { QuickActions, QuickActionType } from "@/components/QuickActions";
 import { playSound, getSoundPreference, setSoundPreference, isSoundSupported } from "@/utils/soundNotifications";
 
 const aiModels = [
-  { id: "gpt-5-mini", name: "ChatGPT 5.1 Mini", icon: Sparkles, color: "text-purple-400", category: "fast" },
-  { id: "gemini-flash", name: "Gemini 3 Pro Flash", icon: Zap, color: "text-primary", category: "fast" },
-  { id: "gemini-lite", name: "Gemini 3 Pro Lite", icon: Cpu, color: "text-muted-foreground", category: "fast" },
-  { id: "gpt-5-nano", name: "ChatGPT 5.1 Nano", icon: Star, color: "text-blue-400", category: "fast" },
-  { id: "gemini-pro", name: "Gemini 3 Pro", icon: Brain, color: "text-secondary", category: "reasoning" },
-  { id: "gpt-5", name: "ChatGPT 5.1", icon: Bot, color: "text-accent", category: "reasoning" },
-  { id: "claude", name: "Claude", icon: Bot, color: "text-orange-400", category: "reasoning" },
-  { id: "perplexity", name: "Perplexity Sonar", icon: Globe, color: "text-green-400", category: "research" },
-  { id: "grok", name: "Grok 4", icon: Zap, color: "text-cyan-400", category: "reasoning" },
+  { id: "gpt-5-mini", name: "GPT-5 Mini", icon: Sparkles, color: "text-purple-400", category: "fast" },
+  { id: "gpt-5-nano", name: "GPT-5 Nano", icon: Star, color: "text-blue-400", category: "fast" },
+  { id: "gemini-3-flash", name: "Gemini 3 Flash", icon: Zap, color: "text-primary", category: "fast" },
+  { id: "gpt-5", name: "GPT-5", icon: Bot, color: "text-accent", category: "reasoning" },
+  { id: "o3", name: "O3 (Reasoning)", icon: Brain, color: "text-orange-400", category: "reasoning" },
+  { id: "o4-mini", name: "O4-Mini (Fast Reasoning)", icon: Cpu, color: "text-green-400", category: "reasoning" },
+  { id: "gemini-3-pro", name: "Gemini 3 Pro", icon: Brain, color: "text-secondary", category: "reasoning" },
+  { id: "gemini-3-thinking", name: "Gemini 3 Thinking", icon: Brain, color: "text-cyan-400", category: "reasoning" },
 ];
 
 const tools = [
