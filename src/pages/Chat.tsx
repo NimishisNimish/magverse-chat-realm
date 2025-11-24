@@ -15,14 +15,10 @@ import {
   X,
   Loader2,
   Copy,
-  ThumbsUp,
-  ThumbsDown,
-  MoreVertical,
-  ChevronDown,
-  Settings,
   MessageSquare,
   FileText,
-  RefreshCw
+  RefreshCw,
+  Square
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
@@ -56,15 +52,15 @@ import { QuickActions, QuickActionType } from "@/components/QuickActions";
 import { AdvancedFeaturesPanel } from "@/components/AdvancedFeaturesPanel";
 
 const aiModels = [
-  { id: "gpt-5-mini", name: "GPT 5.1 Mini", icon: Sparkles, color: "text-purple-400" },
-  { id: "gemini-flash", name: "Gemini 3 Pro Flash", icon: Zap, color: "text-primary" },
-  { id: "gemini-pro", name: "Gemini 3 Pro", icon: Brain, color: "text-secondary" },
-  { id: "gemini-lite", name: "Gemini 3 Pro Lite", icon: Cpu, color: "text-muted-foreground" },
-  { id: "gpt-5", name: "GPT 5.1", icon: Bot, color: "text-accent" },
-  { id: "gpt-5-nano", name: "GPT 5.1 Nano", icon: Star, color: "text-blue-400" },
-  { id: "claude", name: "Claude", icon: Bot, color: "text-orange-400" },
-  { id: "perplexity", name: "Perplexity Sonar", icon: Globe, color: "text-green-400" },
-  { id: "grok", name: "Grok 4", icon: Zap, color: "text-cyan-400" },
+  { id: "gpt-5-mini", name: "ChatGPT 5.1 Mini", icon: Sparkles, color: "text-purple-400", category: "fast" },
+  { id: "gemini-flash", name: "Gemini 3 Pro Flash", icon: Zap, color: "text-primary", category: "fast" },
+  { id: "gemini-lite", name: "Gemini 3 Pro Lite", icon: Cpu, color: "text-muted-foreground", category: "fast" },
+  { id: "gpt-5-nano", name: "ChatGPT 5.1 Nano", icon: Star, color: "text-blue-400", category: "fast" },
+  { id: "gemini-pro", name: "Gemini 3 Pro", icon: Brain, color: "text-secondary", category: "reasoning" },
+  { id: "gpt-5", name: "ChatGPT 5.1", icon: Bot, color: "text-accent", category: "reasoning" },
+  { id: "claude", name: "Claude", icon: Bot, color: "text-orange-400", category: "reasoning" },
+  { id: "perplexity", name: "Perplexity Sonar", icon: Globe, color: "text-green-400", category: "research" },
+  { id: "grok", name: "Grok 4", icon: Zap, color: "text-cyan-400", category: "reasoning" },
 ];
 
 interface Message {
@@ -96,6 +92,7 @@ const Chat = () => {
   const [searchParams] = useSearchParams();
   const [activeQuickAction, setActiveQuickAction] = useState<QuickActionType>(null);
   const [advancedMode, setAdvancedMode] = useState<'fast' | 'reasoning' | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
@@ -329,6 +326,15 @@ const Chat = () => {
     }
   };
 
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setLoading(false);
+      sonnerToast.info("Response stopped");
+    }
+  };
+
   const handleSend = async (specificModels?: string[]) => {
     if ((!input.trim() && !attachmentUrl) || loading) return;
     if (!user) {
@@ -342,20 +348,22 @@ const Chat = () => {
 
     let modelsToUse = specificModels || selectedModels;
     
-    // Apply quick action model selection
-    if (activeQuickAction === 'fast') {
-      modelsToUse = ['gemini-flash', 'gpt-5-nano'];
-    } else if (activeQuickAction === 'reasoning') {
-      modelsToUse = ['claude', 'gpt-5'];
-    } else if (activeQuickAction === 'research') {
-      modelsToUse = ['perplexity'];
+    // Apply quick action model selection - only if not using specificModels
+    if (!specificModels) {
+      if (activeQuickAction === 'fast') {
+        modelsToUse = ['gemini-flash', 'gpt-5-mini'];
+      } else if (activeQuickAction === 'reasoning') {
+        modelsToUse = ['gpt-5', 'gemini-pro'];
+      } else if (activeQuickAction === 'research') {
+        modelsToUse = ['perplexity'];
+      }
     }
     
-    // Apply advanced mode
+    // Apply advanced mode (overrides quick action)
     if (advancedMode === 'fast') {
       modelsToUse = ['gemini-flash'];
     } else if (advancedMode === 'reasoning') {
-      modelsToUse = ['claude'];
+      modelsToUse = ['gpt-5'];
     }
     
     // Ensure at least one model is selected
@@ -382,6 +390,9 @@ const Chat = () => {
     setInput("");
     setLoading(true);
     
+    // Create abort controller
+    abortControllerRef.current = new AbortController();
+    
     const currentAttachmentUrl = attachmentUrl;
     const currentAttachmentType = attachmentType;
     removeAttachment();
@@ -399,28 +410,13 @@ const Chat = () => {
         }
       ];
 
-      // Map model IDs to the format expected by chat-with-ai
-      const modelMapping: Record<string, string> = {
-        'gpt-5-mini': 'chatgpt',
-        'gpt-5': 'chatgpt',
-        'gpt-5-nano': 'chatgpt',
-        'gemini-flash': 'gemini',
-        'gemini-pro': 'gemini',
-        'gemini-lite': 'gemini',
-        'claude': 'claude',
-        'perplexity': 'perplexity',
-        'grok': 'grok',
-      };
-
-      const mappedModels = modelsToUse.map(id => modelMapping[id] || id);
-
       // Track request start time for metrics
       const startTime = Date.now();
 
       const { data, error } = await supabase.functions.invoke('chat-with-ai', {
         body: {
           messages: messagesForApi,
-          selectedModels: mappedModels,
+          selectedModels: modelsToUse,
           chatId,
           attachmentUrl: currentAttachmentUrl,
           webSearchEnabled: activeQuickAction === 'research',
@@ -451,14 +447,16 @@ const Chat = () => {
       }
 
       if (data.responses && Array.isArray(data.responses)) {
-        const assistantMessages: Message[] = data.responses.map((response: any) => ({
-          id: `${Date.now()}-${response.model}`,
-          role: "assistant" as const,
-          content: response.response,
-          model: response.model,
-          timestamp: new Date(),
-          userMessageId: userMessage.id,
-        }));
+        const assistantMessages: Message[] = data.responses
+          .filter((response: any) => response.success)
+          .map((response: any) => ({
+            id: `${Date.now()}-${response.model}-${Math.random()}`,
+            role: "assistant" as const,
+            content: response.response,
+            model: response.model,
+            timestamp: new Date(),
+            userMessageId: userMessage.id,
+          }));
 
         setMessages(prev => [...prev, ...assistantMessages]);
       }
@@ -466,6 +464,10 @@ const Chat = () => {
       await refreshProfile();
     } catch (error: any) {
       console.error('Chat error:', error);
+      
+      // Don't show error if aborted
+      if (error.name === 'AbortError') return;
+      
       toast({
         title: "Error",
         description: error.message || "Failed to send message",
@@ -473,6 +475,7 @@ const Chat = () => {
       });
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -493,25 +496,10 @@ const Chat = () => {
           content: m.content,
         }));
 
-      // Map model ID to format expected by chat-with-ai
-      const modelMapping: Record<string, string> = {
-        'gpt-5-mini': 'chatgpt',
-        'gpt-5': 'chatgpt',
-        'gpt-5-nano': 'chatgpt',
-        'gemini-flash': 'gemini',
-        'gemini-pro': 'gemini',
-        'gemini-lite': 'gemini',
-        'claude': 'claude',
-        'perplexity': 'perplexity',
-        'grok': 'grok',
-      };
-
-      const mappedModel = modelMapping[message.model] || message.model;
-
       const { data, error } = await supabase.functions.invoke('chat-with-ai', {
         body: {
           messages: messagesUpToUser,
-          selectedModels: [mappedModel],
+          selectedModels: [message.model],
           chatId,
           attachmentUrl: userMsg.attachmentUrl,
         },
@@ -808,35 +796,54 @@ const Chat = () => {
                     />
                   </div>
 
-                  <Button
-                    onClick={() => handleSend()}
-                    disabled={(!input.trim() && !attachmentUrl) || loading}
-                    size="icon"
-                    className="shrink-0 rounded-xl"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
+                  {loading ? (
+                    <Button
+                      onClick={handleStop}
+                      size="icon"
+                      variant="destructive"
+                      className="shrink-0 rounded-xl"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => handleSend()}
+                      disabled={(!input.trim() && !attachmentUrl)}
+                      size="icon"
+                      className="shrink-0 rounded-xl"
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
 
                 {/* Model Selector */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs text-muted-foreground">Models:</span>
-                  {aiModels.map((model) => {
-                    const Icon = model.icon;
-                    const isSelected = selectedModels.includes(model.id);
-                    return (
-                      <Button
-                        key={model.id}
-                        variant={isSelected ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleModelToggle(model.id)}
-                        className="h-7 px-3 gap-1.5"
-                      >
-                        <Icon className={`h-3 w-3 ${isSelected ? '' : model.color}`} />
-                        <span className="text-xs">{model.name}</span>
-                      </Button>
-                    );
-                  })}
+                  {aiModels
+                    .filter(model => {
+                      // Filter based on quick action
+                      if (activeQuickAction === 'fast') return model.category === 'fast';
+                      if (activeQuickAction === 'reasoning') return model.category === 'reasoning';
+                      if (activeQuickAction === 'research') return model.category === 'research';
+                      return true; // Show all if no quick action selected
+                    })
+                    .map((model) => {
+                      const Icon = model.icon;
+                      const isSelected = selectedModels.includes(model.id);
+                      return (
+                        <Button
+                          key={model.id}
+                          variant={isSelected ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleModelToggle(model.id)}
+                          className="h-7 px-3 gap-1.5"
+                        >
+                          <Icon className={`h-3 w-3 ${isSelected ? '' : model.color}`} />
+                          <span className="text-xs">{model.name}</span>
+                        </Button>
+                      );
+                    })}
                 </div>
               </div>
             </div>
