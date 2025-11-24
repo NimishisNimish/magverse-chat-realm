@@ -55,28 +55,73 @@ export class StreamingClient {
 
       if (!reader) throw new Error('No reader available');
 
+      let textBuffer = '';
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n\n').filter(line => line.trim());
+        textBuffer += decoder.decode(value, { stream: true });
 
-        for (const line of lines) {
+        // Process line-by-line
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          // Handle CRLF
+          if (line.endsWith('\r')) line = line.slice(0, -1);
+          
+          // Skip comments and empty lines
+          if (line.startsWith(':') || line.trim() === '') continue;
+          
+          // Parse SSE format
           if (!line.startsWith('event: ')) continue;
 
           const eventMatch = line.match(/event: (\w+)\ndata: (.+)/);
           if (!eventMatch) continue;
 
           const [, event, dataStr] = eventMatch;
-          const data = JSON.parse(dataStr);
+          
+          try {
+            const data = JSON.parse(dataStr);
 
-          if (event === 'token' && data.token) {
-            onToken(data.model, data.token, data.fullContent);
-          } else if (event === 'done') {
-            onDone(data.model, data.messageId);
-          } else if (event === 'error') {
-            onError(data.model, data.error);
+            if (event === 'token' && data.token) {
+              onToken(data.model, data.token, data.fullContent);
+            } else if (event === 'done') {
+              onDone(data.model, data.messageId);
+            } else if (event === 'error') {
+              onError(data.model, data.error);
+            }
+          } catch (e) {
+            console.error('SSE parse error:', e);
+          }
+        }
+      }
+
+      // Process any remaining buffer
+      if (textBuffer.trim()) {
+        const lines = textBuffer.split('\n');
+        for (const line of lines) {
+          if (!line.trim() || line.startsWith(':')) continue;
+          if (!line.startsWith('event: ')) continue;
+
+          const eventMatch = line.match(/event: (\w+)\ndata: (.+)/);
+          if (!eventMatch) continue;
+
+          const [, event, dataStr] = eventMatch;
+          
+          try {
+            const data = JSON.parse(dataStr);
+            if (event === 'token' && data.token) {
+              onToken(data.model, data.token, data.fullContent);
+            } else if (event === 'done') {
+              onDone(data.model, data.messageId);
+            } else if (event === 'error') {
+              onError(data.model, data.error);
+            }
+          } catch (e) {
+            console.error('SSE parse error:', e);
           }
         }
       }
