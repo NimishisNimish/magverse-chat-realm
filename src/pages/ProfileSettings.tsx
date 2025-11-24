@@ -13,9 +13,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Upload, Mail, Lock, User, Shield, FileText, Download, Bell } from 'lucide-react';
+import { Loader2, Upload, Mail, Lock, User, Shield, FileText, Download, Bell, Zap } from 'lucide-react';
 import { generateInvoicePDF } from "@/utils/invoiceGenerator";
 import { Switch } from "@/components/ui/switch";
+import { LoadBalancerSettings } from "@/components/LoadBalancerSettings";
 
 export default function ProfileSettings() {
   const { user, profile, refreshProfile } = useAuth();
@@ -401,7 +402,7 @@ export default function ProfileSettings() {
         </div>
 
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-8">
+          <TabsList className="grid w-full grid-cols-6 mb-8">
             <TabsTrigger value="profile" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               Profile
@@ -417,6 +418,10 @@ export default function ProfileSettings() {
             <TabsTrigger value="recovery" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
               Recovery
+            </TabsTrigger>
+            <TabsTrigger value="ai-performance" className="flex items-center gap-2">
+              <Zap className="h-4 w-4" />
+              AI Performance
             </TabsTrigger>
             <TabsTrigger value="invoices" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
@@ -756,6 +761,11 @@ export default function ProfileSettings() {
                 )}
               </div>
             </Card>
+          </TabsContent>
+
+          {/* AI Performance Tab */}
+          <TabsContent value="ai-performance">
+            <LoadBalancerSettings />
           </TabsContent>
 
           {/* Invoices Tab */}

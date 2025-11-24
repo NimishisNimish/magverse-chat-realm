@@ -18,10 +18,12 @@ import { lazy, Suspense } from 'react';
 import { LazyLoadFallback } from "@/components/LazyLoadFallback";
 
 // Static imports for fast initial load
+import Index from "./pages/Index";
 import Home from "./pages/Home";
 import Chat from "./pages/Chat";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import Pricing from "./pages/Pricing";
 
 // Lazy load admin pages
 const Admin = lazy(() => import("./pages/Admin"));
@@ -104,7 +106,9 @@ const AnimatedRoutes = () => {
       <Suspense fallback={<LazyLoadFallback />}>
         <Routes location={location} key={location.pathname}>
           {/* Static routes for fast initial load */}
-          <Route path="/" element={<PageTransition variant={getTransitionVariant('/')}><Home /></PageTransition>} />
+          <Route path="/" element={<PageTransition variant={getTransitionVariant('/')}><Index /></PageTransition>} />
+          <Route path="/home" element={<PageTransition variant={getTransitionVariant('/')}><Home /></PageTransition>} />
+          <Route path="/pricing" element={<PageTransition variant="fade"><Pricing /></PageTransition>} />
           <Route path="/auth" element={<PageTransition variant={getTransitionVariant('/auth')}><Auth /></PageTransition>} />
           <Route path="/chat" element={<ProtectedRoute><PageTransition variant={getTransitionVariant('/chat')}><Chat /></PageTransition></ProtectedRoute>} />
           

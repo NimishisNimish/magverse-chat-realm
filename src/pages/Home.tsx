@@ -209,395 +209,51 @@ const Home = () => {
       </section>
 
       
-      {/* Pricing Section */}
-      <section id="pricing-section" className="container mx-auto px-4 py-20 relative z-10">
+      {/* Features Section */}
+      <section className="container mx-auto px-4 py-20 relative z-10">
         <div className="max-w-6xl mx-auto space-y-12">
-          <div 
-            ref={pricingAnimation.ref}
-            className={`text-center space-y-4 animate-on-scroll fade-in-up ${pricingAnimation.isVisible ? 'is-visible' : ''}`}
-          >
+          <div className="text-center space-y-4">
             <h2 className="text-4xl md:text-5xl font-bold">
-              Simple, <span className="text-primary">Transparent Pricing</span>
+              Why Choose <span className="text-primary">Magverse AI?</span>
             </h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Save up to 50% compared to subscribing to each AI service separately.
+              Access the best AI models in one platform with simple pricing
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            {/* Free Plan */}
-            <div className="glass-card-hover p-8 rounded-2xl space-y-6 border-accent/20 stagger-item" style={{ animationDelay: '0.1s' }}>
-              <div className="space-y-2">
-                <h3 className="text-2xl font-bold">Free</h3>
-                <p className="text-muted-foreground">Try out MagverseAI with basic features</p>
-              </div>
-              
-              <div className="space-y-1">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-bold">₹0</span>
-                  <span className="text-muted-foreground">/forever</span>
-                </div>
-              </div>
-              
-              {user ? <Link to="/chat">
-                  <Button variant="outline" size="lg" className="w-full">
-                    Start Chatting
-                  </Button>
-                </Link> : <Link to="/auth">
-                  <Button variant="outline" size="lg" className="w-full">
-                    Get Started
-                  </Button>
-                </Link>}
-              
-              <ul className="space-y-3 pt-4">
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">5 messages per day</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Access to GPT-5 Mini</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Basic support</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Standard response time</span>
-                </li>
-              </ul>
+            <div className="glass-card p-6 rounded-xl space-y-4">
+              <Zap className="w-10 h-10 text-primary" />
+              <h3 className="text-xl font-bold">Multiple AI Models</h3>
+              <p className="text-muted-foreground">
+                Access GPT-5, Gemini, Claude, Perplexity, and more in one place
+              </p>
             </div>
 
-            {/* Yearly Plan */}
-            <div className="glass-card p-8 rounded-2xl space-y-6 border-primary relative stagger-item" style={{ animationDelay: '0.2s' }}>
-              <div className="absolute top-4 right-4">
-                <div className="px-3 py-1 rounded-full bg-primary text-xs font-semibold text-white">
-                  MOST POPULAR
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <h3 className="text-2xl font-bold">Pro</h3>
-                <p className="text-muted-foreground">Full access to all premium AI models</p>
-              </div>
-              
-              <div className="space-y-1">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-bold gradient-text">₹199</span>
-                  <span className="text-sm line-through text-muted-foreground">₹299</span>
-                  <span className="text-muted-foreground">/per year</span>
-                </div>
-                <p className="text-xs text-green-500 font-semibold">Limited Time Offer - Save ₹100!</p>
-              </div>
-              
-              <Link to={user ? "/payment" : "/auth"}>
-                <Button variant="hero" size="lg" className="w-full">
-                  Get Pro Access
-                </Button>
-              </Link>
-              
-              <ul className="space-y-3 pt-4">
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">500 messages/day</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">All 7+ premium AI models</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Deep research mode</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Image generation</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Priority support</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Chat history & export</span>
-                </li>
-              </ul>
+            <div className="glass-card p-6 rounded-xl space-y-4">
+              <Shield className="w-10 h-10 text-primary" />
+              <h3 className="text-xl font-bold">Simple Pricing</h3>
+              <p className="text-muted-foreground">
+                One subscription, unlimited access. Save 50% vs individual subscriptions
+              </p>
             </div>
 
-            {/* Lifetime Plan */}
-            <div className="glass-card-hover p-8 rounded-2xl space-y-6 border-accent/20 stagger-item" style={{ animationDelay: '0.3s' }}>
-              <div className="space-y-2">
-                <h3 className="text-2xl font-bold">Lifetime</h3>
-                <p className="text-muted-foreground">For individuals and professionals</p>
-              </div>
-              
-              <div className="space-y-1">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-bold">₹699</span>
-                  <span className="text-muted-foreground">/forever</span>
-                </div>
-              </div>
-              
-              <Link to={user ? "/payment" : "/auth"}>
-                <Button variant="outline" size="lg" className="w-full">
-                  Get Lifetime Access
-                </Button>
-              </Link>
-              
-              <ul className="space-y-3 pt-4">
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground font-semibold">Everything in Pro</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Lifetime access - pay once</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">All future model updates</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <span className="text-foreground">Priority feature requests</span>
-                </li>
-              </ul>
+            <div className="glass-card p-6 rounded-xl space-y-4">
+              <Sparkles className="w-10 h-10 text-primary" />
+              <h3 className="text-xl font-bold">Advanced Features</h3>
+              <p className="text-muted-foreground">
+                Deep research, image generation, and chat history included
+              </p>
             </div>
           </div>
 
-          {/* Feature Comparison Table */}
-          <div className="mt-16 animate-slide-up" style={{
-          animationDelay: "0.3s"
-        }}>
-            <h3 className="text-2xl font-bold text-center mb-8">Compare Plans</h3>
-            <div className="glass-card rounded-2xl overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-glass-border">
-                      <th className="text-left p-4 font-semibold">Features</th>
-                      <th className="text-center p-4 font-semibold">Free</th>
-                      <th className="text-center p-4 font-semibold bg-primary/5">Pro</th>
-                      <th className="text-center p-4 font-semibold">Lifetime</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-b border-glass-border/50">
-                      <td className="p-4 text-muted-foreground">Messages per day</td>
-                      <td className="text-center p-4">5</td>
-                      <td className="text-center p-4 bg-primary/5 font-semibold text-primary">Unlimited</td>
-                      <td className="text-center p-4 font-semibold text-primary">Unlimited</td>
-                    </tr>
-                    <tr className="border-b border-glass-border/50">
-                      <td className="p-4 text-muted-foreground">AI Models</td>
-                      <td className="text-center p-4">GPT-5 Mini</td>
-                      <td className="text-center p-4 bg-primary/5 font-semibold">All 6+ models</td>
-                      <td className="text-center p-4 font-semibold">All 6+ models</td>
-                    </tr>
-                    <tr className="border-b border-glass-border/50">
-                      <td className="p-4 text-muted-foreground">GPT-5, Claude, Gemini 2.5 Pro</td>
-                      <td className="text-center p-4">
-                        <X className="w-5 h-5 text-muted-foreground mx-auto" />
-                      </td>
-                      <td className="text-center p-4 bg-primary/5">
-                        <Check className="w-5 h-5 text-primary mx-auto" />
-                      </td>
-                      <td className="text-center p-4">
-                        <Check className="w-5 h-5 text-primary mx-auto" />
-                      </td>
-                    </tr>
-                    <tr className="border-b border-glass-border/50">
-                      <td className="p-4 text-muted-foreground">Image generation</td>
-                      <td className="text-center p-4">
-                        <X className="w-5 h-5 text-muted-foreground mx-auto" />
-                      </td>
-                      <td className="text-center p-4 bg-primary/5">
-                        <Check className="w-5 h-5 text-primary mx-auto" />
-                      </td>
-                      <td className="text-center p-4">
-                        <Check className="w-5 h-5 text-primary mx-auto" />
-                      </td>
-                    </tr>
-                    <tr className="border-b border-glass-border/50">
-                      <td className="p-4 text-muted-foreground">Image editing & upscaling</td>
-                      <td className="text-center p-4">
-                        <X className="w-5 h-5 text-muted-foreground mx-auto" />
-                      </td>
-                      <td className="text-center p-4 bg-primary/5">
-                        <Check className="w-5 h-5 text-primary mx-auto" />
-                      </td>
-                      <td className="text-center p-4">
-                        <Check className="w-5 h-5 text-primary mx-auto" />
-                      </td>
-                    </tr>
-                    <tr className="border-b border-glass-border/50">
-                      <td className="p-4 text-muted-foreground">PDF & document upload</td>
-                      <td className="text-center p-4">
-                        <Check className="w-5 h-5 text-primary mx-auto" />
-                      </td>
-                      <td className="text-center p-4 bg-primary/5">
-                        <Check className="w-5 h-5 text-primary mx-auto" />
-                      </td>
-                      <td className="text-center p-4">
-                        <Check className="w-5 h-5 text-primary mx-auto" />
-                      </td>
-                    </tr>
-                    <tr className="border-b border-glass-border/50">
-                      <td className="p-4 text-muted-foreground">Chat history</td>
-                      <td className="text-center p-4">7 days</td>
-                      <td className="text-center p-4 bg-primary/5 font-semibold">Unlimited</td>
-                      <td className="text-center p-4 font-semibold">Unlimited</td>
-                    </tr>
-                    <tr className="border-b border-glass-border/50">
-                      <td className="p-4 text-muted-foreground">Export to PDF</td>
-                      <td className="text-center p-4">
-                        <X className="w-5 h-5 text-muted-foreground mx-auto" />
-                      </td>
-                      <td className="text-center p-4 bg-primary/5">
-                        <Check className="w-5 h-5 text-primary mx-auto" />
-                      </td>
-                      <td className="text-center p-4">
-                        <Check className="w-5 h-5 text-primary mx-auto" />
-                      </td>
-                    </tr>
-                    <tr className="border-b border-glass-border/50">
-                      <td className="p-4 text-muted-foreground">Priority support</td>
-                      <td className="text-center p-4">
-                        <X className="w-5 h-5 text-muted-foreground mx-auto" />
-                      </td>
-                      <td className="text-center p-4 bg-primary/5">
-                        <Check className="w-5 h-5 text-primary mx-auto" />
-                      </td>
-                      <td className="text-center p-4">
-                        <Check className="w-5 h-5 text-primary mx-auto" />
-                      </td>
-                    </tr>
-                    <tr className="border-b border-glass-border/50">
-                      <td className="p-4 text-muted-foreground">Response time</td>
-                      <td className="text-center p-4">Standard</td>
-                      <td className="text-center p-4 bg-primary/5 font-semibold">Fastest</td>
-                      <td className="text-center p-4 font-semibold">Fastest</td>
-                    </tr>
-                    <tr className="border-b border-glass-border/50">
-                      <td className="p-4 text-muted-foreground">Duration</td>
-                      <td className="text-center p-4">Forever</td>
-                      <td className="text-center p-4 bg-primary/5">1 Year</td>
-                      <td className="text-center p-4 font-semibold text-primary">Forever</td>
-                    </tr>
-                    <tr>
-                      <td className="p-4 text-muted-foreground font-semibold">Price</td>
-                      <td className="text-center p-4 font-bold">₹0</td>
-                      <td className="text-center p-4 bg-primary/5 font-bold text-primary">
-                        <div className="flex flex-col items-center">
-                          <span>₹199/year</span>
-                          <span className="text-xs line-through text-muted-foreground">₹299</span>
-                        </div>
-                      </td>
-                      <td className="text-center p-4 font-bold">₹699</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          {/* Billing FAQ Section */}
-          <div className="mt-16 animate-slide-up" style={{
-          animationDelay: "0.4s"
-        }}>
-            <h3 className="text-2xl font-bold text-center mb-8">Billing & Payment FAQ</h3>
-            <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-              <div className="glass-card-hover p-6 rounded-xl space-y-3">
-                <h4 className="font-semibold flex items-start gap-2">
-                  <span className="text-primary">Q:</span>
-                  <span>What payment methods do you accept?</span>
-                </h4>
-                <p className="text-sm text-muted-foreground pl-6">
-                  We accept all major UPI apps (Google Pay, PhonePe, Paytm, etc.) and UPI-enabled bank accounts. Payment is quick, secure, and instant.
-                </p>
-              </div>
-
-              <div className="glass-card-hover p-6 rounded-xl space-y-3">
-                <h4 className="font-semibold flex items-start gap-2">
-                  <span className="text-primary">Q:</span>
-                  <span>Is my payment information secure?</span>
-                </h4>
-                <p className="text-sm text-muted-foreground pl-6">
-                  Yes! All payments are processed through secure UPI gateways. We never store your payment information on our servers.
-                </p>
-              </div>
-
-              <div className="glass-card-hover p-6 rounded-xl space-y-3">
-                <h4 className="font-semibold flex items-start gap-2">
-                  <span className="text-primary">Q:</span>
-                  <span>What is your refund policy?</span>
-                </h4>
-                <p className="text-sm text-muted-foreground pl-6">
-                  We offer a 7-day money-back guarantee for Pro and Lifetime plans. If you're not satisfied, contact us at magverse4@gmail.com for a full refund.
-                </p>
-              </div>
-
-              <div className="glass-card-hover p-6 rounded-xl space-y-3">
-                <h4 className="font-semibold flex items-start gap-2">
-                  <span className="text-primary">Q:</span>
-                  <span>When does my Pro subscription renew?</span>
-                </h4>
-                <p className="text-sm text-muted-foreground pl-6">
-                  Pro subscriptions renew automatically after 1 year. You'll receive an email reminder 7 days before renewal. You can cancel anytime from your account settings.
-                </p>
-              </div>
-
-              <div className="glass-card-hover p-6 rounded-xl space-y-3">
-                <h4 className="font-semibold flex items-start gap-2">
-                  <span className="text-primary">Q:</span>
-                  <span>Can I upgrade from Pro to Lifetime?</span>
-                </h4>
-                <p className="text-sm text-muted-foreground pl-6">
-                  Yes! The remaining amount will be credited when you upgrade. For example, if you have 6 months left on Pro, we'll adjust the Lifetime price accordingly.
-                </p>
-              </div>
-
-              <div className="glass-card-hover p-6 rounded-xl space-y-3">
-                <h4 className="font-semibold flex items-start gap-2">
-                  <span className="text-primary">Q:</span>
-                  <span>Do you offer discounts or promotions?</span>
-                </h4>
-                <p className="text-sm text-muted-foreground pl-6">
-                  Yes! Students get 20% off with valid ID. We also run seasonal promotions. Follow us on social media or subscribe to our newsletter for updates.
-                </p>
-              </div>
-
-              <div className="glass-card-hover p-6 rounded-xl space-y-3">
-                <h4 className="font-semibold flex items-start gap-2">
-                  <span className="text-primary">Q:</span>
-                  <span>What happens when my Pro plan expires?</span>
-                </h4>
-                <p className="text-sm text-muted-foreground pl-6">
-                  Your account will automatically downgrade to the Free plan. You'll keep all your chat history but will be limited to 5 messages per day with GPT-5 Mini only.
-                </p>
-              </div>
-
-              <div className="glass-card-hover p-6 rounded-xl space-y-3">
-                <h4 className="font-semibold flex items-start gap-2">
-                  <span className="text-primary">Q:</span>
-                  <span>Can I get an invoice for my purchase?</span>
-                </h4>
-                <p className="text-sm text-muted-foreground pl-6">
-                  Yes! Invoices are automatically sent to your registered email after payment. You can also download them anytime from your account settings.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-8 text-center">
-              <p className="text-muted-foreground mb-4">Still have questions?</p>
-              <a href="#contact">
-                <Button variant="outline" size="lg">
-                  <Mail className="w-5 h-5" />
-                  Contact Support
-                </Button>
-              </a>
-            </div>
+          <div className="text-center pt-8">
+            <Link to="/pricing">
+              <Button size="lg" className="bg-primary hover:bg-primary/90">
+                <Sparkles className="w-5 h-5 mr-2" />
+                View Pricing Plans
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
