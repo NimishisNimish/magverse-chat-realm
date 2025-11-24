@@ -70,6 +70,7 @@ const chatRequestSchema = z.object({
   deepResearch: z.boolean().nullish(),
   stream: z.boolean().nullish(),
   generateImage: z.boolean().nullish(),
+  enableMultiStepReasoning: z.boolean().nullish(),
 });
 
 serve(async (req) => {
@@ -126,6 +127,7 @@ serve(async (req) => {
     const { chatId, attachmentUrl, attachmentExtension } = rawData;
     const deepResearchMode = rawData.deepResearchMode || rawData.deepResearch || false;
     const isImageGeneration = rawData.generateImage === true;
+    const enableMultiStepReasoning = rawData.enableMultiStepReasoning || false;
 
     // Authenticate user
     const authHeader = req.headers.get('authorization');
@@ -383,10 +385,24 @@ serve(async (req) => {
         let response;
         let content = '';
         let usage;
+        let thinkingProcess = '';
+        let reasoningSteps: Array<{ step: number; thought: string; conclusion: string }> | undefined;
 
         if (config.provider === 'openai') {
           // OpenAI API call
           const isReasoningModel = modelId === 'o3' || modelId === 'o4-mini';
+          
+          // For multi-step reasoning, add system prompt
+          let messagesToSend = processedMessages;
+          if (enableMultiStepReasoning && config.supportsReasoning) {
+            messagesToSend = [
+              { 
+                role: 'system', 
+                content: 'Break down your reasoning into clear steps. For each step, explain your thought process and conclusions before moving to the next step.' 
+              },
+              ...processedMessages
+            ];
+          }
           
           response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
@@ -396,7 +412,7 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               model: config.model,
-              messages: processedMessages,
+              messages: messagesToSend,
               max_completion_tokens: 4096,
               // Note: reasoning models don't support temperature parameter
             }),
@@ -419,12 +435,38 @@ serve(async (req) => {
 
           // For reasoning models, include thinking process if available
           if (isReasoningModel && data.choices?.[0]?.message?.reasoning_content) {
-            content = `**Thinking Process:**\n\n${data.choices[0].message.reasoning_content}\n\n**Response:**\n\n${content}`;
+            thinkingProcess = data.choices[0].message.reasoning_content;
+          }
+          
+          // Parse multi-step reasoning if enabled
+          if (enableMultiStepReasoning && config.supportsReasoning) {
+            const stepMatches = content.matchAll(/Step (\d+)[:\s]+([^\n]+)\n?(?:→\s*([^\n]+))?/gi);
+            const steps = Array.from(stepMatches);
+            if (steps.length > 0) {
+              reasoningSteps = steps.map(match => ({
+                step: parseInt(match[1]),
+                thought: match[2].trim(),
+                conclusion: match[3]?.trim() || ''
+              }));
+              // Remove step markers from final content
+              content = content.replace(/Step \d+[:\s]+[^\n]+\n?(?:→\s*[^\n]+\n?)?/gi, '').trim();
+            }
           }
 
         } else if (config.provider === 'google') {
           // Google AI API call
-          const geminiMessages = processedMessages.map(msg => ({
+          let messagesToSend = processedMessages;
+          if (enableMultiStepReasoning && config.supportsReasoning) {
+            messagesToSend = [
+              { 
+                role: 'system', 
+                content: 'Think through this problem step by step. Number each reasoning step and explain your thought process clearly before giving the final answer.' 
+              },
+              ...processedMessages
+            ];
+          }
+          
+          const geminiMessages = messagesToSend.map(msg => ({
             role: msg.role === 'assistant' ? 'model' : 'user',
             parts: [{ text: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content) }]
           }));
@@ -465,7 +507,20 @@ serve(async (req) => {
             const thinkingSteps = candidate.content.thinkingSteps.map((step: any, i: number) => 
               `${i + 1}. ${step.thought}`
             ).join('\n');
-            content = `**Thinking Process:**\n\n${thinkingSteps}\n\n**Response:**\n\n${content}`;
+            thinkingProcess = thinkingSteps;
+          }
+          
+          // Parse multi-step reasoning
+          if (enableMultiStepReasoning && config.supportsReasoning) {
+            const stepMatches = content.matchAll(/(?:Step |)(\d+)[:\.\s]+([^\n]+)\n?(?:→\s*([^\n]+))?/gi);
+            const steps = Array.from(stepMatches);
+            if (steps.length > 0) {
+              reasoningSteps = steps.map(match => ({
+                step: parseInt(match[1]),
+                thought: match[2].trim(),
+                conclusion: match[3]?.trim() || ''
+              }));
+            }
           }
 
           usage = {
@@ -511,7 +566,9 @@ serve(async (req) => {
           success: true,
           model: modelId,
           response: content,
-          messageId: savedMessage?.id
+          messageId: savedMessage?.id,
+          thinkingProcess: thinkingProcess || undefined,
+          reasoningSteps: reasoningSteps
         };
       } catch (error: any) {
         console.error(`❌ ${modelId} error:`, error.message);
