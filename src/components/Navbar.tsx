@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Sparkles, LogOut, Zap, User, History, MessageSquare, Settings, LayoutDashboard, BarChart3, Shield, Crown, Users, Activity, DollarSign } from "lucide-react";
+import { Sparkles, LogOut, Zap, User, History, MessageSquare, Settings, LayoutDashboard, BarChart3, Shield, Crown, Users, Activity, DollarSign, TrendingUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ThemeCustomizer } from "@/components/ThemeCustomizer";
@@ -176,6 +176,15 @@ const Navbar = () => {
               <Link to="/model-status" className="w-full cursor-pointer">
                 <Activity className="mr-2 h-4 w-4" />
                 Model Status
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/model-metrics" className="w-full cursor-pointer">
+                <TrendingUp className="mr-2 h-4 w-4" />
+                Performance Metrics
+                {profile?.subscription_type !== 'free' && (
+                  <Crown className="ml-auto w-3 h-3 text-amber-500" />
+                )}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>

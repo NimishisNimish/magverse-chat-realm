@@ -51,6 +51,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { motion, AnimatePresence } from "framer-motion";
+import { SmartPromptSuggestions } from "@/components/SmartPromptSuggestions";
+import { QuickActions, QuickActionType } from "@/components/QuickActions";
+import { AdvancedFeaturesPanel } from "@/components/AdvancedFeaturesPanel";
 
 const aiModels = [
   { id: "gpt-5-mini", name: "GPT 5.1 Mini", icon: Sparkles, color: "text-purple-400" },
@@ -91,6 +94,8 @@ const Chat = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
   const [searchParams] = useSearchParams();
+  const [activeQuickAction, setActiveQuickAction] = useState<QuickActionType>(null);
+  const [advancedMode, setAdvancedMode] = useState<'fast' | 'reasoning' | null>(null);
   
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
@@ -335,7 +340,23 @@ const Chat = () => {
       return;
     }
 
-    const modelsToUse = specificModels || selectedModels;
+    let modelsToUse = specificModels || selectedModels;
+    
+    // Apply quick action model selection
+    if (activeQuickAction === 'fast') {
+      modelsToUse = ['gemini-flash', 'gpt-5-nano'];
+    } else if (activeQuickAction === 'reasoning') {
+      modelsToUse = ['claude', 'gpt-5'];
+    } else if (activeQuickAction === 'research') {
+      modelsToUse = ['perplexity'];
+    }
+    
+    // Apply advanced mode
+    if (advancedMode === 'fast') {
+      modelsToUse = ['gemini-flash'];
+    } else if (advancedMode === 'reasoning') {
+      modelsToUse = ['claude'];
+    }
     
     // Ensure at least one model is selected
     if (modelsToUse.length === 0) {
@@ -393,14 +414,33 @@ const Chat = () => {
 
       const mappedModels = modelsToUse.map(id => modelMapping[id] || id);
 
+      // Track request start time for metrics
+      const startTime = Date.now();
+
       const { data, error } = await supabase.functions.invoke('chat-with-ai', {
         body: {
           messages: messagesForApi,
           selectedModels: mappedModels,
           chatId,
           attachmentUrl: currentAttachmentUrl,
+          webSearchEnabled: activeQuickAction === 'research',
+          deepResearch: activeQuickAction === 'research',
         },
       });
+
+      // Record metrics for each model
+      if (data?.responses && user) {
+        const responseTime = Date.now() - startTime;
+        for (const modelResponse of data.responses) {
+          await supabase.from('ai_model_metrics').insert({
+            user_id: user.id,
+            model_name: modelResponse.model || 'unknown',
+            response_time_ms: responseTime,
+            tokens_total: modelResponse.tokens || null,
+            message_id: modelResponse.messageId || null,
+          });
+        }
+      }
 
       if (error) throw error;
 
@@ -550,6 +590,19 @@ const Chat = () => {
           </div>
 
           {/* Messages Area */}
+          <AdvancedFeaturesPanel 
+            onImageGenerated={(imageUrl) => {
+              setMessages(prev => [...prev, {
+                id: Date.now().toString(),
+                role: 'assistant',
+                content: 'Image generated successfully!',
+                timestamp: new Date(),
+                attachmentUrl: imageUrl,
+                attachmentType: 'image',
+              }]);
+            }}
+            onModeChange={(mode) => setAdvancedMode(mode)}
+          />
           <ScrollArea className="flex-1 px-6" ref={scrollAreaRef}>
             <div className="py-8 space-y-6">
               {messages.length === 0 ? (
@@ -670,9 +723,32 @@ const Chat = () => {
                 </motion.div>
               )}
               
+              {/* Smart Prompt Suggestions */}
+              <SmartPromptSuggestions 
+                messages={messages}
+                onSuggestionClick={(suggestion) => {
+                  setInput(suggestion);
+                }}
+                enabled={messages.length > 0 && !loading}
+              />
+              
               <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
+
+          {/* Quick Actions */}
+          <QuickActions 
+            activeAction={activeQuickAction}
+            onActionSelect={(action) => {
+              setActiveQuickAction(action);
+              if (action === 'summarize') {
+                setInput('Please summarize our conversation so far');
+                setTimeout(() => handleSend(), 100);
+              } else if (action === 'image') {
+                // Image generation handled by AdvancedFeaturesPanel
+              }
+            }}
+          />
 
           {/* Fixed Input Area at Bottom */}
           <div className="border-t border-border/40 bg-background/80 backdrop-blur-sm">
