@@ -19,25 +19,29 @@ const BYTEZ_API_KEY = Deno.env.get('BYTEZ_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-const VALID_MODELS = ['chatgpt', 'gemini', 'claude', 'perplexity', 'grok', 'bytez-qwen', 'gemini-flash-image'] as const;
+const VALID_MODELS = ['chatgpt', 'gemini', 'claude', 'perplexity', 'grok', 'bytez-qwen', 'bytez-phi3', 'bytez-mistral', 'gemini-flash-image'] as const;
 
 const STORAGE_BUCKET_URL = 'https://pqdgpxetysqcdcjwormb.supabase.co/storage/';
 const MAX_FILE_SIZE = 10_000_000; // 10MB
 const MAX_MESSAGE_LENGTH = 10000;
 const MAX_MODELS_PER_REQUEST = 5;
 
-// Model configuration - all with reasoning capabilities
+// Model configuration - stable, working models
 const MODEL_CONFIG: Record<string, { 
   provider: 'openai' | 'google' | 'openrouter' | 'perplexity' | 'groq' | 'bytez', 
   model: string,
-  supportsReasoning: boolean 
+  supportsReasoning: boolean,
+  maxTokens?: number,
+  requiresMaxCompletionTokens?: boolean
 }> = {
-  'chatgpt': { provider: 'openai', model: 'o3-2025-04-16', supportsReasoning: true },
-  'gemini': { provider: 'google', model: 'gemini-3-pro-preview', supportsReasoning: true },
-  'claude': { provider: 'openrouter', model: 'anthropic/claude-sonnet-4-20250514', supportsReasoning: true },
+  'chatgpt': { provider: 'openai', model: 'gpt-4o', supportsReasoning: true, maxTokens: 4096, requiresMaxCompletionTokens: false },
+  'gemini': { provider: 'google', model: 'gemini-2.0-flash-exp', supportsReasoning: true },
+  'claude': { provider: 'openrouter', model: 'anthropic/claude-3.5-sonnet', supportsReasoning: true },
   'perplexity': { provider: 'perplexity', model: 'llama-3.1-sonar-large-128k-online', supportsReasoning: true },
   'grok': { provider: 'groq', model: 'llama-3.3-70b-versatile', supportsReasoning: true },
   'bytez-qwen': { provider: 'bytez', model: 'Qwen/Qwen2.5-7B-Instruct', supportsReasoning: true },
+  'bytez-phi3': { provider: 'bytez', model: 'microsoft/Phi-3-mini-4k-instruct', supportsReasoning: true },
+  'bytez-mistral': { provider: 'bytez', model: 'mistralai/Mistral-7B-Instruct-v0.3', supportsReasoning: true },
   'gemini-flash-image': { provider: 'google', model: 'gemini-2.5-flash-image', supportsReasoning: false },
 };
 
@@ -401,10 +405,7 @@ serve(async (req) => {
         let reasoningSteps: Array<{ step: number; thought: string; conclusion: string }> | undefined;
 
         if (config.provider === 'openai') {
-          // OpenAI API call
-          const isReasoningModel = modelId === 'o3' || modelId === 'o4-mini';
-          
-          // For multi-step reasoning, add system prompt
+          // OpenAI API call with proper parameter handling
           let messagesToSend = processedMessages;
           if (enableMultiStepReasoning && config.supportsReasoning) {
             messagesToSend = [
@@ -416,27 +417,37 @@ serve(async (req) => {
             ];
           }
           
+          // Build request body based on model capabilities
+          const requestBody: any = {
+            model: config.model,
+            messages: messagesToSend,
+          };
+          
+          // Use correct token parameter based on model
+          if (config.requiresMaxCompletionTokens) {
+            requestBody.max_completion_tokens = config.maxTokens || 4096;
+          } else {
+            requestBody.max_tokens = config.maxTokens || 4096;
+            requestBody.temperature = 0.7; // Only for non-reasoning models
+          }
+          
           response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${OPENAI_API_KEY}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              model: config.model,
-              messages: messagesToSend,
-              max_completion_tokens: 4096,
-              // Note: reasoning models don't support temperature parameter
-            }),
+            body: JSON.stringify(requestBody),
           });
 
           if (!response.ok) {
             const errorText = await response.text();
             console.error(`❌ ${modelId} API error (${response.status}):`, errorText);
+            console.error(`❌ Error details:`, errorText);
             return {
               success: false,
               model: modelId,
-              response: response.status === 429 ? 'Rate limit exceeded' : 'API error occurred',
+              response: response.status === 429 ? 'Rate limit exceeded' : `API error: ${errorText.substring(0, 100)}`,
               error: true
             };
           }
@@ -445,8 +456,8 @@ serve(async (req) => {
           content = data.choices?.[0]?.message?.content || 'No response';
           usage = data.usage;
 
-          // For reasoning models, include thinking process if available
-          if (isReasoningModel && data.choices?.[0]?.message?.reasoning_content) {
+          // Include thinking process if available
+          if (data.choices?.[0]?.message?.reasoning_content) {
             thinkingProcess = data.choices[0].message.reasoning_content;
           }
           

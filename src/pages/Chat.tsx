@@ -83,14 +83,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import { SmartPromptSuggestions } from "@/components/SmartPromptSuggestions";
 import { QuickActions, QuickActionType } from "@/components/QuickActions";
 import { playSound, getSoundPreference, setSoundPreference, isSoundSupported } from "@/utils/soundNotifications";
+import { classifyQuery, getOptimalModels, getQueryTypeInfo, QueryType } from "@/utils/queryClassifier";
 
 const aiModels = [
   { id: "chatgpt", name: "ChatGPT", icon: Bot, color: "text-green-400", category: "reasoning" },
   { id: "gemini", name: "Gemini", icon: Sparkles, color: "text-blue-400", category: "reasoning" },
   { id: "claude", name: "Claude", icon: Brain, color: "text-purple-400", category: "reasoning" },
-  { id: "perplexity", name: "Perplexity", icon: Globe, color: "text-orange-400", category: "reasoning" },
+  { id: "perplexity", name: "Perplexity", icon: Globe, color: "text-orange-400", category: "research" },
   { id: "grok", name: "Grok", icon: Zap, color: "text-cyan-400", category: "reasoning" },
-  { id: "bytez-qwen", name: "Bytez Qwen", icon: Cpu, color: "text-pink-400", category: "reasoning" },
+  { id: "bytez-qwen", name: "Qwen 2.5", icon: Cpu, color: "text-pink-400", category: "small" },
+  { id: "bytez-phi3", name: "Phi-3", icon: Cpu, color: "text-indigo-400", category: "small" },
+  { id: "bytez-mistral", name: "Mistral 7B", icon: Cpu, color: "text-amber-400", category: "small" },
 ];
 
 const tools = [
@@ -157,7 +160,8 @@ interface QueuedMessage {
 const Chat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [selectedModels, setSelectedModels] = useState<string[]>(["gemini-flash"]);
+  const [selectedModels, setSelectedModels] = useState<string[]>(["gemini"]);
+  const [autoSelectModel, setAutoSelectModel] = useState(false);
   const [loading, setLoading] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
   const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
@@ -780,12 +784,22 @@ const Chat = () => {
 
     let modelsToUse = specificModels || selectedModels;
     
-    // Apply quick action model selection - only if not using specificModels
-    if (!specificModels) {
+    // Automatic model selection based on query type
+    if (!specificModels && autoSelectModel && input.trim()) {
+      const queryType = classifyQuery(input);
+      const optimalModels = getOptimalModels(queryType);
+      modelsToUse = optimalModels;
+      
+      const queryInfo = getQueryTypeInfo(queryType);
+      sonnerToast.info(`${queryInfo.icon} Auto-selected ${queryInfo.label} mode`);
+    }
+    
+    // Apply quick action model selection - only if not using specificModels or auto-selection
+    if (!specificModels && !autoSelectModel) {
       if (activeQuickAction === 'fast') {
-        modelsToUse = ['gemini-flash', 'gpt-5-mini'];
+        modelsToUse = ['bytez-phi3', 'bytez-mistral'];
       } else if (activeQuickAction === 'reasoning') {
-        modelsToUse = ['gpt-5', 'gemini-pro'];
+        modelsToUse = ['chatgpt', 'claude'];
       } else if (activeQuickAction === 'research') {
         modelsToUse = ['perplexity'];
       }
@@ -1911,6 +1925,17 @@ const Chat = () => {
                         </DropdownMenuItem>
                       );
                     })}
+                    <div className="border-t border-border my-2" />
+                    <div className="px-3 py-3 flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">🤖 Auto-select models</span>
+                        <span className="text-xs text-muted-foreground">AI picks best model for your query</span>
+                      </div>
+                      <Switch
+                        checked={autoSelectModel}
+                        onCheckedChange={setAutoSelectModel}
+                      />
+                    </div>
                   </DropdownMenuContent>
                 </DropdownMenu>
 

@@ -10,6 +10,8 @@ export const MODEL_PRICING = {
   'perplexity': { input: 1.00, output: 1.00, tier: 'standard' },
   'grok': { input: 5.00, output: 15.00, tier: 'premium' },
   'bytez-qwen': { input: 0.10, output: 0.10, tier: 'budget' },
+  'bytez-phi3': { input: 0.05, output: 0.15, tier: 'budget' },
+  'bytez-mistral': { input: 0.08, output: 0.25, tier: 'budget' },
   'gemini-flash-image': { input: 0.10, output: 0.40, tier: 'standard' },
 } as const;
 
