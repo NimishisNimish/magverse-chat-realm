@@ -867,7 +867,61 @@ const Chat = () => {
       // Track request start time for metrics
       const startTime = Date.now();
 
-      // Increase timeout to 5 minutes for complex requests
+      // Use streaming for single model requests
+      if (modelsToUse.length === 1) {
+        const streamingClient = new (await import('@/utils/streamingClient')).StreamingClient();
+        
+        let streamingMessageId: string | null = null;
+        const streamingMessage: Message = {
+          id: `streaming-${Date.now()}`,
+          role: "assistant",
+          content: "",
+          model: modelsToUse[0],
+          timestamp: new Date(),
+          userMessageId: userMessage.id,
+        };
+
+        setMessages(prev => [...prev, streamingMessage]);
+
+        await streamingClient.startStream(
+          messagesForApi,
+          modelsToUse[0],
+          chatId,
+          (model, token, fullContent) => {
+            setMessages(prev => 
+              prev.map(msg => 
+                msg.id === streamingMessage.id
+                  ? { ...msg, content: fullContent }
+                  : msg
+              )
+            );
+          },
+          (model, messageId) => {
+            streamingMessageId = messageId;
+            setMessages(prev => 
+              prev.map(msg => 
+                msg.id === streamingMessage.id
+                  ? { ...msg, id: messageId || msg.id }
+                  : msg
+              )
+            );
+          },
+          (model, error) => {
+            throw new Error(error);
+          }
+        );
+
+        await refreshProfile();
+        setRetryAttempt(0);
+        
+        if (soundEnabled && isSoundSupported()) {
+          playSound('complete');
+        }
+        
+        break;
+      }
+
+      // Fallback to non-streaming for multiple models
       const invokePromise = supabase.functions.invoke('chat-with-ai', {
         body: {
           messages: messagesForApi,
@@ -877,7 +931,7 @@ const Chat = () => {
           webSearchEnabled: activeQuickAction === 'research',
           deepResearch: activeQuickAction === 'research',
           enableMultiStepReasoning,
-          stream: true,
+          stream: false,
         },
       });
 
