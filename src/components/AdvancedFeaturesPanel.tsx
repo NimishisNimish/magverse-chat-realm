@@ -95,7 +95,9 @@ export const AdvancedFeaturesPanel = ({
       
       const apiPromise = supabase.functions.invoke('chat-with-ai', {
         body: {
-          message: enhancedPrompt,
+          messages: [
+            { role: 'user', content: enhancedPrompt }
+          ],
           selectedModels: ['gemini-flash-image'],
           generateImage: true,
         }
