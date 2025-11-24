@@ -104,9 +104,12 @@ const Navbar = () => {
         
       <div className="flex items-center gap-4">
           <div className="hidden md:flex items-center gap-6 mr-4">
-            <Link to="/pricing" className="text-foreground hover:text-primary transition-colors">
-              Pricing
-            </Link>
+            {/* Hide pricing for monthly pro users */}
+            {profile?.subscription_type !== 'monthly' && (
+              <Link to="/pricing" className="text-foreground hover:text-primary transition-colors">
+                Pricing
+              </Link>
+            )}
             <Link to="/support" className="text-foreground hover:text-primary transition-colors">
               Support
             </Link>
