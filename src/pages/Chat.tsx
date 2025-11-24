@@ -28,7 +28,10 @@ import {
   Search,
   Code,
   Settings,
-  Eye
+  Eye,
+  Volume2,
+  VolumeX,
+  Layers
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import FilePreview from "@/components/FilePreview";
@@ -75,9 +78,11 @@ import {
 } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
 import { motion, AnimatePresence } from "framer-motion";
 import { SmartPromptSuggestions } from "@/components/SmartPromptSuggestions";
 import { QuickActions, QuickActionType } from "@/components/QuickActions";
+import { playSound, getSoundPreference, setSoundPreference, isSoundSupported } from "@/utils/soundNotifications";
 
 const aiModels = [
   { id: "gpt-5-mini", name: "ChatGPT 5.1 Mini", icon: Sparkles, color: "text-purple-400", category: "fast" },
@@ -141,6 +146,15 @@ interface Message {
   userMessageId?: string; // Track which user message this is responding to
 }
 
+interface QueuedMessage {
+  id: string;
+  content: string;
+  models: string[];
+  attachment?: { url: string; type: string; fileName: string };
+  priority: 'normal' | 'urgent';
+  timestamp: number;
+}
+
 const Chat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -179,8 +193,15 @@ const Chat = () => {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [retryAttempt, setRetryAttempt] = useState(0);
   const [processingStage, setProcessingStage] = useState<'analyzing' | 'thinking' | 'generating' | null>(null);
-  const [messageQueue, setMessageQueue] = useState<Array<{ content: string; models: string[]; attachment?: { url: string; type: string; fileName: string } }>>([]);
+  const [messageQueue, setMessageQueue] = useState<QueuedMessage[]>([]);
   const [isProcessingQueue, setIsProcessingQueue] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(getSoundPreference());
+  const [batchModeEnabled, setBatchModeEnabled] = useState(false);
+  const [batchProcessingStatus, setBatchProcessingStatus] = useState<{
+    total: number;
+    completed: number;
+    inProgress: string[];
+  }>({ total: 0, completed: 0, inProgress: [] });
   const abortControllerRef = useRef<AbortController | null>(null);
   
   const { user, profile, refreshProfile } = useAuth();
@@ -248,9 +269,10 @@ const Chat = () => {
     };
   }, [loading]);
 
-  // Track elapsed time during AI response
+  // Track elapsed time during AI response and play sounds
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
+    let lastStage: typeof processingStage = null;
     
     if (loading && responseStartTime) {
       intervalId = setInterval(() => {
@@ -258,13 +280,22 @@ const Chat = () => {
         setElapsedTime(elapsed);
         
         // Update processing stage based on elapsed time
+        let newStage: typeof processingStage = null;
         if (elapsed < 2) {
-          setProcessingStage('analyzing');
+          newStage = 'analyzing';
         } else if (elapsed < 5) {
-          setProcessingStage('thinking');
+          newStage = 'thinking';
         } else {
-          setProcessingStage('generating');
+          newStage = 'generating';
         }
+        
+        // Play sound when stage changes
+        if (newStage !== lastStage && soundEnabled && isSoundSupported()) {
+          if (newStage) playSound(newStage);
+          lastStage = newStage;
+        }
+        
+        setProcessingStage(newStage);
       }, 1000);
     } else {
       setElapsedTime(0);
@@ -274,15 +305,23 @@ const Chat = () => {
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [loading, responseStartTime]);
+  }, [loading, responseStartTime, soundEnabled]);
 
-  // Process message queue
+  // Process message queue (sort by priority)
   useEffect(() => {
     const processQueue = async () => {
-      if (messageQueue.length > 0 && !loading && !isProcessingQueue) {
+      if (messageQueue.length > 0 && !loading && !isProcessingQueue && !batchModeEnabled) {
         setIsProcessingQueue(true);
-        const nextMessage = messageQueue[0];
-        setMessageQueue(prev => prev.slice(1));
+        
+        // Sort queue by priority (urgent first) then by timestamp
+        const sortedQueue = [...messageQueue].sort((a, b) => {
+          if (a.priority === 'urgent' && b.priority !== 'urgent') return -1;
+          if (b.priority === 'urgent' && a.priority !== 'urgent') return 1;
+          return a.timestamp - b.timestamp;
+        });
+        
+        const nextMessage = sortedQueue[0];
+        setMessageQueue(prev => prev.filter(m => m.id !== nextMessage.id));
         
         // Set input and attachment from queue
         setInput(nextMessage.content);
@@ -302,7 +341,12 @@ const Chat = () => {
     };
     
     processQueue();
-  }, [messageQueue, loading, isProcessingQueue]);
+  }, [messageQueue, loading, isProcessingQueue, batchModeEnabled]);
+  
+  // Save sound preference when changed
+  useEffect(() => {
+    setSoundPreference(soundEnabled);
+  }, [soundEnabled]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -542,12 +586,23 @@ const Chat = () => {
       setRetryAttempt(0);
       setProcessingStage(null);
       setIsProcessingQueue(false);
+      setBatchProcessingStatus({ total: 0, completed: 0, inProgress: [] });
       sonnerToast.info("Response stopped");
     }
   };
+  
+  const markAsUrgent = (messageId: string) => {
+    setMessageQueue(prev => prev.map(msg => 
+      msg.id === messageId ? { ...msg, priority: 'urgent' } : msg
+    ));
+    if (soundEnabled && isSoundSupported()) {
+      playSound('urgentQueue');
+    }
+    sonnerToast.info("Message marked as urgent and moved to front of queue");
+  };
 
-  const cancelQueuedMessage = (index: number) => {
-    setMessageQueue(prev => prev.filter((_, i) => i !== index));
+  const cancelQueuedMessage = (messageId: string) => {
+    setMessageQueue(prev => prev.filter(m => m.id !== messageId));
     sonnerToast.success("Message removed from queue");
   };
 
@@ -555,17 +610,124 @@ const Chat = () => {
     setMessageQueue([]);
     sonnerToast.success("Queue cleared");
   };
+  
+  const processBatch = async () => {
+    if (messageQueue.length === 0 || loading) return;
+    
+    // Sort by priority first
+    const sortedQueue = [...messageQueue].sort((a, b) => {
+      if (a.priority === 'urgent' && b.priority !== 'urgent') return -1;
+      if (b.priority === 'urgent' && a.priority !== 'urgent') return 1;
+      return a.timestamp - b.timestamp;
+    });
+    
+    // Process up to 3 messages simultaneously
+    const batchSize = Math.min(3, sortedQueue.length);
+    const batch = sortedQueue.slice(0, batchSize);
+    
+    setBatchProcessingStatus({
+      total: batch.length,
+      completed: 0,
+      inProgress: batch.map(m => m.id)
+    });
+    
+    // Remove batch from queue
+    setMessageQueue(prev => prev.filter(m => !batch.find(b => b.id === m.id)));
+    
+    setLoading(true);
+    
+    // Process all messages in parallel
+    const promises = batch.map(async (msg) => {
+      try {
+        // Add user message to chat
+        const userMessage: Message = {
+          id: `${Date.now()}-${Math.random()}`,
+          role: "user",
+          content: msg.content,
+          timestamp: new Date(),
+          attachmentUrl: msg.attachment?.url,
+          attachmentType: msg.attachment?.type,
+          attachmentFileName: msg.attachment?.fileName,
+        };
+        
+        setMessages(prev => [...prev, userMessage]);
+        
+        // Call AI
+        const messagesForApi = [
+          ...messages.map(m => ({ role: m.role, content: m.content })),
+          { role: 'user' as const, content: msg.content }
+        ];
+        
+        const { data, error } = await supabase.functions.invoke('chat-with-ai', {
+          body: {
+            messages: messagesForApi,
+            selectedModels: msg.models,
+            chatId,
+            attachmentUrl: msg.attachment?.url,
+          },
+        });
+        
+        if (error) throw error;
+        
+        // Add AI response
+        if (data?.responses && Array.isArray(data.responses)) {
+          const assistantMessages: Message[] = data.responses.map((response: any) => ({
+            id: response.messageId || `${Date.now()}-${Math.random()}`,
+            role: "assistant" as const,
+            content: response.content || 'No response',
+            model: response.model,
+            timestamp: new Date(),
+            userMessageId: userMessage.id,
+          }));
+          
+          setMessages(prev => [...prev, ...assistantMessages]);
+        }
+        
+        // Update progress
+        setBatchProcessingStatus(prev => ({
+          ...prev,
+          completed: prev.completed + 1,
+          inProgress: prev.inProgress.filter(id => id !== msg.id)
+        }));
+        
+        return { success: true, msg };
+      } catch (error) {
+        console.error('Batch processing error:', error);
+        setBatchProcessingStatus(prev => ({
+          ...prev,
+          completed: prev.completed + 1,
+          inProgress: prev.inProgress.filter(id => id !== msg.id)
+        }));
+        return { success: false, msg, error };
+      }
+    });
+    
+    await Promise.all(promises);
+    
+    setLoading(false);
+    setBatchProcessingStatus({ total: 0, completed: 0, inProgress: [] });
+    
+    if (soundEnabled && isSoundSupported()) {
+      playSound('complete');
+    }
+    
+    await refreshProfile();
+    sonnerToast.success(`Batch processing complete (${batch.length} messages processed)`);
+  };
 
   const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-  const handleSend = async (specificModels?: string[]) => {
+  const handleSend = async (specificModels?: string[], urgent: boolean = false) => {
     if (!input.trim() && !attachmentUrl) return;
     
     // If AI is currently responding, queue the message
     if (loading) {
-      const queuedMessage = {
+      const queuedMessage: QueuedMessage = {
+        id: `queue-${Date.now()}-${Math.random()}`,
         content: input,
         models: specificModels || selectedModels,
+        priority: urgent ? 'urgent' : 'normal',
+        timestamp: Date.now(),
         attachment: attachmentUrl ? {
           url: attachmentUrl,
           type: attachmentType || 'other',
@@ -576,7 +738,12 @@ const Chat = () => {
       setMessageQueue(prev => [...prev, queuedMessage]);
       setInput("");
       removeAttachment();
-      sonnerToast.info(`Message added to queue (${messageQueue.length + 1} in queue)`);
+      
+      if (soundEnabled && isSoundSupported()) {
+        playSound(urgent ? 'urgentQueue' : 'queueAdd');
+      }
+      
+      sonnerToast.info(`Message ${urgent ? '⚡ urgently ' : ''}added to queue (${messageQueue.length + 1} in queue)`);
       return;
     }
     if (!user) {
@@ -713,6 +880,12 @@ const Chat = () => {
 
         await refreshProfile();
         setRetryAttempt(0);
+        
+        // Play completion sound on success
+        if (soundEnabled && isSoundSupported()) {
+          playSound('complete');
+        }
+        
         break; // Success, exit retry loop
       } catch (error: any) {
         console.error('Chat error:', error);
@@ -727,8 +900,11 @@ const Chat = () => {
           return;
         }
         
-        // If this was the last attempt, show error
+        // If this was the last attempt, show error and play error sound
         if (attempt === maxRetries) {
+          if (soundEnabled && isSoundSupported()) {
+            playSound('error');
+          }
           toast({
             title: "Error",
             description: lastError?.message || "Failed to send message after multiple attempts",
@@ -806,13 +982,22 @@ const Chat = () => {
 
         await refreshProfile();
         setRetryAttempt(0);
+        
+        // Play completion sound on success
+        if (soundEnabled && isSoundSupported()) {
+          playSound('complete');
+        }
+        
         break; // Success, exit retry loop
       } catch (error: any) {
         console.error('Regenerate error:', error);
         lastError = error;
         
-        // If this was the last attempt, show error
+        // If this was the last attempt, show error and play error sound
         if (attempt === maxRetries) {
+          if (soundEnabled && isSoundSupported()) {
+            playSound('error');
+          }
           toast({
             title: "Error",
             description: lastError?.message || "Failed to regenerate response after multiple attempts",
@@ -832,7 +1017,9 @@ const Chat = () => {
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      // Check for urgent message shortcut (Ctrl+Shift+Enter)
+      const urgent = e.ctrlKey && e.shiftKey;
+      handleSend(undefined, urgent);
     }
   };
 
@@ -1134,6 +1321,16 @@ const Chat = () => {
               </h1>
             </div>
             <div className="flex items-center gap-2">
+              {/* Sound Toggle */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSoundEnabled(!soundEnabled)}
+                title={soundEnabled ? "Disable sound notifications" : "Enable sound notifications"}
+                className="h-9 w-9"
+              >
+                {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              </Button>
               <CustomInstructionsButton />
               <Link to="/history">
                 <Button variant="ghost" size="sm">
@@ -1339,39 +1536,108 @@ const Chat = () => {
                   className="space-y-2"
                 >
                   <div className="flex items-center justify-between px-3 py-2 bg-muted/30 rounded-lg border border-border/40">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <MessageSquare className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm font-medium">
                         {messageQueue.length} message{messageQueue.length > 1 ? 's' : ''} in queue
                       </span>
+                      
+                      {/* Batch Mode Toggle */}
+                      {messageQueue.length >= 2 && (
+                        <div className="flex items-center gap-2">
+                          <Switch 
+                            checked={batchModeEnabled} 
+                            onCheckedChange={setBatchModeEnabled}
+                            className="scale-75"
+                          />
+                          <Label className="text-xs cursor-pointer" onClick={() => setBatchModeEnabled(!batchModeEnabled)}>
+                            Batch Mode
+                          </Label>
+                        </div>
+                      )}
                     </div>
-                    <Button
-                      onClick={clearQueue}
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 text-xs"
-                    >
-                      Clear All
-                    </Button>
+                    
+                    <div className="flex items-center gap-2">
+                      {/* Process All Button (Batch Mode) */}
+                      {batchModeEnabled && messageQueue.length >= 2 && !loading && (
+                        <Button
+                          onClick={processBatch}
+                          size="sm"
+                          variant="secondary"
+                          className="h-7 text-xs"
+                        >
+                          <Layers className="h-3 w-3 mr-1" />
+                          Process All ({messageQueue.length})
+                        </Button>
+                      )}
+                      
+                      <Button
+                        onClick={clearQueue}
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs"
+                      >
+                        Clear All
+                      </Button>
+                    </div>
                   </div>
+                  
+                  {/* Batch Processing Status */}
+                  {batchProcessingStatus.total > 0 && (
+                    <div className="p-3 bg-primary/10 rounded-lg border border-primary/30">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Layers className="h-4 w-4 text-primary animate-pulse" />
+                        <span className="text-sm font-medium">
+                          Batch Processing: {batchProcessingStatus.completed}/{batchProcessingStatus.total}
+                        </span>
+                      </div>
+                      <Progress 
+                        value={(batchProcessingStatus.completed / batchProcessingStatus.total) * 100} 
+                        className="h-2"
+                      />
+                    </div>
+                  )}
                   
                   <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
                     {messageQueue.map((msg, index) => (
                       <motion.div
-                        key={index}
+                        key={msg.id}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 20 }}
-                        className="flex items-center gap-2 p-2 bg-background/50 rounded border border-border/30"
+                        className={`flex items-center gap-2 p-2 bg-background/50 rounded border ${
+                          msg.priority === 'urgent' ? 'border-orange-500/50 bg-orange-500/5' : 'border-border/30'
+                        }`}
                       >
                         <Badge variant="outline" className="text-xs shrink-0">
                           #{index + 1}
                         </Badge>
+                        
+                        {msg.priority === 'urgent' && (
+                          <Badge variant="destructive" className="text-xs shrink-0">
+                            <Zap className="h-3 w-3 mr-1" />
+                            Urgent
+                          </Badge>
+                        )}
+                        
                         <p className="text-xs text-muted-foreground flex-1 truncate">
                           {msg.content}
                         </p>
+                        
+                        {msg.priority !== 'urgent' && (
+                          <Button
+                            onClick={() => markAsUrgent(msg.id)}
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0 shrink-0"
+                            title="Mark as urgent"
+                          >
+                            <Zap className="h-3 w-3 text-orange-500" />
+                          </Button>
+                        )}
+                        
                         <Button
-                          onClick={() => cancelQueuedMessage(index)}
+                          onClick={() => cancelQueuedMessage(msg.id)}
                           size="sm"
                           variant="ghost"
                           className="h-6 w-6 p-0 shrink-0"
@@ -1555,7 +1821,7 @@ const Chat = () => {
                   />
                 </div>
 
-                {/* Send/Stop Button */}
+                {/* Send/Stop Button with Urgent Option */}
                 {loading ? (
                   <Button
                     onClick={handleStop}
@@ -1567,14 +1833,28 @@ const Chat = () => {
                     <Square className="h-5 w-5" />
                   </Button>
                 ) : (
-                  <Button
-                    onClick={() => handleSend()}
-                    disabled={!input.trim() && !attachmentUrl}
-                    size="icon"
-                    className="shrink-0 rounded-full h-10 w-10"
-                  >
-                    <Send className="h-5 w-5" />
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button
+                      onClick={() => handleSend()}
+                      disabled={!input.trim() && !attachmentUrl}
+                      size="icon"
+                      className="shrink-0 rounded-full h-10 w-10"
+                      title="Send message (Enter)"
+                    >
+                      <Send className="h-5 w-5" />
+                    </Button>
+                    
+                    <Button
+                      onClick={() => handleSend(undefined, true)}
+                      disabled={!input.trim() && !attachmentUrl}
+                      size="icon"
+                      variant="secondary"
+                      className="shrink-0 rounded-full h-10 w-10"
+                      title="Send as urgent (Ctrl+Shift+Enter)"
+                    >
+                      <Zap className="h-5 w-5 text-orange-500" />
+                    </Button>
+                  </div>
                 )}
               </div>
 
