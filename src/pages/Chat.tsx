@@ -21,7 +21,8 @@ import {
   ChevronDown,
   Settings,
   MessageSquare,
-  FileText
+  FileText,
+  RefreshCw
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
@@ -52,15 +53,15 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 const aiModels = [
-  { id: "gpt-5-mini", name: "GPT-5 Mini", icon: Sparkles, color: "text-purple-400" },
-  { id: "gemini-flash", name: "Gemini Flash", icon: Zap, color: "text-primary" },
-  { id: "gemini-pro", name: "Gemini Pro", icon: Brain, color: "text-secondary" },
-  { id: "gemini-lite", name: "Gemini Lite", icon: Cpu, color: "text-muted-foreground" },
-  { id: "gpt-5", name: "GPT-5", icon: Bot, color: "text-accent" },
-  { id: "gpt-5-nano", name: "GPT-5 Nano", icon: Star, color: "text-blue-400" },
+  { id: "gpt-5-mini", name: "GPT 5.1 Mini", icon: Sparkles, color: "text-purple-400" },
+  { id: "gemini-flash", name: "Gemini 3 Pro Flash", icon: Zap, color: "text-primary" },
+  { id: "gemini-pro", name: "Gemini 3 Pro", icon: Brain, color: "text-secondary" },
+  { id: "gemini-lite", name: "Gemini 3 Pro Lite", icon: Cpu, color: "text-muted-foreground" },
+  { id: "gpt-5", name: "GPT 5.1", icon: Bot, color: "text-accent" },
+  { id: "gpt-5-nano", name: "GPT 5.1 Nano", icon: Star, color: "text-blue-400" },
   { id: "claude", name: "Claude", icon: Bot, color: "text-orange-400" },
-  { id: "perplexity", name: "Perplexity", icon: Globe, color: "text-green-400" },
-  { id: "grok", name: "Grok", icon: Zap, color: "text-cyan-400" },
+  { id: "perplexity", name: "Perplexity Sonar", icon: Globe, color: "text-green-400" },
+  { id: "grok", name: "Grok 4", icon: Zap, color: "text-cyan-400" },
 ];
 
 interface Message {
@@ -72,6 +73,7 @@ interface Message {
   attachmentUrl?: string;
   attachmentType?: string;
   attachmentFileName?: string;
+  userMessageId?: string; // Track which user message this is responding to
 }
 
 const Chat = () => {
@@ -152,14 +154,6 @@ const Chat = () => {
   const handleModelToggle = (modelId: string) => {
     setSelectedModels(prev => {
       if (prev.includes(modelId)) {
-        if (prev.length === 1) {
-          toast({
-            title: "At least one model required",
-            description: "You must have at least one AI model selected.",
-            variant: "destructive",
-          });
-          return prev;
-        }
         return prev.filter(id => id !== modelId);
       } else {
         if (prev.length >= 3) {
@@ -172,6 +166,56 @@ const Chat = () => {
         }
         return [...prev, modelId];
       }
+    });
+  };
+
+  const compressImage = async (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d')!;
+          
+          // Max dimensions
+          const MAX_WIDTH = 1920;
+          const MAX_HEIGHT = 1920;
+          
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const compressed = new File([blob], file.name, {
+                type: 'image/jpeg',
+                lastModified: Date.now(),
+              });
+              resolve(compressed);
+            } else {
+              resolve(file);
+            }
+          }, 'image/jpeg', 0.85);
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
     });
   };
 
@@ -196,12 +240,22 @@ const Chat = () => {
     }
 
     try {
+      // Compress image files before upload
+      let fileToUpload = file;
       const fileExt = file.name.split('.').pop();
+      const isImageFile = ['jpg', 'jpeg', 'png', 'webp'].includes(fileExt?.toLowerCase() || '');
+      
+      if (isImageFile && file.size > 500000) { // Compress if > 500KB
+        sonnerToast.info("Compressing image...");
+        fileToUpload = await compressImage(file);
+        sonnerToast.success(`Compressed from ${(file.size / 1024).toFixed(0)}KB to ${(fileToUpload.size / 1024).toFixed(0)}KB`);
+      }
+      
       const filePath = `${user.id}/${Date.now()}.${fileExt}`;
       
       const { error: uploadError } = await supabase.storage
         .from('chat-attachments')
-        .upload(filePath, file);
+        .upload(filePath, fileToUpload);
 
       if (uploadError) throw uploadError;
 
@@ -270,7 +324,7 @@ const Chat = () => {
     }
   };
 
-  const handleSend = async () => {
+  const handleSend = async (specificModels?: string[]) => {
     if ((!input.trim() && !attachmentUrl) || loading) return;
     if (!user) {
       toast({
@@ -300,10 +354,11 @@ const Chat = () => {
     removeAttachment();
 
     try {
+      const modelsToUse = specificModels || selectedModels;
       const { data, error } = await supabase.functions.invoke('lovable-ai-chat', {
         body: {
           message: userMessage.content,
-          models: selectedModels.map(id => {
+          models: modelsToUse.map(id => {
             const model = aiModels.find(m => m.id === id);
             return model?.id || id;
           }),
@@ -328,6 +383,7 @@ const Chat = () => {
           content: response.response,
           model: response.model,
           timestamp: new Date(),
+          userMessageId: userMessage.id,
         }));
 
         setMessages(prev => [...prev, ...assistantMessages]);
@@ -339,6 +395,55 @@ const Chat = () => {
       toast({
         title: "Error",
         description: error.message || "Failed to send message",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegenerate = async (message: Message) => {
+    if (!message.model || !message.userMessageId || loading) return;
+    
+    const userMsg = messages.find(m => m.id === message.userMessageId);
+    if (!userMsg) return;
+
+    setLoading(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('lovable-ai-chat', {
+        body: {
+          message: userMsg.content,
+          models: [message.model],
+          chatId,
+          attachmentUrl: userMsg.attachmentUrl,
+          attachmentType: userMsg.attachmentType,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.responses && Array.isArray(data.responses)) {
+        const newResponse: Message = {
+          id: `${Date.now()}-${data.responses[0].model}`,
+          role: "assistant",
+          content: data.responses[0].response,
+          model: data.responses[0].model,
+          timestamp: new Date(),
+          userMessageId: userMsg.id,
+        };
+
+        // Replace the old message with the new one
+        setMessages(prev => prev.map(m => m.id === message.id ? newResponse : m));
+        sonnerToast.success("Response regenerated");
+      }
+
+      await refreshProfile();
+    } catch (error: any) {
+      console.error('Regenerate error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to regenerate response",
         variant: "destructive",
       });
     } finally {
@@ -470,6 +575,16 @@ const Chat = () => {
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => handleRegenerate(message)}
+                              disabled={loading}
+                              className="h-7 px-2"
+                              title="Regenerate response"
+                            >
+                              <RefreshCw className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => copyToClipboard(message.content)}
                               className="h-7 px-2"
                             >
@@ -562,7 +677,7 @@ const Chat = () => {
                   </div>
 
                   <Button
-                    onClick={handleSend}
+                    onClick={() => handleSend()}
                     disabled={(!input.trim() && !attachmentUrl) || loading}
                     size="icon"
                     className="shrink-0 rounded-xl"
