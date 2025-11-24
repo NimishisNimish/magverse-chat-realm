@@ -143,6 +143,8 @@ interface Message {
   attachmentType?: string;
   attachmentFileName?: string;
   userMessageId?: string; // Track which user message this is responding to
+  thinkingProcess?: string; // Reasoning steps from thinking models
+  reasoningSteps?: Array<{ step: number; thought: string; conclusion: string }>; // Multi-step reasoning
 }
 
 interface QueuedMessage {
@@ -201,6 +203,14 @@ const Chat = () => {
     completed: number;
     inProgress: string[];
   }>({ total: 0, completed: 0, inProgress: [] });
+  const [showThinkingProcess, setShowThinkingProcess] = useState<boolean>(() => {
+    const saved = localStorage.getItem('showThinkingProcess');
+    return saved ? JSON.parse(saved) : true;
+  });
+  const [enableMultiStepReasoning, setEnableMultiStepReasoning] = useState<boolean>(() => {
+    const saved = localStorage.getItem('enableMultiStepReasoning');
+    return saved ? JSON.parse(saved) : false;
+  });
   const abortControllerRef = useRef<AbortController | null>(null);
   
   const { user, profile, refreshProfile } = useAuth();
@@ -346,6 +356,22 @@ const Chat = () => {
   useEffect(() => {
     setSoundPreference(soundEnabled);
   }, [soundEnabled]);
+  
+  useEffect(() => {
+    localStorage.setItem('showThinkingProcess', JSON.stringify(showThinkingProcess));
+  }, [showThinkingProcess]);
+
+  useEffect(() => {
+    localStorage.setItem('enableMultiStepReasoning', JSON.stringify(enableMultiStepReasoning));
+  }, [enableMultiStepReasoning]);
+
+  useEffect(() => {
+    localStorage.setItem('showThinkingProcess', JSON.stringify(showThinkingProcess));
+  }, [showThinkingProcess]);
+
+  useEffect(() => {
+    localStorage.setItem('enableMultiStepReasoning', JSON.stringify(enableMultiStepReasoning));
+  }, [enableMultiStepReasoning]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -837,6 +863,7 @@ const Chat = () => {
           attachmentUrl: currentAttachmentUrl,
           webSearchEnabled: activeQuickAction === 'research',
           deepResearch: activeQuickAction === 'research',
+          enableMultiStepReasoning,
         },
       });
 
@@ -872,6 +899,8 @@ const Chat = () => {
             model: response.model,
             timestamp: new Date(),
             userMessageId: userMessage.id,
+            thinkingProcess: response.thinkingProcess,
+            reasoningSteps: response.reasoningSteps,
           }));
 
         setMessages(prev => [...prev, ...assistantMessages]);
@@ -1328,8 +1357,47 @@ const Chat = () => {
                 title={soundEnabled ? "Disable sound notifications" : "Enable sound notifications"}
                 className="h-9 w-9"
               >
-                {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
               </Button>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" title="Reasoning settings">
+                    <Brain className="h-4 w-4 mr-2" />
+                    Reasoning
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <div className="p-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="show-thinking" className="text-sm cursor-pointer">
+                        Show thinking process
+                      </Label>
+                      <Switch
+                        id="show-thinking"
+                        checked={showThinkingProcess}
+                        onCheckedChange={setShowThinkingProcess}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="multi-step" className="text-sm cursor-pointer">
+                          Multi-step reasoning
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Break down complex problems
+                        </p>
+                      </div>
+                      <Switch
+                        id="multi-step"
+                        checked={enableMultiStepReasoning}
+                        onCheckedChange={setEnableMultiStepReasoning}
+                      />
+                    </div>
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
               <CustomInstructionsButton />
               <Link to="/history">
                 <Button variant="ghost" size="sm">
@@ -1423,6 +1491,39 @@ const Chat = () => {
                           <div className="prose prose-sm dark:prose-invert max-w-none">
                             {renderWithCitations(message.content)}
                           </div>
+                          
+                          {/* Thinking Process Display */}
+                          {message.role === 'assistant' && (message.thinkingProcess || message.reasoningSteps) && (
+                            <details className="mt-3 pt-3 border-t border-border/40" open={showThinkingProcess}>
+                              <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2">
+                                <Brain className="h-3 w-3" />
+                                {message.reasoningSteps ? 'Multi-Step Reasoning Process' : 'Thinking Process'}
+                              </summary>
+                              <div className="mt-2 p-3 bg-background/50 rounded-lg border border-border/30 text-xs space-y-2">
+                                {message.reasoningSteps ? (
+                                  message.reasoningSteps.map((step) => (
+                                    <div key={step.step} className="space-y-1">
+                                      <div className="flex items-start gap-2">
+                                        <Badge variant="outline" className="shrink-0 text-xs">
+                                          Step {step.step}
+                                        </Badge>
+                                        <span className="text-muted-foreground italic">{step.thought}</span>
+                                      </div>
+                                      {step.conclusion && (
+                                        <div className="pl-14 text-foreground">
+                                          → {step.conclusion}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="text-muted-foreground whitespace-pre-wrap">
+                                    {message.thinkingProcess}
+                                  </div>
+                                )}
+                              </div>
+                            </details>
+                          )}
                         </div>
 
                         {message.role === 'assistant' && (
