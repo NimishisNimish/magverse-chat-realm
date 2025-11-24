@@ -21,6 +21,7 @@ import {
   RefreshCw,
   Square,
   Download,
+  Maximize2,
   Image as ImageIcon
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -95,6 +96,7 @@ const Chat = () => {
   const [searchParams] = useSearchParams();
   const [activeQuickAction, setActiveQuickAction] = useState<QuickActionType>(null);
   const [advancedMode, setAdvancedMode] = useState<'fast' | 'reasoning' | null>(null);
+  const [upscalingMessageId, setUpscalingMessageId] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   
   const { user, profile, refreshProfile } = useAuth();
@@ -581,6 +583,49 @@ const Chat = () => {
     }
   };
 
+  const handleUpscaleImage = async (message: Message) => {
+    if (!message.attachmentUrl) return;
+    
+    setUpscalingMessageId(message.id);
+    
+    try {
+      sonnerToast.loading("Upscaling image to 4K...", { id: 'upscale' });
+      
+      const { data, error } = await supabase.functions.invoke('upscale-image', {
+        body: {
+          imageUrl: message.attachmentUrl,
+          scale: 4
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (data?.upscaledImage) {
+        // Add upscaled image as a new message
+        const newMessage: Message = {
+          id: `upscaled-${Date.now()}`,
+          role: 'assistant',
+          content: '🎨 Here is your 4K upscaled image:',
+          attachmentUrl: data.upscaledImage,
+          attachmentType: 'image',
+          attachmentFileName: 'upscaled-4k.png',
+          timestamp: new Date(),
+        };
+        
+        setMessages(prev => [...prev, newMessage]);
+        
+        sonnerToast.success("Image upscaled to 4K!", { id: 'upscale' });
+      } else {
+        throw new Error('No upscaled image returned');
+      }
+    } catch (error: any) {
+      console.error('Upscaling error:', error);
+      sonnerToast.error(error.message || "Failed to upscale image", { id: 'upscale' });
+    } finally {
+      setUpscalingMessageId(null);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background">
       <Navbar />
@@ -698,6 +743,26 @@ const Chat = () => {
 
                         {message.role === 'assistant' && (
                           <div className="flex items-center gap-1 mt-2">
+                            {/* Upscale button for images */}
+                            {message.attachmentUrl && message.attachmentType === 'image' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleUpscaleImage(message)}
+                                disabled={loading || upscalingMessageId === message.id}
+                                className="h-7 px-2"
+                                title="Upscale to 4K"
+                              >
+                                {upscalingMessageId === message.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Maximize2 className="h-3 w-3" />
+                                )}
+                                <span className="ml-1 text-xs">4K</span>
+                              </Button>
+                            )}
+                            
+                            {/* Download button for images */}
                             {message.attachmentUrl && message.attachmentType === 'image' && (
                               <Button
                                 variant="ghost"
