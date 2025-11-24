@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, Image, Zap, Brain, Sparkles } from 'lucide-react';
@@ -26,6 +27,9 @@ export const AdvancedFeaturesPanel = ({
   const [imagePrompt, setImagePrompt] = useState('');
   const [imageStyle, setImageStyle] = useState('realistic');
   const [generating, setGenerating] = useState(false);
+  const [lastGeneratedPrompt, setLastGeneratedPrompt] = useState('');
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [generationStage, setGenerationStage] = useState('');
   const [fastMode, setFastMode] = useState(false);
   const [reasoningMode, setReasoningMode] = useState(false);
 
@@ -35,8 +39,10 @@ export const AdvancedFeaturesPanel = ({
     localStorage.setItem('advancedPanelOpen', String(newState));
   };
 
-  const handleGenerateImage = async () => {
-    if (!imagePrompt.trim()) {
+  const handleGenerateImage = async (isRegenerate = false) => {
+    const promptToUse = isRegenerate ? lastGeneratedPrompt : imagePrompt;
+    
+    if (!promptToUse.trim()) {
       toast({
         title: "Prompt required",
         description: "Please enter an image prompt",
@@ -46,9 +52,33 @@ export const AdvancedFeaturesPanel = ({
     }
 
     setGenerating(true);
+    setGenerationProgress(0);
+    setGenerationStage('Preparing prompt...');
+    
+    // Simulate progress with stages
+    const progressInterval = setInterval(() => {
+      setGenerationProgress(prev => {
+        if (prev >= 90) return prev;
+        
+        const stages = [
+          { threshold: 20, text: 'Initializing AI model...' },
+          { threshold: 40, text: 'Generating image...' },
+          { threshold: 60, text: 'Applying style...' },
+          { threshold: 80, text: 'Finalizing...' },
+        ];
+        
+        const stage = stages.find(s => prev < s.threshold);
+        if (stage && generationStage !== stage.text) {
+          setGenerationStage(stage.text);
+        }
+        
+        return prev + Math.random() * 10;
+      });
+    }, 300);
+
     try {
       // Enhance prompt with style
-      const enhancedPrompt = `${imagePrompt}, ${imageStyle} style, ultra high resolution`;
+      const enhancedPrompt = `${promptToUse}, ${imageStyle} style, ultra high resolution`;
       
       const { data, error } = await supabase.functions.invoke('chat-with-ai', {
         body: {
@@ -61,12 +91,17 @@ export const AdvancedFeaturesPanel = ({
       if (error) throw error;
 
       if (data?.image) {
+        setLastGeneratedPrompt(promptToUse);
+        setGenerationProgress(100);
+        setGenerationStage('Complete!');
         onImageGenerated?.(data.image);
+        if (!isRegenerate) {
+          setImagePrompt('');
+        }
         toast({
           title: "Image generated!",
           description: "Your image has been created successfully",
         });
-        setImagePrompt('');
       }
     } catch (error: any) {
       console.error('Image generation error:', error);
@@ -76,7 +111,12 @@ export const AdvancedFeaturesPanel = ({
         variant: "destructive",
       });
     } finally {
-      setGenerating(false);
+      clearInterval(progressInterval);
+      setTimeout(() => {
+        setGenerating(false);
+        setGenerationProgress(0);
+        setGenerationStage('');
+      }, 500);
     }
   };
 
@@ -154,24 +194,51 @@ export const AdvancedFeaturesPanel = ({
                         <SelectTrigger id="style" className="text-sm">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="realistic">Realistic</SelectItem>
-                          <SelectItem value="artistic">Artistic</SelectItem>
-                          <SelectItem value="abstract">Abstract</SelectItem>
-                          <SelectItem value="cartoon">Cartoon</SelectItem>
-                          <SelectItem value="cyberpunk">Cyberpunk</SelectItem>
-                        </SelectContent>
+                  <SelectContent>
+                    <SelectItem value="realistic">Realistic</SelectItem>
+                    <SelectItem value="artistic">Artistic</SelectItem>
+                    <SelectItem value="abstract">Abstract</SelectItem>
+                    <SelectItem value="cartoon">Cartoon</SelectItem>
+                    <SelectItem value="cyberpunk">Cyberpunk</SelectItem>
+                    <SelectItem value="minimalist">Minimalist</SelectItem>
+                    <SelectItem value="watercolor">Watercolor</SelectItem>
+                    <SelectItem value="oil-painting">Oil Painting</SelectItem>
+                    <SelectItem value="sketch">Pencil Sketch</SelectItem>
+                  </SelectContent>
                       </Select>
                     </div>
 
-                    <Button 
-                      onClick={handleGenerateImage}
-                      disabled={generating || !imagePrompt.trim()}
-                      className="w-full"
-                      size="sm"
-                    >
-                      {generating ? 'Generating...' : 'Generate Image'}
-                    </Button>
+                    {generating ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>{generationStage}</span>
+                          <span>{generationProgress.toFixed(0)}%</span>
+                        </div>
+                        <Progress value={generationProgress} className="h-2" />
+                      </div>
+                    ) : (
+                      <>
+                        <Button 
+                          onClick={() => handleGenerateImage(false)}
+                          disabled={!imagePrompt.trim()}
+                          className="w-full"
+                          size="sm"
+                        >
+                          Generate Image
+                        </Button>
+                        
+                        {lastGeneratedPrompt && (
+                          <Button 
+                            onClick={() => handleGenerateImage(true)}
+                            variant="outline"
+                            className="w-full mt-2"
+                            size="sm"
+                          >
+                            Regenerate with {imageStyle} style
+                          </Button>
+                        )}
+                      </>
+                    )}
                   </TabsContent>
 
                   <TabsContent value="fast" className="space-y-3 p-4">
