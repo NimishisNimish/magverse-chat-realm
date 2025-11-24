@@ -11,32 +11,31 @@ const corsHeaders = {
 // API Keys
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 const GOOGLE_AI_API_KEY = Deno.env.get('GOOGLE_AI_API_KEY');
+const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
+const GROK_API_KEY = Deno.env.get('GROK_API_KEY');
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-const VALID_MODELS = ['gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'o3', 'o4-mini', 
-  'gemini-3-pro', 'gemini-3-flash', 'gemini-3-thinking', 'gemini-flash-image'] as const;
+const VALID_MODELS = ['chatgpt', 'gemini', 'claude', 'perplexity', 'grok', 'gemini-flash-image'] as const;
 
 const STORAGE_BUCKET_URL = 'https://pqdgpxetysqcdcjwormb.supabase.co/storage/';
 const MAX_FILE_SIZE = 10_000_000; // 10MB
 const MAX_MESSAGE_LENGTH = 10000;
-const MAX_MODELS_PER_REQUEST = 3;
+const MAX_MODELS_PER_REQUEST = 5;
 
-// Model configuration with reasoning capabilities
+// Model configuration - all with reasoning capabilities
 const MODEL_CONFIG: Record<string, { 
-  provider: 'openai' | 'google', 
+  provider: 'openai' | 'google' | 'anthropic' | 'perplexity' | 'grok', 
   model: string,
   supportsReasoning: boolean 
 }> = {
-  'gpt-5': { provider: 'openai', model: 'gpt-5-2025-08-07', supportsReasoning: true },
-  'gpt-5-mini': { provider: 'openai', model: 'gpt-5-mini-2025-08-07', supportsReasoning: true },
-  'gpt-5-nano': { provider: 'openai', model: 'gpt-5-nano-2025-08-07', supportsReasoning: false },
-  'o3': { provider: 'openai', model: 'o3-2025-04-16', supportsReasoning: true },
-  'o4-mini': { provider: 'openai', model: 'o4-mini-2025-04-16', supportsReasoning: true },
-  'gemini-3-pro': { provider: 'google', model: 'gemini-3-pro-preview', supportsReasoning: true },
-  'gemini-3-flash': { provider: 'google', model: 'gemini-2.5-flash', supportsReasoning: false },
-  'gemini-3-thinking': { provider: 'google', model: 'gemini-3-pro-preview', supportsReasoning: true },
+  'chatgpt': { provider: 'openai', model: 'o3-2025-04-16', supportsReasoning: true },
+  'gemini': { provider: 'google', model: 'gemini-3-pro-preview', supportsReasoning: true },
+  'claude': { provider: 'anthropic', model: 'claude-sonnet-4-5', supportsReasoning: true },
+  'perplexity': { provider: 'perplexity', model: 'llama-3.1-sonar-large-128k-online', supportsReasoning: true },
+  'grok': { provider: 'grok', model: 'grok-2-1212', supportsReasoning: true },
   'gemini-flash-image': { provider: 'google', model: 'gemini-2.5-flash-image', supportsReasoning: false },
 };
 
