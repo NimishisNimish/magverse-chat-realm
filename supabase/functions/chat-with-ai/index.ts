@@ -80,19 +80,22 @@ const chatRequestSchema = z.object({
 });
 
 serve(async (req) => {
-  console.log('🚀 chat-with-ai function called');
-  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   const startTime = Date.now();
+  console.log('🚀 chat-with-ai function called at', new Date().toISOString());
 
   try {
-    console.log('📥 Parsing request body...');
     // Parse and validate request
     const requestBody = await req.json();
-    console.log('✅ Request body parsed, validating...');
+    console.log('📥 Request received:', { 
+      hasMessages: !!requestBody.messages,
+      hasSelectedModels: !!requestBody.selectedModels,
+      stream: requestBody.stream 
+    });
+    
     const validationResult = chatRequestSchema.safeParse(requestBody);
     
     if (!validationResult.success) {
@@ -507,23 +510,35 @@ serve(async (req) => {
             }
 
             if (!streamResponse || !streamResponse.ok) {
+              const errorText = await streamResponse?.text();
+              console.error(`❌ ${modelId} stream failed:`, streamResponse?.status, errorText);
               throw new Error(`Stream failed: ${streamResponse?.status}`);
             }
 
             const reader = streamResponse.body?.getReader();
+            if (!reader) {
+              throw new Error('No reader available from stream');
+            }
+            
             const decoder = new TextDecoder();
             let fullContent = '';
+            console.log(`📡 Starting stream for ${modelId}...`);
 
             while (true) {
-              const { done, value } = await reader!.read();
-              if (done) break;
+              const { done, value } = await reader.read();
+              if (done) {
+                console.log(`✅ ${modelId} stream complete`);
+                break;
+              }
 
-              const chunk = decoder.decode(value);
-              const lines = chunk.split('\n').filter(line => line.trim());
+              const chunk = decoder.decode(value, { stream: true });
+              const lines = chunk.split('\n');
 
               for (const line of lines) {
+                if (!line.trim() || line.startsWith(':')) continue;
+                
                 if (line.startsWith('data: ')) {
-                  const data = line.slice(6);
+                  const data = line.slice(6).trim();
                   if (data === '[DONE]') continue;
 
                   try {
@@ -541,7 +556,7 @@ serve(async (req) => {
                       sendEvent('token', { model: modelId, token, fullContent });
                     }
                   } catch (e) {
-                    console.error('Parse error:', e);
+                    console.error(`❌ ${modelId} parse error:`, e, 'Data:', data.substring(0, 100));
                   }
                 }
               }
@@ -1198,16 +1213,25 @@ serve(async (req) => {
     );
 
   } catch (error: any) {
-    console.error('❌ Unexpected error in chat-with-ai:', error);
-    console.error('Error stack:', error.stack);
-    console.error('Error details:', JSON.stringify(error, null, 2));
+    const elapsed = Date.now() - startTime;
+    console.error('❌ CRITICAL ERROR in chat-with-ai:');
+    console.error('Message:', error.message);
+    console.error('Stack:', error.stack);
+    console.error('Name:', error.name);
+    console.error('Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+    console.error(`Elapsed time: ${elapsed}ms`);
+    
     return new Response(
       JSON.stringify({ 
-        error: 'An unexpected error occurred', 
-        details: error.message,
-        stack: error.stack 
+        error: error.message || 'Internal server error',
+        type: error.name,
+        elapsed: `${elapsed}ms`,
+        timestamp: new Date().toISOString()
       }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
     );
   }
 });

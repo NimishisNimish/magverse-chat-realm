@@ -28,8 +28,12 @@ export class StreamingClient {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-with-ai`;
+      console.log('🔌 Connecting to:', url);
+      console.log('📤 Streaming request for model:', selectedModel);
+
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-with-ai`,
+        url,
         {
           method: 'POST',
           headers: {
@@ -46,8 +50,12 @@ export class StreamingClient {
         }
       );
 
+      console.log('📥 Response status:', response.status, response.statusText);
+
       if (!response.ok) {
-        throw new Error(`Stream failed: ${response.status}`);
+        const errorText = await response.text();
+        console.error('❌ Stream failed:', response.status, errorText);
+        throw new Error(`Stream failed: ${response.status} - ${errorText}`);
       }
 
       const reader = response.body?.getReader();
@@ -55,73 +63,50 @@ export class StreamingClient {
 
       if (!reader) throw new Error('No reader available');
 
-      let textBuffer = '';
+      let buffer = '';
+      let currentEvent = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        textBuffer += decoder.decode(value, { stream: true });
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        
+        // Keep the last incomplete line in buffer
+        buffer = lines.pop() || '';
 
-        // Process line-by-line
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
-
-          // Handle CRLF
-          if (line.endsWith('\r')) line = line.slice(0, -1);
-          
-          // Skip comments and empty lines
-          if (line.startsWith(':') || line.trim() === '') continue;
-          
-          // Parse SSE format
-          if (!line.startsWith('event: ')) continue;
-
-          const eventMatch = line.match(/event: (\w+)\ndata: (.+)/);
-          if (!eventMatch) continue;
-
-          const [, event, dataStr] = eventMatch;
-          
-          try {
-            const data = JSON.parse(dataStr);
-
-            if (event === 'token' && data.token) {
-              onToken(data.model, data.token, data.fullContent);
-            } else if (event === 'done') {
-              onDone(data.model, data.messageId);
-            } else if (event === 'error') {
-              onError(data.model, data.error);
-            }
-          } catch (e) {
-            console.error('SSE parse error:', e);
-          }
-        }
-      }
-
-      // Process any remaining buffer
-      if (textBuffer.trim()) {
-        const lines = textBuffer.split('\n');
         for (const line of lines) {
-          if (!line.trim() || line.startsWith(':')) continue;
-          if (!line.startsWith('event: ')) continue;
-
-          const eventMatch = line.match(/event: (\w+)\ndata: (.+)/);
-          if (!eventMatch) continue;
-
-          const [, event, dataStr] = eventMatch;
+          const trimmedLine = line.trim();
           
-          try {
-            const data = JSON.parse(dataStr);
-            if (event === 'token' && data.token) {
-              onToken(data.model, data.token, data.fullContent);
-            } else if (event === 'done') {
-              onDone(data.model, data.messageId);
-            } else if (event === 'error') {
-              onError(data.model, data.error);
+          // Skip empty lines and comments
+          if (!trimmedLine || trimmedLine.startsWith(':')) continue;
+
+          // Parse SSE - event and data are on separate lines
+          if (trimmedLine.startsWith('event:')) {
+            currentEvent = trimmedLine.substring(6).trim();
+          } else if (trimmedLine.startsWith('data:')) {
+            const dataStr = trimmedLine.substring(5).trim();
+            
+            if (dataStr === '[DONE]') {
+              continue;
             }
-          } catch (e) {
-            console.error('SSE parse error:', e);
+
+            try {
+              const data = JSON.parse(dataStr);
+
+              if (currentEvent === 'token' && data.token) {
+                onToken(data.model, data.token, data.fullContent);
+              } else if (currentEvent === 'done') {
+                onDone(data.model, data.messageId);
+              } else if (currentEvent === 'error') {
+                onError(data.model, data.error);
+              }
+            } catch (e) {
+              console.error('❌ SSE parse error:', e, 'Data:', dataStr);
+            }
+
+            currentEvent = '';
           }
         }
       }
