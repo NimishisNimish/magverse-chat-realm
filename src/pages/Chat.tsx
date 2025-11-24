@@ -163,6 +163,11 @@ const Chat = () => {
   const [generationStage, setGenerationStage] = useState("");
   const [takingLonger, setTakingLonger] = useState(false);
   const [showModels, setShowModels] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [analyzingDocument, setAnalyzingDocument] = useState(false);
+  const [extractedText, setExtractedText] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatHistoryList, setChatHistoryList] = useState<any[]>([]);
   const [modelSelectionOpen, setModelSelectionOpen] = useState(false);
@@ -664,20 +669,6 @@ const Chat = () => {
     }
   };
 
-  const handleToolSelect = (toolId: string) => {
-    if (toolId === 'create-image') {
-      setImageDialogOpen(true);
-    } else if (toolId === 'model-selection') {
-      setModelSelectionOpen(true);
-    } else if (toolId === 'document-analysis') {
-      setInput('Analyze this document: ');
-    } else if (toolId === 'web-search') {
-      setInput('Search the web for: ');
-    } else if (toolId === 'code-generation') {
-      setInput('Generate code for: ');
-    }
-  };
-
   const handleGenerateImage = async () => {
     if (!imagePrompt.trim() || !user) return;
     
@@ -754,6 +745,84 @@ const Chat = () => {
     }
   };
 
+  const handleToolSelect = (toolId: string) => {
+    if (toolId === 'create-image') {
+      setImageDialogOpen(true);
+    } else if (toolId === 'model-selection') {
+      setModelSelectionOpen(true);
+    } else if (toolId === 'document-analysis') {
+      setDocumentDialogOpen(true);
+    } else if (toolId === 'web-search') {
+      setInput('🔍 Search the web for: ');
+    } else if (toolId === 'code-generation') {
+      setInput('💻 Generate code for: ');
+    }
+  };
+
+  const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type === 'application/pdf') {
+      setDocumentFile(file);
+    } else {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload a PDF file",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAnalyzeDocument = async () => {
+    if (!documentFile || !user) return;
+
+    setAnalyzingDocument(true);
+    try {
+      // Upload PDF to Supabase storage
+      const fileExt = documentFile.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('chat-attachments')
+        .upload(filePath, documentFile);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('chat-attachments')
+        .getPublicUrl(filePath);
+
+      // Call edge function to extract text
+      const { data, error } = await supabase.functions.invoke('extract-pdf-text', {
+        body: { fileUrl: publicUrl }
+      });
+
+      if (error) throw error;
+
+      const text = data.text || "";
+      setExtractedText(text);
+      
+      // Add to chat
+      setInput(`📄 Analyze this document:\n\n${text.substring(0, 1000)}${text.length > 1000 ? '...' : ''}`);
+      setDocumentDialogOpen(false);
+      setDocumentFile(null);
+      
+      toast({
+        title: "Document processed",
+        description: "Text extracted successfully. You can now ask questions about it.",
+      });
+    } catch (error) {
+      console.error('Error analyzing document:', error);
+      toast({
+        title: "Analysis failed",
+        description: "Could not extract text from the document",
+        variant: "destructive",
+      });
+    } finally {
+      setAnalyzingDocument(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background">
       <Navbar />
@@ -762,40 +831,75 @@ const Chat = () => {
       {/* Chat History Sidebar */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <SheetContent side="left" className="w-80 p-0">
-          <SheetHeader className="p-6 pb-4">
+          <SheetHeader className="px-6 py-4 border-b">
             <SheetTitle>Chat History</SheetTitle>
             <SheetDescription>Your recent conversations</SheetDescription>
           </SheetHeader>
-          <ScrollArea className="h-[calc(100vh-120px)] px-6">
-            <div className="space-y-2">
-              {chatHistoryList.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  No chat history yet
-                </p>
+          
+          {/* Search Bar */}
+          <div className="px-6 py-3 border-b">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search conversations..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+          </div>
+
+          <ScrollArea className="h-[calc(100vh-180px)]">
+            <div className="px-4 py-2 space-y-1">
+              <Button
+                onClick={() => {
+                  setMessages([]);
+                  setChatId(null);
+                  setSidebarOpen(false);
+                }}
+                variant="ghost"
+                className="w-full justify-start gap-2 mb-2"
+              >
+                <MessageSquare className="h-4 w-4" />
+                New Chat
+              </Button>
+              
+              {chatHistoryList
+                .filter(chat => 
+                  !searchQuery || 
+                  chat.title?.toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .length === 0 ? (
+                <div className="text-center py-8 text-sm text-muted-foreground">
+                  {searchQuery ? 'No conversations found' : 'No chat history yet'}
+                </div>
               ) : (
-                chatHistoryList.map((chat) => (
-                  <Button
-                    key={chat.id}
-                    variant={chatId === chat.id ? "secondary" : "ghost"}
-                    className="w-full justify-start text-left h-auto py-3"
-                    onClick={() => {
-                      loadChatHistory(chat.id);
-                      setSidebarOpen(false);
-                    }}
-                  >
-                    <div className="flex flex-col items-start gap-1 w-full">
-                      <div className="flex items-center gap-2 w-full">
-                        <MessageSquare className="h-4 w-4 shrink-0" />
-                        <span className="truncate text-sm font-medium">
+                chatHistoryList
+                  .filter(chat => 
+                    !searchQuery || 
+                    chat.title?.toLowerCase().includes(searchQuery.toLowerCase())
+                  )
+                  .map((chat) => (
+                    <Button
+                      key={chat.id}
+                      variant={chatId === chat.id ? "secondary" : "ghost"}
+                      className="w-full justify-start text-left h-auto py-2 px-3"
+                      onClick={() => {
+                        loadChatHistory(chat.id);
+                        setSidebarOpen(false);
+                      }}
+                    >
+                      <div className="flex-1 truncate">
+                        <div className="text-sm font-medium truncate">
                           {chat.title || 'Untitled Chat'}
-                        </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(chat.updated_at).toLocaleDateString()}
+                        </div>
                       </div>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(chat.updated_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </Button>
-                ))
+                    </Button>
+                  ))
               )}
             </div>
           </ScrollArea>
@@ -1135,10 +1239,12 @@ const Chat = () => {
                       <Badge
                         key={model.id}
                         variant="secondary"
-                        className="h-6 px-2 gap-1 text-xs"
+                        className="h-6 px-2 gap-1 text-xs cursor-pointer hover:bg-secondary/80 transition-colors"
+                        onClick={() => handleModelToggle(model.id)}
                       >
                         <Icon className={`h-3 w-3 ${model.color}`} />
                         {model.name}
+                        <X className="h-3 w-3 ml-1" />
                       </Badge>
                     );
                   })}
@@ -1204,6 +1310,85 @@ const Chat = () => {
           <DialogFooter>
             <Button onClick={() => setModelSelectionOpen(false)}>
               Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document Analysis Dialog */}
+      <Dialog open={documentDialogOpen} onOpenChange={setDocumentDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>📄 Analyze Document</DialogTitle>
+            <DialogDescription>
+              Upload a PDF to extract and analyze its content
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="document-upload">PDF Document</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="document-upload"
+                  type="file"
+                  accept=".pdf"
+                  onChange={handleDocumentUpload}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => document.getElementById('document-upload')?.click()}
+                  className="w-full"
+                >
+                  <FileSearch className="h-4 w-4 mr-2" />
+                  {documentFile ? documentFile.name : 'Choose PDF file'}
+                </Button>
+              </div>
+              {documentFile && (
+                <p className="text-xs text-muted-foreground">
+                  Ready to analyze: {documentFile.name} ({(documentFile.size / 1024).toFixed(1)} KB)
+                </p>
+              )}
+            </div>
+
+            {analyzingDocument && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Extracting text from PDF...</span>
+                </div>
+                <Progress value={50} />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDocumentDialogOpen(false);
+                setDocumentFile(null);
+              }}
+              disabled={analyzingDocument}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAnalyzeDocument}
+              disabled={!documentFile || analyzingDocument}
+            >
+              {analyzingDocument ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <FileSearch className="h-4 w-4 mr-2" />
+                  Analyze
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
