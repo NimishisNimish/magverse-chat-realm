@@ -9,6 +9,7 @@ export const MODEL_PRICING = {
   'claude': { input: 3.00, output: 15.00, tier: 'premium' },
   'perplexity': { input: 1.00, output: 1.00, tier: 'standard' },
   'grok': { input: 5.00, output: 15.00, tier: 'premium' },
+  'bytez-qwen': { input: 0.10, output: 0.10, tier: 'budget' },
   'gemini-flash-image': { input: 0.10, output: 0.40, tier: 'standard' },
 } as const;
 

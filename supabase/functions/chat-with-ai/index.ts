@@ -14,11 +14,12 @@ const GOOGLE_AI_API_KEY = Deno.env.get('GOOGLE_AI_API_KEY');
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
 const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
 const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
+const BYTEZ_API_KEY = Deno.env.get('BYTEZ_API_KEY');
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-const VALID_MODELS = ['chatgpt', 'gemini', 'claude', 'perplexity', 'grok', 'gemini-flash-image'] as const;
+const VALID_MODELS = ['chatgpt', 'gemini', 'claude', 'perplexity', 'grok', 'bytez-qwen', 'gemini-flash-image'] as const;
 
 const STORAGE_BUCKET_URL = 'https://pqdgpxetysqcdcjwormb.supabase.co/storage/';
 const MAX_FILE_SIZE = 10_000_000; // 10MB
@@ -27,7 +28,7 @@ const MAX_MODELS_PER_REQUEST = 5;
 
 // Model configuration - all with reasoning capabilities
 const MODEL_CONFIG: Record<string, { 
-  provider: 'openai' | 'google' | 'openrouter' | 'perplexity' | 'groq', 
+  provider: 'openai' | 'google' | 'openrouter' | 'perplexity' | 'groq' | 'bytez', 
   model: string,
   supportsReasoning: boolean 
 }> = {
@@ -36,6 +37,7 @@ const MODEL_CONFIG: Record<string, {
   'claude': { provider: 'openrouter', model: 'anthropic/claude-sonnet-4-20250514', supportsReasoning: true },
   'perplexity': { provider: 'perplexity', model: 'llama-3.1-sonar-large-128k-online', supportsReasoning: true },
   'grok': { provider: 'groq', model: 'llama-3.3-70b-versatile', supportsReasoning: true },
+  'bytez-qwen': { provider: 'bytez', model: 'Qwen/Qwen2.5-7B-Instruct', supportsReasoning: true },
   'gemini-flash-image': { provider: 'google', model: 'gemini-2.5-flash-image', supportsReasoning: false },
 };
 
@@ -365,6 +367,16 @@ serve(async (req) => {
 
     console.log(`🚀 Processing ${selectedModels.length} model(s) directly...`);
 
+    // Add timeout wrapper for each model request (60 seconds per model)
+    const timeoutPromise = (promise: Promise<any>, timeout: number, modelId: string) => {
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error(`${modelId} request timeout after ${timeout}ms`)), timeout)
+        )
+      ]);
+    };
+
     // Process all models in parallel with direct API calls
     const modelPromises = selectedModels.map(async (modelId) => {
       const config = MODEL_CONFIG[modelId];
@@ -380,7 +392,8 @@ serve(async (req) => {
       const modelStartTime = Date.now();
       console.log(`📤 Calling ${modelId} (${config.model}) with ${config.supportsReasoning ? 'reasoning' : 'standard'} mode...`);
 
-      try {
+      const modelRequestPromise = (async () => {
+        try {
         let response;
         let content = '';
         let usage;
@@ -637,6 +650,71 @@ serve(async (req) => {
               }));
             }
           }
+        } else if (config.provider === 'bytez') {
+          // Bytez AI API call (small models)
+          let messagesToSend = processedMessages;
+          if (enableMultiStepReasoning && config.supportsReasoning) {
+            messagesToSend = [
+              { 
+                role: 'system', 
+                content: 'Think step by step and explain your reasoning before providing the final answer.' 
+              },
+              ...processedMessages
+            ];
+          }
+          
+          response = await fetch(`https://api.bytez.com/models/v2/openai-community/${encodeURIComponent(config.model)}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${BYTEZ_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              messages: messagesToSend.map(msg => ({
+                role: msg.role === 'system' ? 'system' : msg.role === 'assistant' ? 'assistant' : 'user',
+                content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
+              })),
+              stream: false,
+              params: {
+                max_tokens: 4096,
+                temperature: 0.7,
+              }
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ ${modelId} API error (${response.status}):`, errorText);
+            return {
+              success: false,
+              model: modelId,
+              response: response.status === 429 ? 'Rate limit exceeded' : 'API error occurred',
+              error: true
+            };
+          }
+
+          const data = await response.json();
+          content = data.output || 'No response';
+          
+          // Bytez doesn't provide token usage in the same format
+          usage = {
+            prompt_tokens: 0,
+            completion_tokens: 0,
+            total_tokens: 0
+          };
+          
+          // Parse reasoning steps if available
+          if (enableMultiStepReasoning && config.supportsReasoning) {
+            const stepMatches = content.matchAll(/(?:Step |)(\d+)[:\.\s]+([^\n]+)/gi);
+            const steps = Array.from(stepMatches);
+            if (steps.length > 0) {
+              reasoningSteps = steps.map(match => ({
+                step: parseInt(match[1]),
+                thought: match[2].trim(),
+                conclusion: ''
+              }));
+            }
+          }
         } else if (config.provider === 'perplexity') {
           // Perplexity API call with web search
           let messagesToSend = processedMessages;
@@ -749,7 +827,21 @@ serve(async (req) => {
         return {
           success: false,
           model: modelId,
-          response: 'Request failed',
+          response: error.message || 'Request failed',
+          error: true
+        };
+      }
+      })();
+
+      // Wrap with timeout (60 seconds per model)
+      try {
+        return await timeoutPromise(modelRequestPromise, 60000, modelId);
+      } catch (timeoutError: any) {
+        console.error(`⏱️ ${modelId} timeout:`, timeoutError.message);
+        return {
+          success: false,
+          model: modelId,
+          response: 'Request timeout - model took too long to respond',
           error: true
         };
       }
