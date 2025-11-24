@@ -5,7 +5,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import {
   Send, 
-  Paperclip, 
   Sparkles,
   Bot,
   Brain,
@@ -21,8 +20,9 @@ import {
   RefreshCw,
   Square,
   Download,
-  Maximize2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Plus,
+  Wrench
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
@@ -50,10 +50,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { motion, AnimatePresence } from "framer-motion";
 import { SmartPromptSuggestions } from "@/components/SmartPromptSuggestions";
 import { QuickActions, QuickActionType } from "@/components/QuickActions";
-import { AdvancedFeaturesPanel } from "@/components/AdvancedFeaturesPanel";
 
 const aiModels = [
   { id: "gpt-5-mini", name: "ChatGPT 5.1 Mini", icon: Sparkles, color: "text-purple-400", category: "fast" },
@@ -65,6 +74,15 @@ const aiModels = [
   { id: "claude", name: "Claude", icon: Bot, color: "text-orange-400", category: "reasoning" },
   { id: "perplexity", name: "Perplexity Sonar", icon: Globe, color: "text-green-400", category: "research" },
   { id: "grok", name: "Grok 4", icon: Zap, color: "text-cyan-400", category: "reasoning" },
+];
+
+const tools = [
+  { 
+    id: 'create-image', 
+    name: '✨ Create images', 
+    icon: ImageIcon,
+    action: 'image-generation' 
+  },
 ];
 
 interface Message {
@@ -95,8 +113,14 @@ const Chat = () => {
   const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
   const [searchParams] = useSearchParams();
   const [activeQuickAction, setActiveQuickAction] = useState<QuickActionType>(null);
-  const [advancedMode, setAdvancedMode] = useState<'fast' | 'reasoning' | null>(null);
-  const [upscalingMessageId, setUpscalingMessageId] = useState<string | null>(null);
+  const [imageDialogOpen, setImageDialogOpen] = useState(false);
+  const [imagePrompt, setImagePrompt] = useState("");
+  const [imageStyle, setImageStyle] = useState("realistic");
+  const [generating, setGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [generationStage, setGenerationStage] = useState("");
+  const [takingLonger, setTakingLonger] = useState(false);
+  const [showModels, setShowModels] = useState(true);
   const abortControllerRef = useRef<AbortController | null>(null);
   
   const { user, profile, refreshProfile } = useAuth();
@@ -364,13 +388,6 @@ const Chat = () => {
       }
     }
     
-    // Apply advanced mode (overrides quick action)
-    if (advancedMode === 'fast') {
-      modelsToUse = ['gemini-flash'];
-    } else if (advancedMode === 'reasoning') {
-      modelsToUse = ['gpt-5'];
-    }
-    
     // Ensure at least one model is selected
     if (modelsToUse.length === 0) {
       toast({
@@ -583,46 +600,85 @@ const Chat = () => {
     }
   };
 
-  const handleUpscaleImage = async (message: Message) => {
-    if (!message.attachmentUrl) return;
+  const handleToolSelect = (toolId: string) => {
+    if (toolId === 'create-image') {
+      setImageDialogOpen(true);
+    }
+  };
+
+  const handleGenerateImage = async () => {
+    if (!imagePrompt.trim() || !user) return;
     
-    setUpscalingMessageId(message.id);
-    
+    setGenerating(true);
+    setGenerationProgress(0);
+    setGenerationStage("Initializing...");
+    setTakingLonger(false);
+
+    const progressInterval = setInterval(() => {
+      setGenerationProgress(prev => {
+        if (prev >= 95) return prev;
+        return prev + 2;
+      });
+    }, 1000);
+
+    const longerTimeout = setTimeout(() => {
+      setTakingLonger(true);
+    }, 15000);
+
     try {
-      sonnerToast.loading("Upscaling image to 4K...", { id: 'upscale' });
+      setGenerationStage("Sending request to AI...");
       
-      const { data, error } = await supabase.functions.invoke('upscale-image', {
+      const enhancedPrompt = `Create a ${imageStyle} style image: ${imagePrompt}`;
+      
+      const { data, error } = await supabase.functions.invoke('chat-with-ai', {
         body: {
-          imageUrl: message.attachmentUrl,
-          scale: 4
+          messages: [
+            { role: 'user', content: enhancedPrompt }
+          ],
+          selectedModels: ['gemini-flash-image'],
+          generateImage: true,
         }
       });
-      
+
       if (error) throw error;
-      
-      if (data?.upscaledImage) {
-        // Add upscaled image as a new message
-        const newMessage: Message = {
-          id: `upscaled-${Date.now()}`,
-          role: 'assistant',
-          content: '🎨 Here is your 4K upscaled image:',
-          attachmentUrl: data.upscaledImage,
-          attachmentType: 'image',
-          attachmentFileName: 'upscaled-4k.png',
-          timestamp: new Date(),
-        };
-        
-        setMessages(prev => [...prev, newMessage]);
-        
-        sonnerToast.success("Image upscaled to 4K!", { id: 'upscale' });
-      } else {
-        throw new Error('No upscaled image returned');
+
+      setGenerationStage("Processing response...");
+      setGenerationProgress(90);
+
+      const imageUrl = data.responses?.[0]?.imageUrl || data.imageUrl;
+
+      if (!imageUrl) {
+        throw new Error('No image URL returned from the server');
       }
+
+      setGenerationProgress(100);
+      
+      const newMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: `✨ Generated image: ${imagePrompt}`,
+        timestamp: new Date(),
+        attachmentUrl: imageUrl,
+        attachmentType: 'image',
+      };
+
+      setMessages(prev => [...prev, newMessage]);
+      
+      sonnerToast.success("Image generated successfully!");
+      setImageDialogOpen(false);
+      setImagePrompt("");
+      setImageStyle("realistic");
+      
     } catch (error: any) {
-      console.error('Upscaling error:', error);
-      sonnerToast.error(error.message || "Failed to upscale image", { id: 'upscale' });
+      console.error('Image generation error:', error);
+      sonnerToast.error(error.message || "Failed to generate image");
     } finally {
-      setUpscalingMessageId(null);
+      clearInterval(progressInterval);
+      clearTimeout(longerTimeout);
+      setGenerating(false);
+      setGenerationProgress(0);
+      setGenerationStage("");
+      setTakingLonger(false);
     }
   };
 
@@ -743,25 +799,6 @@ const Chat = () => {
 
                         {message.role === 'assistant' && (
                           <div className="flex items-center gap-1 mt-2">
-                            {/* Upscale button for images */}
-                            {message.attachmentUrl && message.attachmentType === 'image' && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleUpscaleImage(message)}
-                                disabled={loading || upscalingMessageId === message.id}
-                                className="h-7 px-2"
-                                title="Upscale to 4K"
-                              >
-                                {upscalingMessageId === message.id ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <Maximize2 className="h-3 w-3" />
-                                )}
-                                <span className="ml-1 text-xs">4K</span>
-                              </Button>
-                            )}
-                            
                             {/* Download button for images */}
                             {message.attachmentUrl && message.attachmentType === 'image' && (
                               <Button
@@ -849,8 +886,8 @@ const Chat = () => {
           />
 
           {/* Fixed Input Area at Bottom */}
-          <div className="border-t border-border/40 bg-background/80 backdrop-blur-sm">
-            <div className="px-6 py-4">
+          <div className="border-t border-border/40 bg-background">
+            <div className="px-6 py-3">
               {/* File Preview */}
               {attachmentUrl && (
                 <div className="mb-3">
@@ -870,119 +907,135 @@ const Chat = () => {
                 </div>
               )}
 
-              {/* Input Box */}
-              <div className="flex flex-col gap-3">
-                <div className="flex items-end gap-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.txt,.md"
-                  />
-                  
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading || loading}
-                    className="shrink-0"
-                  >
-                    {uploading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Paperclip className="h-4 w-4" />
-                    )}
-                  </Button>
-
-                  <div className="flex-1 relative">
-                    <Textarea
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={handleKeyPress}
-                      placeholder="Type your message..."
-                      className="min-h-[52px] max-h-[200px] resize-none pr-12 rounded-xl"
-                      disabled={loading}
-                    />
-                  </div>
-
-                  {loading ? (
-                    <Button
-                      onClick={handleStop}
-                      size="icon"
-                      variant="destructive"
-                      className="shrink-0 rounded-xl"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={() => handleSend()}
-                      disabled={(!input.trim() && !attachmentUrl)}
-                      size="icon"
-                      className="shrink-0 rounded-xl"
-                    >
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-
-                {/* Model Selector */}
-                {/* Image Generation Mode Indicator */}
-                {activeQuickAction === 'image' && (
-                  <div className="mb-2 px-3 py-2 bg-accent/10 border border-accent/30 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <ImageIcon className="w-4 h-4 text-accent" />
-                      <span className="text-sm font-medium text-accent">Image Generation Mode Active</span>
-                      <Badge variant="secondary" className="text-xs">Using Gemini 3 Flash</Badge>
-                    </div>
-                  </div>
-                )}
+              {/* Main Input Row */}
+              <div className="flex items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.txt,.md"
+                />
                 
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-muted-foreground">Models:</span>
-                  {aiModels
-                    .filter(model => {
-                      // Filter based on quick action
-                      if (activeQuickAction === 'image') return model.id === 'gemini-flash'; // Only show Gemini Flash for image generation
-                      if (activeQuickAction === 'fast') return model.category === 'fast';
-                      if (activeQuickAction === 'reasoning') return model.category === 'reasoning';
-                      if (activeQuickAction === 'research') return model.category === 'research';
-                      return true; // Show all if no quick action selected
-                    })
-                    .map((model) => {
-                      const Icon = model.icon;
-                      const isSelected = selectedModels.includes(model.id);
+                {/* Plus Button for File Upload */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading || loading}
+                  className="shrink-0 rounded-full h-10 w-10"
+                  title="Add files"
+                >
+                  {uploading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Plus className="h-5 w-5" />
+                  )}
+                </Button>
+
+                {/* Tools Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className="gap-2 h-10 px-3 rounded-full"
+                    >
+                      <Wrench className="h-4 w-4" />
+                      <span className="text-sm">Tools</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56">
+                    {tools.map(tool => {
+                      const Icon = tool.icon;
                       return (
-                        <Button
-                          key={model.id}
-                          variant={isSelected ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handleModelToggle(model.id)}
-                          className="h-7 px-3 gap-1.5"
+                        <DropdownMenuItem 
+                          key={tool.id}
+                          onClick={() => handleToolSelect(tool.id)}
+                          className="gap-2 cursor-pointer"
                         >
-                          <Icon className={`h-3 w-3 ${isSelected ? '' : model.color}`} />
-                          <span className="text-xs">{model.name}</span>
-                        </Button>
+                          <Icon className="h-4 w-4" />
+                          <span>{tool.name}</span>
+                        </DropdownMenuItem>
                       );
                     })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Input Field */}
+                <div className="flex-1">
+                  <Textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    placeholder="Ask AI..."
+                    className="min-h-[44px] max-h-[200px] resize-none rounded-full px-4 border-border/40"
+                    disabled={loading}
+                  />
                 </div>
 
-                {/* Advanced Features Panel - Below Models */}
-                <AdvancedFeaturesPanel 
-                  onImageGenerated={(imageUrl) => {
-                    setMessages(prev => [...prev, {
-                      id: Date.now().toString(),
-                      role: 'assistant',
-                      content: 'Image generated successfully!',
-                      timestamp: new Date(),
-                      attachmentUrl: imageUrl,
-                      attachmentType: 'image',
-                    }]);
-                  }}
-                  onModeChange={(mode) => setAdvancedMode(mode)}
-                />
+                {/* Send/Stop Button */}
+                {loading ? (
+                  <Button
+                    onClick={handleStop}
+                    size="icon"
+                    variant="ghost"
+                    className="shrink-0 rounded-full h-10 w-10"
+                  >
+                    <Square className="h-5 w-5" />
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => handleSend()}
+                    disabled={!input.trim() && !attachmentUrl}
+                    size="icon"
+                    className="shrink-0 rounded-full h-10 w-10"
+                  >
+                    <Send className="h-5 w-5" />
+                  </Button>
+                )}
               </div>
+
+              {/* Collapsible Model Selector */}
+              {selectedModels.length > 0 && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {selectedModels.length} model{selectedModels.length > 1 ? 's' : ''} selected
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowModels(!showModels)}
+                    className="h-6 px-2 text-xs"
+                  >
+                    {showModels ? 'Hide' : 'Show'}
+                  </Button>
+                </div>
+              )}
+
+              {/* Model chips - conditionally shown */}
+              {showModels && selectedModels.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {aiModels.map(model => {
+                    const Icon = model.icon;
+                    const isSelected = selectedModels.includes(model.id);
+                    if (!isSelected) return null;
+                    return (
+                      <Button
+                        key={model.id}
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleModelToggle(model.id)}
+                        className="h-7 px-2 gap-1.5"
+                      >
+                        <Icon className={`h-3 w-3 ${model.color}`} />
+                        <span className="text-xs">{model.name}</span>
+                        <X className="h-3 w-3 ml-1" />
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -992,11 +1045,93 @@ const Chat = () => {
       {isDragging && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="text-center">
-            <Paperclip className="h-12 w-12 mx-auto mb-4 text-primary" />
+            <Plus className="h-12 w-12 mx-auto mb-4 text-primary" />
             <p className="text-lg font-medium">Drop your file here</p>
           </div>
         </div>
       )}
+
+      {/* Image Generation Dialog */}
+      <Dialog open={imageDialogOpen} onOpenChange={setImageDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>✨ Create Image</DialogTitle>
+            <DialogDescription>
+              Describe the image you want to generate
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="image-prompt">Prompt</Label>
+              <Textarea
+                id="image-prompt"
+                value={imagePrompt}
+                onChange={(e) => setImagePrompt(e.target.value)}
+                placeholder="A beautiful sunset over mountains..."
+                className="min-h-[100px]"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="image-style">Style</Label>
+              <Select value={imageStyle} onValueChange={setImageStyle}>
+                <SelectTrigger id="image-style">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="realistic">Realistic</SelectItem>
+                  <SelectItem value="minimalist">Minimalist</SelectItem>
+                  <SelectItem value="watercolor">Watercolor</SelectItem>
+                  <SelectItem value="oil-painting">Oil Painting</SelectItem>
+                  <SelectItem value="sketch">Pencil Sketch</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {generating && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{generationStage}</span>
+                  <span>{generationProgress.toFixed(0)}%</span>
+                </div>
+                <Progress value={generationProgress} />
+                {takingLonger && generationProgress >= 90 && (
+                  <p className="text-xs text-yellow-500">
+                    ⏳ This is taking longer than usual...
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setImageDialogOpen(false)}
+              disabled={generating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleGenerateImage}
+              disabled={!imagePrompt.trim() || generating}
+            >
+              {generating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Generate
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
