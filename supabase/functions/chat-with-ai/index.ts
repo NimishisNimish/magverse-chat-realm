@@ -637,6 +637,71 @@ serve(async (req) => {
               }));
             }
           }
+        } else if (config.provider === 'perplexity') {
+          // Perplexity API call with web search
+          let messagesToSend = processedMessages;
+          if (enableMultiStepReasoning && config.supportsReasoning) {
+            messagesToSend = [
+              { 
+                role: 'system', 
+                content: 'You have access to real-time web search. Break down your research process step by step, cite sources, and provide up-to-date information.' 
+              },
+              ...processedMessages
+            ];
+          }
+          
+          response = await fetch('https://api.perplexity.ai/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: config.model,
+              messages: messagesToSend,
+              temperature: 0.2,
+              top_p: 0.9,
+              max_tokens: 4096,
+              return_images: false,
+              return_related_questions: false,
+              search_recency_filter: 'month',
+              frequency_penalty: 1,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ ${modelId} API error (${response.status}):`, errorText);
+            return {
+              success: false,
+              model: modelId,
+              response: response.status === 429 ? 'Rate limit exceeded' : 'API error occurred',
+              error: true
+            };
+          }
+
+          const data = await response.json();
+          content = data.choices?.[0]?.message?.content || 'No response';
+          usage = data.usage;
+          
+          // Include citations if available
+          if (data.citations && data.citations.length > 0) {
+            const citations = data.citations.map((c: string, i: number) => `[${i + 1}] ${c}`).join('\n');
+            thinkingProcess = `Sources:\n${citations}`;
+          }
+          
+          // Parse reasoning steps if available
+          if (enableMultiStepReasoning && config.supportsReasoning) {
+            const stepMatches = content.matchAll(/(?:Step |)(\d+)[:\.\s]+([^\n]+)/gi);
+            const steps = Array.from(stepMatches);
+            if (steps.length > 0) {
+              reasoningSteps = steps.map(match => ({
+                step: parseInt(match[1]),
+                thought: match[2].trim(),
+                conclusion: ''
+              }));
+            }
+          }
         }
 
         const responseTime = Date.now() - modelStartTime;
