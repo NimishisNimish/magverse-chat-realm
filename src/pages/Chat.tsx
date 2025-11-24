@@ -852,7 +852,6 @@ const Chat = () => {
       }
 
       try {
-      // Build messages array for the API
       const messagesForApi = [
         ...messages.map(m => ({
           role: m.role,
@@ -864,21 +863,21 @@ const Chat = () => {
         }
       ];
       
-      console.log('🚀 Sending message to AI...', { 
+      console.log('🚀 Sending message:', { 
         models: modelsToUse, 
         messageCount: messagesForApi.length,
-        streaming: modelsToUse.length === 1 
+        streaming: modelsToUse.length === 1,
+        timestamp: new Date().toISOString()
       });
 
-      // Track request start time for metrics
       const startTime = Date.now();
 
       // Use streaming for single model requests
       if (modelsToUse.length === 1) {
-        console.log('📡 Using streaming mode for', modelsToUse[0]);
+        console.log('📡 Starting streaming for', modelsToUse[0]);
         const streamingClient = new (await import('@/utils/streamingClient')).StreamingClient();
         
-        let streamingMessageId: string | null = null;
+        let hasReceivedToken = false;
         const streamingMessage: Message = {
           id: `streaming-${Date.now()}`,
           role: "assistant",
@@ -896,6 +895,10 @@ const Chat = () => {
             modelsToUse[0],
             chatId,
             (model, token, fullContent) => {
+              if (!hasReceivedToken) {
+                console.log('✅ First token received from', model);
+                hasReceivedToken = true;
+              }
               setMessages(prev => 
                 prev.map(msg => 
                   msg.id === streamingMessage.id
@@ -905,7 +908,7 @@ const Chat = () => {
               );
             },
             (model, messageId) => {
-              streamingMessageId = messageId;
+              console.log('✅ Stream complete for', model, 'messageId:', messageId);
               setMessages(prev => 
                 prev.map(msg => 
                   msg.id === streamingMessage.id
@@ -915,12 +918,14 @@ const Chat = () => {
               );
             },
             (model, error) => {
-              console.error('Streaming error:', error);
+              console.error('❌ Stream error:', model, error);
               throw new Error(error);
             }
           );
 
-          console.log('✅ Streaming complete');
+          const elapsed = Date.now() - startTime;
+          console.log(`✅ Streaming complete in ${elapsed}ms`);
+          
           await refreshProfile();
           setRetryAttempt(0);
           
@@ -930,9 +935,11 @@ const Chat = () => {
           
           break;
         } catch (streamError: any) {
-          console.error('❌ Streaming failed:', streamError);
-          // Fall back to non-streaming
+          console.error('❌ Streaming failed after', Date.now() - startTime, 'ms:', streamError.message);
           console.log('⚠️ Falling back to non-streaming mode');
+          
+          // Remove the failed streaming message
+          setMessages(prev => prev.filter(msg => msg.id !== streamingMessage.id));
         }
       }
 
