@@ -3,24 +3,20 @@
  * Prices are estimates and may vary
  */
 export const MODEL_PRICING = {
-  // Google Gemini models
-  'gemini-flash': { input: 0.075, output: 0.30, tier: 'budget' },
-  'gemini-lite': { input: 0.05, output: 0.15, tier: 'budget' },
-  'gemini-pro': { input: 1.25, output: 5.00, tier: 'premium' },
-  
-  // OpenAI GPT models
+  // OpenAI GPT-5 models
   'gpt-5-nano': { input: 0.15, output: 0.60, tier: 'budget' },
   'gpt-5-mini': { input: 0.30, output: 1.20, tier: 'standard' },
   'gpt-5': { input: 2.50, output: 10.00, tier: 'premium' },
   
-  // Anthropic Claude
-  'claude': { input: 3.00, output: 15.00, tier: 'premium' },
+  // OpenAI reasoning models
+  'o3': { input: 15.00, output: 60.00, tier: 'premium' },
+  'o4-mini': { input: 3.00, output: 12.00, tier: 'premium' },
   
-  // Perplexity
-  'perplexity': { input: 1.00, output: 1.00, tier: 'standard' },
-  
-  // Grok
-  'grok': { input: 2.00, output: 8.00, tier: 'premium' },
+  // Google Gemini 3 models
+  'gemini-3-flash': { input: 0.075, output: 0.30, tier: 'budget' },
+  'gemini-3-pro': { input: 1.25, output: 5.00, tier: 'premium' },
+  'gemini-3-thinking': { input: 2.00, output: 8.00, tier: 'premium' },
+  'gemini-flash-image': { input: 0.10, output: 0.40, tier: 'standard' },
 } as const;
 
 /**

@@ -8,37 +8,36 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Lovable AI Gateway configuration
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-const LOVABLE_AI_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+// API Keys
+const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+const GOOGLE_AI_API_KEY = Deno.env.get('GOOGLE_AI_API_KEY');
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-const VALID_MODELS = ['chatgpt', 'gemini', 'perplexity', 'deepseek', 'claude', 'llama', 'grok', 
-  'gemini-flash', 'gemini-lite', 'gemini-pro', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gemini-flash-image'] as const;
+const VALID_MODELS = ['gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'o3', 'o4-mini', 
+  'gemini-3-pro', 'gemini-3-flash', 'gemini-3-thinking', 'gemini-flash-image'] as const;
 
 const STORAGE_BUCKET_URL = 'https://pqdgpxetysqcdcjwormb.supabase.co/storage/';
 const MAX_FILE_SIZE = 10_000_000; // 10MB
 const MAX_MESSAGE_LENGTH = 10000;
 const MAX_MODELS_PER_REQUEST = 3;
 
-// Model mapping from frontend IDs to Lovable AI models
-const MODEL_MAPPING: Record<string, string> = {
-  'chatgpt': 'openai/gpt-5-mini',
-  'gpt-5': 'openai/gpt-5',
-  'gpt-5-mini': 'openai/gpt-5-mini',
-  'gpt-5-nano': 'openai/gpt-5-nano',
-  'gemini': 'google/gemini-2.5-flash',
-  'gemini-flash': 'google/gemini-2.5-flash',
-  'gemini-lite': 'google/gemini-2.5-flash-lite',
-  'gemini-pro': 'google/gemini-2.5-pro',
-  'gemini-flash-image': 'google/gemini-2.5-flash-image',
-  'claude': 'google/gemini-2.5-pro', // Fallback to Gemini Pro
-  'perplexity': 'google/gemini-2.5-flash', // Fallback to Gemini Flash
-  'grok': 'openai/gpt-5', // Fallback to GPT-5
-  'llama': 'google/gemini-2.5-flash', // Fallback to Gemini Flash
-  'deepseek': 'google/gemini-2.5-flash', // Fallback to Gemini Flash
+// Model configuration with reasoning capabilities
+const MODEL_CONFIG: Record<string, { 
+  provider: 'openai' | 'google', 
+  model: string,
+  supportsReasoning: boolean 
+}> = {
+  'gpt-5': { provider: 'openai', model: 'gpt-5-2025-08-07', supportsReasoning: true },
+  'gpt-5-mini': { provider: 'openai', model: 'gpt-5-mini-2025-08-07', supportsReasoning: true },
+  'gpt-5-nano': { provider: 'openai', model: 'gpt-5-nano-2025-08-07', supportsReasoning: false },
+  'o3': { provider: 'openai', model: 'o3-2025-04-16', supportsReasoning: true },
+  'o4-mini': { provider: 'openai', model: 'o4-mini-2025-04-16', supportsReasoning: true },
+  'gemini-3-pro': { provider: 'google', model: 'gemini-3-pro-preview', supportsReasoning: true },
+  'gemini-3-flash': { provider: 'google', model: 'gemini-2.5-flash', supportsReasoning: false },
+  'gemini-3-thinking': { provider: 'google', model: 'gemini-3-pro-preview', supportsReasoning: true },
+  'gemini-flash-image': { provider: 'google', model: 'gemini-2.5-flash-image', supportsReasoning: false },
 };
 
 // Validation schema
@@ -309,40 +308,29 @@ serve(async (req) => {
     // Handle image generation requests
     if (isImageGeneration) {
       console.log('🎨 Processing image generation request...');
-      const imageModel = 'google/gemini-2.5-flash-image';
       
       try {
-        const response = await fetch(LOVABLE_AI_URL, {
+        const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
             'Content-Type': 'application/json',
+            'x-goog-api-key': GOOGLE_AI_API_KEY!,
           },
           body: JSON.stringify({
-            model: imageModel,
-            messages: processedMessages,
-            modalities: ["image", "text"],
+            contents: processedMessages.map(msg => ({
+              role: msg.role === 'assistant' ? 'model' : 'user',
+              parts: [{ text: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content) }]
+            })),
+            generationConfig: {
+              temperature: 0.9,
+              maxOutputTokens: 2048,
+            }
           }),
         });
 
         if (!response.ok) {
           const errorText = await response.text();
           console.error(`❌ Image generation error (${response.status}):`, errorText);
-          
-          if (response.status === 429) {
-            return new Response(
-              JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
-              { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
-          
-          if (response.status === 402) {
-            return new Response(
-              JSON.stringify({ error: 'Payment required. Please add credits to your Lovable workspace.' }),
-              { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
-          
           return new Response(
             JSON.stringify({ error: 'Image generation failed' }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -350,7 +338,7 @@ serve(async (req) => {
         }
 
         const data = await response.json();
-        const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        const imageUrl = data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
         
         if (!imageUrl) {
           return new Response(
@@ -362,7 +350,7 @@ serve(async (req) => {
         console.log('✅ Image generated successfully');
         
         return new Response(
-          JSON.stringify({ success: true, image: imageUrl }),
+          JSON.stringify({ success: true, image: `data:image/png;base64,${imageUrl}` }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (error: any) {
@@ -374,66 +362,120 @@ serve(async (req) => {
       }
     }
 
-    console.log(`🚀 Processing ${selectedModels.length} model(s) via Lovable AI...`);
+    console.log(`🚀 Processing ${selectedModels.length} model(s) directly...`);
 
-    // Process all models in parallel using Lovable AI
+    // Process all models in parallel with direct API calls
     const modelPromises = selectedModels.map(async (modelId) => {
-      const lovableModel = MODEL_MAPPING[modelId] || 'google/gemini-2.5-flash';
-      const modelStartTime = Date.now();
+      const config = MODEL_CONFIG[modelId];
+      if (!config) {
+        return {
+          success: false,
+          model: modelId,
+          response: 'Model not supported',
+          error: true
+        };
+      }
 
-      console.log(`📤 Calling ${modelId} (${lovableModel})...`);
+      const modelStartTime = Date.now();
+      console.log(`📤 Calling ${modelId} (${config.model}) with ${config.supportsReasoning ? 'reasoning' : 'standard'} mode...`);
 
       try {
-        const response = await fetch(LOVABLE_AI_URL, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: lovableModel,
-            messages: processedMessages,
-            temperature: 0.7,
-            max_tokens: 2048,
-          }),
-        });
+        let response;
+        let content = '';
+        let usage;
 
-        const responseTime = Date.now() - modelStartTime;
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`❌ ${modelId} API error (${response.status}):`, errorText);
+        if (config.provider === 'openai') {
+          // OpenAI API call
+          const isReasoningModel = modelId === 'o3' || modelId === 'o4-mini';
           
-          if (response.status === 429) {
+          response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${OPENAI_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: config.model,
+              messages: processedMessages,
+              max_completion_tokens: 4096,
+              // Note: reasoning models don't support temperature parameter
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ ${modelId} API error (${response.status}):`, errorText);
             return {
               success: false,
               model: modelId,
-              response: 'Rate limit exceeded. Please try again in a moment.',
+              response: response.status === 429 ? 'Rate limit exceeded' : 'API error occurred',
               error: true
             };
           }
-          
-          if (response.status === 402) {
+
+          const data = await response.json();
+          content = data.choices?.[0]?.message?.content || 'No response';
+          usage = data.usage;
+
+          // For reasoning models, include thinking process if available
+          if (isReasoningModel && data.choices?.[0]?.message?.reasoning_content) {
+            content = `**Thinking Process:**\n\n${data.choices[0].message.reasoning_content}\n\n**Response:**\n\n${content}`;
+          }
+
+        } else if (config.provider === 'google') {
+          // Google AI API call
+          const geminiMessages = processedMessages.map(msg => ({
+            role: msg.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content) }]
+          }));
+
+          response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': GOOGLE_AI_API_KEY!,
+            },
+            body: JSON.stringify({
+              contents: geminiMessages,
+              generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 4096,
+                ...(config.supportsReasoning && { thinkingConfig: { enabled: true } })
+              }
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ ${modelId} API error (${response.status}):`, errorText);
             return {
               success: false,
               model: modelId,
-              response: 'Payment required. Please add credits to your Lovable workspace.',
+              response: response.status === 429 ? 'Rate limit exceeded' : 'API error occurred',
               error: true
             };
           }
+
+          const data = await response.json();
+          const candidate = data.candidates?.[0];
+          content = candidate?.content?.parts?.[0]?.text || 'No response';
           
-          return {
-            success: false,
-            model: modelId,
-            response: 'API error occurred',
-            error: true
+          // Include thinking process if available
+          if (config.supportsReasoning && candidate?.content?.thinkingSteps) {
+            const thinkingSteps = candidate.content.thinkingSteps.map((step: any, i: number) => 
+              `${i + 1}. ${step.thought}`
+            ).join('\n');
+            content = `**Thinking Process:**\n\n${thinkingSteps}\n\n**Response:**\n\n${content}`;
+          }
+
+          usage = {
+            prompt_tokens: data.usageMetadata?.promptTokenCount || 0,
+            completion_tokens: data.usageMetadata?.candidatesTokenCount || 0,
+            total_tokens: data.usageMetadata?.totalTokenCount || 0
           };
         }
 
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content || 'No response';
-        const usage = data.usage;
-
+        const responseTime = Date.now() - modelStartTime;
         console.log(`✅ ${modelId} responded in ${responseTime}ms`);
 
         // Save assistant response
