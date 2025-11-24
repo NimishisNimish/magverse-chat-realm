@@ -22,7 +22,12 @@ import {
   Download,
   Image as ImageIcon,
   Plus,
-  Wrench
+  Wrench,
+  Menu,
+  FileSearch,
+  Search,
+  Code,
+  Settings
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
@@ -58,6 +63,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { motion, AnimatePresence } from "framer-motion";
@@ -81,7 +94,36 @@ const tools = [
     id: 'create-image', 
     name: '✨ Create images', 
     icon: ImageIcon,
-    action: 'image-generation' 
+    action: 'image-generation',
+    description: 'Generate AI images from text descriptions'
+  },
+  { 
+    id: 'document-analysis', 
+    name: '📄 Document analysis', 
+    icon: FileSearch,
+    action: 'document-analysis',
+    description: 'Analyze and extract insights from documents'
+  },
+  { 
+    id: 'web-search', 
+    name: '🔍 Web search', 
+    icon: Search,
+    action: 'web-search',
+    description: 'Search the web for real-time information'
+  },
+  { 
+    id: 'code-generation', 
+    name: '💻 Code generation', 
+    icon: Code,
+    action: 'code-generation',
+    description: 'Generate and explain code snippets'
+  },
+  { 
+    id: 'model-selection', 
+    name: '⚙️ Select AI models', 
+    icon: Settings,
+    action: 'model-selection',
+    description: 'Choose which AI models to use'
   },
 ];
 
@@ -120,7 +162,10 @@ const Chat = () => {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStage, setGenerationStage] = useState("");
   const [takingLonger, setTakingLonger] = useState(false);
-  const [showModels, setShowModels] = useState(true);
+  const [showModels, setShowModels] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [chatHistoryList, setChatHistoryList] = useState<any[]>([]);
+  const [modelSelectionOpen, setModelSelectionOpen] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   
   const { user, profile, refreshProfile } = useAuth();
@@ -136,8 +181,27 @@ const Chat = () => {
   useEffect(() => {
     if (user) {
       refreshProfile();
+      loadChatHistoryList();
     }
   }, [user, refreshProfile]);
+
+  const loadChatHistoryList = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('chat_history')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      setChatHistoryList(data || []);
+    } catch (error) {
+      console.error('Error loading chat history list:', error);
+    }
+  };
 
   useEffect(() => {
     const chatIdFromUrl = searchParams.get('chatId');
@@ -603,6 +667,14 @@ const Chat = () => {
   const handleToolSelect = (toolId: string) => {
     if (toolId === 'create-image') {
       setImageDialogOpen(true);
+    } else if (toolId === 'model-selection') {
+      setModelSelectionOpen(true);
+    } else if (toolId === 'document-analysis') {
+      setInput('Analyze this document: ');
+    } else if (toolId === 'web-search') {
+      setInput('Search the web for: ');
+    } else if (toolId === 'code-generation') {
+      setInput('Generate code for: ');
     }
   };
 
@@ -687,6 +759,49 @@ const Chat = () => {
       <Navbar />
       <BudgetAlertDialog open={budgetDialogOpen} onOpenChange={setBudgetDialogOpen} />
       
+      {/* Chat History Sidebar */}
+      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <SheetContent side="left" className="w-80 p-0">
+          <SheetHeader className="p-6 pb-4">
+            <SheetTitle>Chat History</SheetTitle>
+            <SheetDescription>Your recent conversations</SheetDescription>
+          </SheetHeader>
+          <ScrollArea className="h-[calc(100vh-120px)] px-6">
+            <div className="space-y-2">
+              {chatHistoryList.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  No chat history yet
+                </p>
+              ) : (
+                chatHistoryList.map((chat) => (
+                  <Button
+                    key={chat.id}
+                    variant={chatId === chat.id ? "secondary" : "ghost"}
+                    className="w-full justify-start text-left h-auto py-3"
+                    onClick={() => {
+                      loadChatHistory(chat.id);
+                      setSidebarOpen(false);
+                    }}
+                  >
+                    <div className="flex flex-col items-start gap-1 w-full">
+                      <div className="flex items-center gap-2 w-full">
+                        <MessageSquare className="h-4 w-4 shrink-0" />
+                        <span className="truncate text-sm font-medium">
+                          {chat.title || 'Untitled Chat'}
+                        </span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(chat.updated_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </Button>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
+
       {/* Main Chat Area - Centered */}
       <div 
         className="flex-1 flex flex-col items-center overflow-hidden"
@@ -695,11 +810,21 @@ const Chat = () => {
         onDragLeave={handleDragLeave}
       >
         <div className="w-full max-w-4xl flex flex-col h-full">
-          {/* Header - Minimal */}
+          {/* Header - Minimal with Hamburger Menu */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-border/40">
             <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSidebarOpen(true)}
+                className="shrink-0 h-9 w-9"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
               <MessageSquare className="h-5 w-5 text-primary" />
-              <h1 className="text-lg font-semibold">Chat</h1>
+              <h1 className="text-lg font-semibold">
+                {chatId ? 'Continue conversation' : 'New conversation'}
+              </h1>
             </div>
             <div className="flex items-center gap-2">
               <CustomInstructionsButton />
@@ -945,17 +1070,20 @@ const Chat = () => {
                       <span className="text-sm">Tools</span>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-56">
+                   <DropdownMenuContent align="start" className="w-64">
                     {tools.map(tool => {
                       const Icon = tool.icon;
                       return (
                         <DropdownMenuItem 
                           key={tool.id}
                           onClick={() => handleToolSelect(tool.id)}
-                          className="gap-2 cursor-pointer"
+                          className="gap-3 cursor-pointer py-3"
                         >
-                          <Icon className="h-4 w-4" />
-                          <span>{tool.name}</span>
+                          <Icon className="h-4 w-4 shrink-0" />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">{tool.name}</span>
+                            <span className="text-xs text-muted-foreground">{tool.description}</span>
+                          </div>
                         </DropdownMenuItem>
                       );
                     })}
@@ -996,42 +1124,22 @@ const Chat = () => {
                 )}
               </div>
 
-              {/* Collapsible Model Selector */}
+              {/* Selected Models Display */}
               {selectedModels.length > 0 && (
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">
-                    {selectedModels.length} model{selectedModels.length > 1 ? 's' : ''} selected
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowModels(!showModels)}
-                    className="h-6 px-2 text-xs"
-                  >
-                    {showModels ? 'Hide' : 'Show'}
-                  </Button>
-                </div>
-              )}
-
-              {/* Model chips - conditionally shown */}
-              {showModels && selectedModels.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
+                <div className="mt-2 flex flex-wrap gap-1.5">
                   {aiModels.map(model => {
                     const Icon = model.icon;
                     const isSelected = selectedModels.includes(model.id);
                     if (!isSelected) return null;
                     return (
-                      <Button
+                      <Badge
                         key={model.id}
                         variant="secondary"
-                        size="sm"
-                        onClick={() => handleModelToggle(model.id)}
-                        className="h-7 px-2 gap-1.5"
+                        className="h-6 px-2 gap-1 text-xs"
                       >
                         <Icon className={`h-3 w-3 ${model.color}`} />
-                        <span className="text-xs">{model.name}</span>
-                        <X className="h-3 w-3 ml-1" />
-                      </Button>
+                        {model.name}
+                      </Badge>
                     );
                   })}
                 </div>
@@ -1050,6 +1158,56 @@ const Chat = () => {
           </div>
         </div>
       )}
+
+      {/* Model Selection Dialog */}
+      <Dialog open={modelSelectionOpen} onOpenChange={setModelSelectionOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Select AI Models</DialogTitle>
+            <DialogDescription>
+              Choose up to 3 AI models (currently {selectedModels.length}/3 selected)
+            </DialogDescription>
+          </DialogHeader>
+          
+          <ScrollArea className="max-h-[400px] pr-4">
+            <div className="space-y-2">
+              {aiModels.map(model => {
+                const Icon = model.icon;
+                const isSelected = selectedModels.includes(model.id);
+                return (
+                  <Button
+                    key={model.id}
+                    variant={isSelected ? "secondary" : "outline"}
+                    className="w-full justify-start h-auto py-3"
+                    onClick={() => handleModelToggle(model.id)}
+                  >
+                    <div className="flex items-center gap-3 w-full">
+                      <Icon className={`h-5 w-5 ${model.color}`} />
+                      <div className="flex-1 text-left">
+                        <div className="font-medium">{model.name}</div>
+                        <div className="text-xs text-muted-foreground capitalize">
+                          {model.category}
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <Badge variant="default" className="text-xs">
+                          Selected
+                        </Badge>
+                      )}
+                    </div>
+                  </Button>
+                );
+              })}
+            </div>
+          </ScrollArea>
+
+          <DialogFooter>
+            <Button onClick={() => setModelSelectionOpen(false)}>
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Image Generation Dialog */}
       <Dialog open={imageDialogOpen} onOpenChange={setImageDialogOpen}>
