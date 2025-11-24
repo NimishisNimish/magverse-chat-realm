@@ -867,7 +867,7 @@ const Chat = () => {
       // Track request start time for metrics
       const startTime = Date.now();
 
-      // Add client-side timeout (2 minutes)
+      // Increase timeout to 5 minutes for complex requests
       const invokePromise = supabase.functions.invoke('chat-with-ai', {
         body: {
           messages: messagesForApi,
@@ -877,11 +877,12 @@ const Chat = () => {
           webSearchEnabled: activeQuickAction === 'research',
           deepResearch: activeQuickAction === 'research',
           enableMultiStepReasoning,
+          stream: true,
         },
       });
 
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Request timeout - taking too long')), 120000)
+        setTimeout(() => reject(new Error('Request timeout - please try again or use fewer models')), 300000)
       );
 
       const { data, error } = await Promise.race([invokePromise, timeoutPromise]) as any;
