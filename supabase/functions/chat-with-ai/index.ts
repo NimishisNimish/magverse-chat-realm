@@ -14,7 +14,9 @@ const ERROR_MESSAGES = {
   SERVER_ERROR: 'An error occurred processing your request',
 };
 
-const sudoApiKey = Deno.env.get('SUDO_API_KEY'); // Sudo API for Claude and Grok
+const sudoApiKey = Deno.env.get('SUDO_API_KEY'); // Sudo API for Claude and Grok (fallback)
+const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY'); // OpenRouter for Grok and Claude
+const groqApiKey = Deno.env.get('GROQ_API_KEY'); // Groq for Llama models
 const deepseekApiKey = Deno.env.get('DEEPSEEK_API_KEY');
 const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
 const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
@@ -22,19 +24,19 @@ const qwenApiKey = Deno.env.get('QWEN_API_KEY');
 const chutesApiKey = Deno.env.get('CHUTES_AI_API_KEY');
 const nvidiaApiKey = Deno.env.get('NVIDIA_NIM_API_KEY');
 const deepseekNvidiaApiKey = Deno.env.get('DEEPSEEK_NVIDIA_NIM_API_KEY');
-const llamaNvidiaApiKey = Deno.env.get('LLAMA_NVIDIA_NIM_API_KEY');
 
 // Debug: Log API key availability (not the actual keys)
 console.log('🔑 API Keys loaded:', {
-  sudo: !!sudoApiKey, // Unified key for Claude, Grok
+  sudo: !!sudoApiKey, // Fallback for Claude, Grok
+  openRouter: !!openRouterApiKey, // Primary for Claude, Grok
+  groq: !!groqApiKey, // Groq for Llama models
   deepseek: !!deepseekApiKey,
   google: !!googleApiKey,
   perplexity: !!perplexityApiKey,
-  qwen: !!qwenApiKey, // Qwen AI for ChatGPT
-  chutes: !!chutesApiKey, // Chutes AI
+  qwen: !!qwenApiKey,
+  chutes: !!chutesApiKey,
   nvidiaNim: !!nvidiaApiKey,
-  deepseekNvidia: !!deepseekNvidiaApiKey, // NVIDIA NIM for Deepseek
-  llamaNvidia: !!llamaNvidiaApiKey // NVIDIA NIM for Llama
+  deepseekNvidia: !!deepseekNvidiaApiKey
 });
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -171,38 +173,41 @@ const providerConfig: Record<string, any> = {
     },
   },
   claude: {
-    provider: 'sudo',
-    apiKey: sudoApiKey,
-    endpoint: 'https://sudoapp.dev/api/v1/chat/completions',
-    model: 'claude-sonnet-4-20250514',
+    provider: 'openrouter',
+    apiKey: openRouterApiKey || sudoApiKey,
+    endpoint: openRouterApiKey 
+      ? 'https://openrouter.ai/api/v1/chat/completions'
+      : 'https://sudoapp.dev/api/v1/chat/completions',
+    model: 'anthropic/claude-3.5-sonnet',
     supportsStreaming: false,
     headers: () => {
-      if (!sudoApiKey) {
-        throw new Error('Sudo API key is not configured. Please add your API key in Settings.');
+      const apiKey = openRouterApiKey || sudoApiKey;
+      if (!apiKey) {
+        throw new Error('Claude API key is not configured. Please add OpenRouter or Sudo API key.');
       }
-      console.log('🔑 Sudo (Claude) headers generated');
+      console.log(`🔑 Claude headers generated (via ${openRouterApiKey ? 'OpenRouter' : 'Sudo'})`);
       return {
-        'Authorization': `Bearer ${sudoApiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
+        ...(openRouterApiKey ? { 'HTTP-Referer': 'https://magverse.ai' } : {})
       };
     },
     bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
-      model: 'claude-sonnet-4-20250514',
+      model: openRouterApiKey ? 'anthropic/claude-3.5-sonnet' : 'claude-sonnet-4-20250514',
       messages,
       temperature: 0.7,
       max_tokens: 4096,
       stream: false,
     }),
     responseTransform: (data: any) => {
-      console.log('📊 Sudo (Claude) raw response:', JSON.stringify(data, null, 2));
+      console.log('📊 Claude raw response:', JSON.stringify(data, null, 2));
       
       const content = data.choices?.[0]?.message?.content || '';
       
-      console.log('✅ Sudo (Claude) extracted content length:', content.length);
-      console.log('✅ Sudo (Claude) content preview:', content.substring(0, 200));
+      console.log('✅ Claude extracted content length:', content.length);
       
       if (!content) {
-        console.error('❌ No content in Sudo (Claude) response');
+        console.error('❌ No content in Claude response');
         return 'Error: No response content from Claude';
       }
       
@@ -210,52 +215,74 @@ const providerConfig: Record<string, any> = {
     },
   },
   llama: {
-    provider: 'nvidia-nim',
-    apiKey: llamaNvidiaApiKey,
-    endpoint: 'https://integrate.api.nvidia.com/v1/chat/completions',
-    model: 'meta/llama-3.3-70b-instruct',
-    headers: () => ({
-      'Authorization': `Bearer ${llamaNvidiaApiKey}`,
-      'Content-Type': 'application/json',
-    }),
-    bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
-      model: 'meta/llama-3.3-70b-instruct',
-      messages,
-      temperature: 0.7,
-      max_tokens: 2000,
-      stream: false, // Streaming disabled for stability
-    }),
-    responseTransform: (data: any) => {
-      return data.choices[0]?.message?.content || 'No response';
-    },
-  },
-  grok: {
-    provider: 'sudo',
-    apiKey: sudoApiKey,
-    endpoint: 'https://sudoapp.dev/api/v1/chat/completions',
-    model: 'grok-2-1212',
+    provider: 'groq',
+    apiKey: groqApiKey,
+    endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+    model: 'llama-3.3-70b-versatile',
     headers: () => {
-      if (!sudoApiKey) {
-        throw new Error('Sudo API key is not configured. Please add your API key in Settings.');
+      if (!groqApiKey) {
+        throw new Error('Groq API key is not configured. Please add your Groq API key.');
       }
+      console.log('🔑 Groq (Llama) headers generated');
       return {
-        'Authorization': `Bearer ${sudoApiKey}`,
+        'Authorization': `Bearer ${groqApiKey}`,
         'Content-Type': 'application/json',
       };
     },
     bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
-      model: 'grok-2-1212',
+      model: 'llama-3.3-70b-versatile',
       messages,
       temperature: 0.7,
-      max_tokens: 2000,
+      max_tokens: 4096,
       stream: false,
     }),
     responseTransform: (data: any) => {
-      const content = data.choices?.[0]?.message?.content || '';
+      console.log('📊 Groq (Llama) raw response:', JSON.stringify(data, null, 2));
+      const content = data.choices[0]?.message?.content || '';
+      
       if (!content) {
-        console.error('❌ No content in Sudo (Grok) response');
+        console.error('❌ No content in Groq (Llama) response');
+        return 'Error: No response content from Llama';
+      }
+      
+      return content;
+    },
+  },
+  grok: {
+    provider: 'openrouter',
+    apiKey: openRouterApiKey || sudoApiKey,
+    endpoint: openRouterApiKey 
+      ? 'https://openrouter.ai/api/v1/chat/completions'
+      : 'https://sudoapp.dev/api/v1/chat/completions',
+    model: 'x-ai/grok-2-1212',
+    headers: () => {
+      const apiKey = openRouterApiKey || sudoApiKey;
+      if (!apiKey) {
+        throw new Error('Grok API key is not configured. Please add OpenRouter or Sudo API key.');
+      }
+      console.log(`🔑 Grok headers generated (via ${openRouterApiKey ? 'OpenRouter' : 'Sudo'})`);
+      return {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        ...(openRouterApiKey ? { 'HTTP-Referer': 'https://magverse.ai' } : {})
+      };
+    },
+    bodyTemplate: (messages: any[], _webSearchEnabled?: boolean, _searchMode?: string) => ({
+      model: openRouterApiKey ? 'x-ai/grok-2-1212' : 'grok-2-1212',
+      messages,
+      temperature: 0.7,
+      max_tokens: 4096,
+      stream: false,
+    }),
+    responseTransform: (data: any) => {
+      console.log('📊 Grok raw response:', JSON.stringify(data, null, 2));
+      const content = data.choices?.[0]?.message?.content || '';
+      
+      if (!content) {
+        console.error('❌ No content in Grok response');
         return 'Error: No response content from Grok';
       }
+      
       return content;
     },
   },
