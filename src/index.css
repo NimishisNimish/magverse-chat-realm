@@ -140,36 +140,6 @@ All colors MUST be HSL.
     }
   }
 
-  /* Custom Cursor Styles - Comprehensive fix for double cursor */
-  *, *::before, *::after {
-    cursor: none !important;
-  }
-
-  html, body {
-    cursor: none !important;
-  }
-
-  a, button, [role="button"], input, textarea, select, .card, img, [tabindex] {
-    cursor: none !important;
-  }
-
-  /* Only show default cursor on touch devices */
-  @media (pointer: coarse) {
-    *, *::before, *::after, html, body, a, button, input, textarea, select, .card, img {
-      cursor: auto !important;
-    }
-  }
-
-  .custom-cursor-pointer {
-    position: fixed;
-    pointer-events: none;
-    z-index: 99999;
-    transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1),
-                opacity 0.2s ease;
-    filter: drop-shadow(0 0 8px hsl(var(--primary) / 0.6))
-            drop-shadow(0 0 16px hsl(var(--accent) / 0.4));
-  }
-
   /* Scroll Animation Classes */
   .animate-on-scroll {
     opacity: 0;
@@ -285,9 +255,9 @@ All colors MUST be HSL.
     animation: bounce-subtle 2s ease-in-out infinite;
   }
 
-  /* Hover effects that work with custom cursor */
+  /* Hover effects with default cursor */
   a, button, [role="button"], input, textarea, select, .card, img {
-    cursor: none !important;
+    cursor: pointer;
   }
   
   /* Stagger animation delay */
@@ -296,7 +266,7 @@ All colors MUST be HSL.
     animation: stagger-fade-in 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   }
 
-  /* Touch devices get default cursor */
+  /* Touch devices maintain default cursor */
   @media (pointer: coarse) {
     a, button, [role="button"], input, textarea, select, .card, img {
       cursor: auto !important;

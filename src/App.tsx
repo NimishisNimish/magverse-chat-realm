@@ -6,7 +6,6 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { CursorProvider } from "@/contexts/CursorContext";
-import CustomCursor from "@/components/CustomCursor";
 import { AnimatePresence } from "framer-motion";
 import PageTransition from "@/components/PageTransition";
 import { useUnifiedNotifications } from "@/hooks/useUnifiedNotifications";
@@ -156,7 +155,6 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
         <CursorProvider>
-          <CustomCursor />
           <OfflineIndicator />
           <TooltipProvider>
             <Toaster />
