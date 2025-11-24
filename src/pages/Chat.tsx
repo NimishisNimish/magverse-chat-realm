@@ -90,6 +90,7 @@ const aiModels = [
   { id: "claude", name: "Claude", icon: Brain, color: "text-purple-400", category: "reasoning" },
   { id: "perplexity", name: "Perplexity", icon: Globe, color: "text-orange-400", category: "reasoning" },
   { id: "grok", name: "Grok", icon: Zap, color: "text-cyan-400", category: "reasoning" },
+  { id: "bytez-qwen", name: "Bytez Qwen", icon: Cpu, color: "text-pink-400", category: "reasoning" },
 ];
 
 const tools = [
@@ -852,7 +853,8 @@ const Chat = () => {
       // Track request start time for metrics
       const startTime = Date.now();
 
-      const { data, error } = await supabase.functions.invoke('chat-with-ai', {
+      // Add client-side timeout (2 minutes)
+      const invokePromise = supabase.functions.invoke('chat-with-ai', {
         body: {
           messages: messagesForApi,
           selectedModels: modelsToUse,
@@ -863,6 +865,12 @@ const Chat = () => {
           enableMultiStepReasoning,
         },
       });
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout - taking too long')), 120000)
+      );
+
+      const { data, error } = await Promise.race([invokePromise, timeoutPromise]) as any;
 
       // Record metrics for each model
       if (data?.responses && user) {
