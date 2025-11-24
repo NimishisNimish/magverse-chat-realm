@@ -223,6 +223,23 @@ const Chat = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Safety net: auto-reset loading after 3 minutes as last resort
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
+    if (loading) {
+      timeoutId = setTimeout(() => {
+        console.warn('Loading state auto-reset after 3 minutes');
+        setLoading(false);
+        sonnerToast.warning("Request is taking longer than expected. You can try sending your message again.");
+      }, 180000); // 3 minutes
+    }
+    
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [loading]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -379,11 +396,13 @@ const Chat = () => {
       
       sonnerToast.success("File uploaded successfully");
     } catch (error: any) {
+      console.error('Upload error:', error);
       setUploadStatus('error');
-      sonnerToast.error(error.message || "File upload failed");
       setAttachmentUrl(null);
       setAttachmentType(null);
       setAttachmentFileName(null);
+      setPendingFile(null);
+      sonnerToast.error(error.message || "File upload failed");
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -458,14 +477,6 @@ const Chat = () => {
     }
   };
 
-  // Timeout wrapper to prevent infinite loading
-  const fetchWithTimeout = async (promise: Promise<any>, timeout: number = 60000) => {
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Request timed out. Please try again.')), timeout);
-    });
-    return Promise.race([promise, timeoutPromise]);
-  };
-
   const handleSend = async (specificModels?: string[]) => {
     if ((!input.trim() && !attachmentUrl) || loading) return;
     if (!user) {
@@ -537,19 +548,16 @@ const Chat = () => {
       // Track request start time for metrics
       const startTime = Date.now();
 
-      const { data, error } = await fetchWithTimeout(
-        supabase.functions.invoke('chat-with-ai', {
-          body: {
-            messages: messagesForApi,
-            selectedModels: modelsToUse,
-            chatId,
-            attachmentUrl: currentAttachmentUrl,
-            webSearchEnabled: activeQuickAction === 'research',
-            deepResearch: activeQuickAction === 'research',
-          },
-        }),
-        60000 // 60 second timeout
-      );
+      const { data, error } = await supabase.functions.invoke('chat-with-ai', {
+        body: {
+          messages: messagesForApi,
+          selectedModels: modelsToUse,
+          chatId,
+          attachmentUrl: currentAttachmentUrl,
+          webSearchEnabled: activeQuickAction === 'research',
+          deepResearch: activeQuickAction === 'research',
+        },
+      });
 
       // Record metrics for each model
       if (data?.responses && user) {
@@ -623,17 +631,14 @@ const Chat = () => {
           content: m.content,
         }));
 
-      const { data, error } = await fetchWithTimeout(
-        supabase.functions.invoke('chat-with-ai', {
-          body: {
-            messages: messagesUpToUser,
-            selectedModels: [message.model],
-            chatId,
-            attachmentUrl: userMsg.attachmentUrl,
-          },
-        }),
-        60000 // 60 second timeout
-      );
+      const { data, error } = await supabase.functions.invoke('chat-with-ai', {
+        body: {
+          messages: messagesUpToUser,
+          selectedModels: [message.model],
+          chatId,
+          attachmentUrl: userMsg.attachmentUrl,
+        },
+      });
 
       if (error) throw error;
 
