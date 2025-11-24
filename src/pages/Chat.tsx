@@ -20,6 +20,7 @@ import {
   FileText,
   RefreshCw,
   Square,
+  Download,
   Image as ImageIcon
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -549,6 +550,37 @@ const Chat = () => {
     sonnerToast.success("Copied to clipboard");
   };
 
+  const downloadImage = (imageUrl: string, filename: string = 'generated-image.png') => {
+    // For base64 images
+    if (imageUrl.startsWith('data:image')) {
+      const link = document.createElement('a');
+      link.href = imageUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      sonnerToast.success("Image downloaded");
+    } else {
+      // For URL images, fetch and download
+      fetch(imageUrl)
+        .then(res => res.blob())
+        .then(blob => {
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          sonnerToast.success("Image downloaded");
+        })
+        .catch(() => {
+          sonnerToast.error("Failed to download image");
+        });
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background">
       <Navbar />
@@ -644,12 +676,20 @@ const Chat = () => {
                               : 'bg-muted/50 border border-border/40'
                           }`}
                         >
-                          {message.attachmentUrl && (
-                            <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
-                              <FileText className="h-3 w-3" />
-                              <span>{message.attachmentFileName || 'Attachment'}</span>
-                            </div>
-                          )}
+                        {message.attachmentUrl && message.attachmentType === 'image' ? (
+                          <div className="mb-3 rounded-lg overflow-hidden border border-border/40">
+                            <img 
+                              src={message.attachmentUrl} 
+                              alt="Generated image"
+                              className="w-full max-w-md h-auto object-contain"
+                            />
+                          </div>
+                        ) : message.attachmentUrl ? (
+                          <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+                            <FileText className="h-3 w-3" />
+                            <span>{message.attachmentFileName || 'Attachment'}</span>
+                          </div>
+                        ) : null}
                           
                           <div className="prose prose-sm dark:prose-invert max-w-none">
                             {renderWithCitations(message.content)}
@@ -658,6 +698,21 @@ const Chat = () => {
 
                         {message.role === 'assistant' && (
                           <div className="flex items-center gap-1 mt-2">
+                            {message.attachmentUrl && message.attachmentType === 'image' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => downloadImage(
+                                  message.attachmentUrl!, 
+                                  `image-${Date.now()}.png`
+                                )}
+                                className="h-7 px-2"
+                                title="Download image"
+                              >
+                                <Download className="h-3 w-3" />
+                              </Button>
+                            )}
+                            
                             <Button
                               variant="ghost"
                               size="sm"
