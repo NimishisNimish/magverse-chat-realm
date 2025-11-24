@@ -21,16 +21,11 @@ export const BudgetAlertDialog = ({
   onOpenChange,
   currentSpending = 0
 }: BudgetAlertDialogProps) => {
+  const { user, profile } = useAuth();
   const [budgetLimit, setBudgetLimit] = useState("10.00");
   const [alertThreshold, setAlertThreshold] = useState(80);
   const [loading, setLoading] = useState(false);
   const [existingBudget, setExistingBudget] = useState<any>(null);
-  const { user, profile } = useAuth();
-
-  // Only allow lifetime pro users to access budget alerts
-  if (!profile || profile.subscription_type !== 'lifetime') {
-    return null;
-  }
 
   useEffect(() => {
     if (open && user) {
@@ -58,6 +53,12 @@ export const BudgetAlertDialog = ({
       // No existing budget
     }
   };
+
+  // Only allow lifetime pro users to access budget alerts
+  // This check happens AFTER all hooks are called
+  if (!profile || profile.subscription_type !== 'lifetime') {
+    return null;
+  }
 
   const handleSave = async () => {
     if (!user) {
