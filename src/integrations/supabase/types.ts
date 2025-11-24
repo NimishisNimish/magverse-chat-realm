@@ -128,6 +128,50 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_model_metrics: {
+        Row: {
+          created_at: string | null
+          id: string
+          message_id: string | null
+          model_name: string
+          response_time_ms: number
+          tokens_input: number | null
+          tokens_output: number | null
+          tokens_total: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message_id?: string | null
+          model_name: string
+          response_time_ms: number
+          tokens_input?: number | null
+          tokens_output?: number | null
+          tokens_total?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message_id?: string | null
+          model_name?: string
+          response_time_ms?: number
+          tokens_input?: number | null
+          tokens_output?: number | null
+          tokens_total?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_model_metrics_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_response_feedback: {
         Row: {
           chat_id: string | null
