@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 // API Keys
-const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+const NVIDIA_NIM_API_KEY = Deno.env.get('NVIDIA_NIM_API_KEY');
 const GOOGLE_AI_API_KEY = Deno.env.get('GOOGLE_AI_API_KEY');
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
 const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
@@ -28,21 +28,21 @@ const MAX_MODELS_PER_REQUEST = 5;
 
 // Model configuration - stable, working models
 const MODEL_CONFIG: Record<string, { 
-  provider: 'openai' | 'google' | 'openrouter' | 'perplexity' | 'groq' | 'bytez', 
+  provider: 'nvidia' | 'google' | 'openrouter' | 'perplexity' | 'groq' | 'bytez', 
   model: string,
   supportsReasoning: boolean,
   maxTokens?: number,
-  requiresMaxCompletionTokens?: boolean
+  supportsStreaming?: boolean
 }> = {
-  'chatgpt': { provider: 'openai', model: 'gpt-4o', supportsReasoning: true, maxTokens: 4096, requiresMaxCompletionTokens: false },
-  'gemini': { provider: 'google', model: 'gemini-2.0-flash-exp', supportsReasoning: true },
-  'claude': { provider: 'openrouter', model: 'anthropic/claude-3.5-sonnet', supportsReasoning: true },
-  'perplexity': { provider: 'perplexity', model: 'llama-3.1-sonar-large-128k-online', supportsReasoning: true },
-  'grok': { provider: 'groq', model: 'llama-3.3-70b-versatile', supportsReasoning: true },
-  'bytez-qwen': { provider: 'bytez', model: 'Qwen/Qwen2.5-7B-Instruct', supportsReasoning: true },
-  'bytez-phi3': { provider: 'bytez', model: 'microsoft/Phi-3-mini-4k-instruct', supportsReasoning: true },
-  'bytez-mistral': { provider: 'bytez', model: 'mistralai/Mistral-7B-Instruct-v0.3', supportsReasoning: true },
-  'gemini-flash-image': { provider: 'google', model: 'gemini-2.5-flash-image', supportsReasoning: false },
+  'chatgpt': { provider: 'nvidia', model: 'meta/llama-3.1-405b-instruct', supportsReasoning: true, maxTokens: 8192, supportsStreaming: true },
+  'gemini': { provider: 'google', model: 'gemini-2.0-flash-exp', supportsReasoning: true, supportsStreaming: true },
+  'claude': { provider: 'openrouter', model: 'anthropic/claude-3.5-sonnet', supportsReasoning: true, supportsStreaming: true },
+  'perplexity': { provider: 'perplexity', model: 'llama-3.1-sonar-large-128k-online', supportsReasoning: true, supportsStreaming: true },
+  'grok': { provider: 'groq', model: 'llama-3.3-70b-versatile', supportsReasoning: true, supportsStreaming: true },
+  'bytez-qwen': { provider: 'bytez', model: 'Qwen/Qwen2.5-7B-Instruct', supportsReasoning: true, supportsStreaming: false },
+  'bytez-phi3': { provider: 'bytez', model: 'microsoft/Phi-3-mini-4k-instruct', supportsReasoning: true, supportsStreaming: false },
+  'bytez-mistral': { provider: 'bytez', model: 'mistralai/Mistral-7B-Instruct-v0.3', supportsReasoning: true, supportsStreaming: false },
+  'gemini-flash-image': { provider: 'google', model: 'gemini-2.5-flash-image', supportsReasoning: false, supportsStreaming: false },
 };
 
 // Validation schema
@@ -404,8 +404,8 @@ serve(async (req) => {
         let thinkingProcess = '';
         let reasoningSteps: Array<{ step: number; thought: string; conclusion: string }> | undefined;
 
-        if (config.provider === 'openai') {
-          // OpenAI API call with proper parameter handling
+        if (config.provider === 'nvidia') {
+          // NVIDIA NIM API call for ChatGPT replacement
           let messagesToSend = processedMessages;
           if (enableMultiStepReasoning && config.supportsReasoning) {
             messagesToSend = [
@@ -417,33 +417,24 @@ serve(async (req) => {
             ];
           }
           
-          // Build request body based on model capabilities
-          const requestBody: any = {
-            model: config.model,
-            messages: messagesToSend,
-          };
-          
-          // Use correct token parameter based on model
-          if (config.requiresMaxCompletionTokens) {
-            requestBody.max_completion_tokens = config.maxTokens || 4096;
-          } else {
-            requestBody.max_tokens = config.maxTokens || 4096;
-            requestBody.temperature = 0.7; // Only for non-reasoning models
-          }
-          
-          response = await fetch('https://api.openai.com/v1/chat/completions', {
+          response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${OPENAI_API_KEY}`,
+              'Authorization': `Bearer ${NVIDIA_NIM_API_KEY}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify(requestBody),
+            body: JSON.stringify({
+              model: config.model,
+              messages: messagesToSend,
+              max_tokens: config.maxTokens || 8192,
+              temperature: 0.7,
+              stream: false,
+            }),
           });
 
           if (!response.ok) {
             const errorText = await response.text();
-            console.error(`❌ ${modelId} API error (${response.status}):`, errorText);
-            console.error(`❌ Error details:`, errorText);
+            console.error(`❌ ${modelId} NVIDIA NIM API error (${response.status}):`, errorText);
             return {
               success: false,
               model: modelId,
@@ -455,11 +446,6 @@ serve(async (req) => {
           const data = await response.json();
           content = data.choices?.[0]?.message?.content || 'No response';
           usage = data.usage;
-
-          // Include thinking process if available
-          if (data.choices?.[0]?.message?.reasoning_content) {
-            thinkingProcess = data.choices[0].message.reasoning_content;
-          }
           
           // Parse multi-step reasoning if enabled
           if (enableMultiStepReasoning && config.supportsReasoning) {
@@ -471,7 +457,6 @@ serve(async (req) => {
                 thought: match[2].trim(),
                 conclusion: match[3]?.trim() || ''
               }));
-              // Remove step markers from final content
               content = content.replace(/Step \d+[:\s]+[^\n]+\n?(?:→\s*[^\n]+\n?)?/gi, '').trim();
             }
           }
