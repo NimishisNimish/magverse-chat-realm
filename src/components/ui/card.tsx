@@ -4,14 +4,23 @@ import { useCursor } from "@/contexts/CursorContext";
 import { cn } from "@/lib/utils";
 
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => {
-  const { setCursorVariant } = useCursor();
+  // Try to use cursor context if available, but don't fail if it's not
+  let setCursorVariant: ((variant: string) => void) | undefined;
+  
+  try {
+    const cursor = useCursor();
+    setCursorVariant = cursor.setCursorVariant;
+  } catch (e) {
+    // CursorProvider not available - that's ok, cursor effects are optional
+    setCursorVariant = undefined;
+  }
   
   return (
     <div 
       ref={ref} 
       className={cn("rounded-lg border bg-card text-card-foreground shadow-sm card-hover-effect", className)} 
-      onMouseEnter={() => setCursorVariant('card')}
-      onMouseLeave={() => setCursorVariant('default')}
+      onMouseEnter={() => setCursorVariant?.('card')}
+      onMouseLeave={() => setCursorVariant?.('default')}
       {...props} 
     />
   );

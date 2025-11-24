@@ -25,7 +25,18 @@ import magverseLogo from "@/assets/magverse-logo.png";
 const Navbar = () => {
   const { user, profile, signOut } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
-  const { setCursorVariant } = useCursor();
+  
+  // Try to use cursor context if available, but don't fail if it's not
+  let setCursorVariant: ((variant: string) => void) | undefined;
+  
+  try {
+    const cursor = useCursor();
+    setCursorVariant = cursor.setCursorVariant;
+  } catch (e) {
+    // CursorProvider not available - that's ok, cursor effects are optional
+    setCursorVariant = undefined;
+  }
+  
   const notifications = useNotificationBadge();
 
   useEffect(() => {
@@ -84,8 +95,8 @@ const Navbar = () => {
         <Link 
           to="/" 
           className="flex items-center gap-2 group"
-          onMouseEnter={() => setCursorVariant('link')}
-          onMouseLeave={() => setCursorVariant('default')}
+          onMouseEnter={() => setCursorVariant?.('link')}
+          onMouseLeave={() => setCursorVariant?.('default')}
         >
           <img src={magverseLogo} alt="Magverse AI" className="w-10 h-10" />
           <span className="text-2xl font-bold gradient-text">Magverse AI</span>
