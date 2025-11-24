@@ -175,6 +175,9 @@ const Chat = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatHistoryList, setChatHistoryList] = useState<any[]>([]);
   const [modelSelectionOpen, setModelSelectionOpen] = useState(false);
+  const [responseStartTime, setResponseStartTime] = useState<number | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [retryAttempt, setRetryAttempt] = useState(0);
   const abortControllerRef = useRef<AbortController | null>(null);
   
   const { user, profile, refreshProfile } = useAuth();
@@ -231,6 +234,8 @@ const Chat = () => {
       timeoutId = setTimeout(() => {
         console.warn('Loading state auto-reset after 3 minutes');
         setLoading(false);
+        setElapsedTime(0);
+        setResponseStartTime(null);
         sonnerToast.warning("Request is taking longer than expected. You can try sending your message again.");
       }, 180000); // 3 minutes
     }
@@ -239,6 +244,23 @@ const Chat = () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, [loading]);
+
+  // Track elapsed time during AI response
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+    
+    if (loading && responseStartTime) {
+      intervalId = setInterval(() => {
+        setElapsedTime(Math.floor((Date.now() - responseStartTime) / 1000));
+      }, 1000);
+    } else {
+      setElapsedTime(0);
+    }
+    
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [loading, responseStartTime]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -473,9 +495,14 @@ const Chat = () => {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
       setLoading(false);
+      setElapsedTime(0);
+      setResponseStartTime(null);
+      setRetryAttempt(0);
       sonnerToast.info("Response stopped");
     }
   };
+
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
   const handleSend = async (specificModels?: string[]) => {
     if ((!input.trim() && !attachmentUrl) || loading) return;
@@ -524,6 +551,8 @@ const Chat = () => {
     setMessages(prev => [...prev, userMessage]);
     setInput("");
     setLoading(true);
+    setResponseStartTime(Date.now());
+    setElapsedTime(0);
     
     // Create abort controller
     abortControllerRef.current = new AbortController();
@@ -532,7 +561,19 @@ const Chat = () => {
     const currentAttachmentType = attachmentType;
     removeAttachment();
 
-    try {
+    // Retry logic with exponential backoff
+    let lastError: any = null;
+    const maxRetries = 3;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      if (attempt > 0) {
+        const backoffDelay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Max 10s
+        setRetryAttempt(attempt);
+        sonnerToast.info(`Retrying... (Attempt ${attempt + 1}/${maxRetries + 1})`);
+        await sleep(backoffDelay);
+      }
+
+      try {
       // Build messages array for the API
       const messagesForApi = [
         ...messages.map(m => ({
@@ -596,22 +637,38 @@ const Chat = () => {
         setMessages(prev => [...prev, ...assistantMessages]);
       }
 
-      await refreshProfile();
-    } catch (error: any) {
-      console.error('Chat error:', error);
-      
-      // Don't show error if aborted
-      if (error.name === 'AbortError') return;
-      
-      toast({
-        title: "Error",
-        description: error.message || "Failed to send message",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-      abortControllerRef.current = null;
+        await refreshProfile();
+        setRetryAttempt(0);
+        break; // Success, exit retry loop
+      } catch (error: any) {
+        console.error('Chat error:', error);
+        lastError = error;
+        
+        // Don't retry if aborted
+        if (error.name === 'AbortError') {
+          setLoading(false);
+          setElapsedTime(0);
+          setResponseStartTime(null);
+          setRetryAttempt(0);
+          return;
+        }
+        
+        // If this was the last attempt, show error
+        if (attempt === maxRetries) {
+          toast({
+            title: "Error",
+            description: lastError?.message || "Failed to send message after multiple attempts",
+            variant: "destructive",
+          });
+        }
+      }
     }
+    
+    setLoading(false);
+    setElapsedTime(0);
+    setResponseStartTime(null);
+    setRetryAttempt(0);
+    abortControllerRef.current = null;
   };
 
   const handleRegenerate = async (message: Message) => {
@@ -621,8 +678,22 @@ const Chat = () => {
     if (!userMsg) return;
 
     setLoading(true);
+    setResponseStartTime(Date.now());
+    setElapsedTime(0);
     
-    try {
+    // Retry logic with exponential backoff
+    let lastError: any = null;
+    const maxRetries = 3;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      if (attempt > 0) {
+        const backoffDelay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+        setRetryAttempt(attempt);
+        sonnerToast.info(`Retrying... (Attempt ${attempt + 1}/${maxRetries + 1})`);
+        await sleep(backoffDelay);
+      }
+
+      try {
       // Build messages up to the user message that triggered this response
       const messagesUpToUser = messages
         .filter(m => m.timestamp <= userMsg.timestamp)
@@ -657,17 +728,28 @@ const Chat = () => {
         sonnerToast.success("Response regenerated");
       }
 
-      await refreshProfile();
-    } catch (error: any) {
-      console.error('Regenerate error:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to regenerate response",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+        await refreshProfile();
+        setRetryAttempt(0);
+        break; // Success, exit retry loop
+      } catch (error: any) {
+        console.error('Regenerate error:', error);
+        lastError = error;
+        
+        // If this was the last attempt, show error
+        if (attempt === maxRetries) {
+          toast({
+            title: "Error",
+            description: lastError?.message || "Failed to regenerate response after multiple attempts",
+            variant: "destructive",
+          });
+        }
+      }
     }
+    
+    setLoading(false);
+    setElapsedTime(0);
+    setResponseStartTime(null);
+    setRetryAttempt(0);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -1123,10 +1205,33 @@ const Chat = () => {
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-2 text-muted-foreground"
+                  className="space-y-3"
                 >
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">AI is thinking...</span>
+                  <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg border border-border/40">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">AI is thinking...</span>
+                        {retryAttempt > 0 && (
+                          <Badge variant="outline" className="text-xs">
+                            Retry {retryAttempt}/3
+                          </Badge>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {elapsedTime}s elapsed
+                      </span>
+                    </div>
+                    <Button
+                      onClick={handleStop}
+                      size="sm"
+                      variant="destructive"
+                      className="h-8"
+                    >
+                      <Square className="h-4 w-4 mr-1" />
+                      Stop
+                    </Button>
+                  </div>
                 </motion.div>
               )}
               
@@ -1306,8 +1411,9 @@ const Chat = () => {
                   <Button
                     onClick={handleStop}
                     size="icon"
-                    variant="ghost"
+                    variant="destructive"
                     className="shrink-0 rounded-full h-10 w-10"
+                    title="Stop generation"
                   >
                     <Square className="h-5 w-5" />
                   </Button>
