@@ -578,19 +578,6 @@ const Chat = () => {
           </div>
 
           {/* Messages Area */}
-          <AdvancedFeaturesPanel 
-            onImageGenerated={(imageUrl) => {
-              setMessages(prev => [...prev, {
-                id: Date.now().toString(),
-                role: 'assistant',
-                content: 'Image generated successfully!',
-                timestamp: new Date(),
-                attachmentUrl: imageUrl,
-                attachmentType: 'image',
-              }]);
-            }}
-            onModeChange={(mode) => setAdvancedMode(mode)}
-          />
           <ScrollArea className="flex-1 px-6" ref={scrollAreaRef}>
             <div className="py-8 space-y-6">
               {messages.length === 0 ? (
@@ -733,7 +720,8 @@ const Chat = () => {
                 setInput('Please summarize our conversation so far');
                 setTimeout(() => handleSend(), 100);
               } else if (action === 'image') {
-                // Image generation handled by AdvancedFeaturesPanel
+                // Auto-select Gemini 3 Flash for image generation
+                setSelectedModels(['gemini-flash']);
               }
             }}
           />
@@ -823,6 +811,7 @@ const Chat = () => {
                   {aiModels
                     .filter(model => {
                       // Filter based on quick action
+                      if (activeQuickAction === 'image') return model.id === 'gemini-flash'; // Only show Gemini Flash for image generation
                       if (activeQuickAction === 'fast') return model.category === 'fast';
                       if (activeQuickAction === 'reasoning') return model.category === 'reasoning';
                       if (activeQuickAction === 'research') return model.category === 'research';
@@ -845,6 +834,21 @@ const Chat = () => {
                       );
                     })}
                 </div>
+
+                {/* Advanced Features Panel - Below Models */}
+                <AdvancedFeaturesPanel 
+                  onImageGenerated={(imageUrl) => {
+                    setMessages(prev => [...prev, {
+                      id: Date.now().toString(),
+                      role: 'assistant',
+                      content: 'Image generated successfully!',
+                      timestamp: new Date(),
+                      attachmentUrl: imageUrl,
+                      attachmentType: 'image',
+                    }]);
+                  }}
+                  onModeChange={(mode) => setAdvancedMode(mode)}
+                />
               </div>
             </div>
           </div>
