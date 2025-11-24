@@ -50,10 +50,10 @@ export const AdvancedFeaturesPanel = ({
       // Enhance prompt with style
       const enhancedPrompt = `${imagePrompt}, ${imageStyle} style, ultra high resolution`;
       
-      const { data, error } = await supabase.functions.invoke('lovable-ai-chat', {
+      const { data, error } = await supabase.functions.invoke('chat-with-ai', {
         body: {
-          messages: [{ role: 'user', content: enhancedPrompt }],
-          selectedModels: ['gemini'],
+          message: enhancedPrompt,
+          selectedModels: ['gemini-flash-image'],
           generateImage: true,
         }
       });

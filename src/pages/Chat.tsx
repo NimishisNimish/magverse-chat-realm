@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import {
   Send, 
   Paperclip, 
@@ -18,7 +19,8 @@ import {
   MessageSquare,
   FileText,
   RefreshCw,
-  Square
+  Square,
+  Image as ImageIcon
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
@@ -806,6 +808,17 @@ const Chat = () => {
                 </div>
 
                 {/* Model Selector */}
+                {/* Image Generation Mode Indicator */}
+                {activeQuickAction === 'image' && (
+                  <div className="mb-2 px-3 py-2 bg-accent/10 border border-accent/30 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <ImageIcon className="w-4 h-4 text-accent" />
+                      <span className="text-sm font-medium text-accent">Image Generation Mode Active</span>
+                      <Badge variant="secondary" className="text-xs">Using Gemini 3 Flash</Badge>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs text-muted-foreground">Models:</span>
                   {aiModels
