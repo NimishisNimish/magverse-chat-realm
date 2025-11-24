@@ -335,6 +335,18 @@ const Chat = () => {
       return;
     }
 
+    const modelsToUse = specificModels || selectedModels;
+    
+    // Ensure at least one model is selected
+    if (modelsToUse.length === 0) {
+      toast({
+        title: "No model selected",
+        description: "Please select at least one AI model to continue.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
@@ -354,17 +366,39 @@ const Chat = () => {
     removeAttachment();
 
     try {
-      const modelsToUse = specificModels || selectedModels;
-      const { data, error } = await supabase.functions.invoke('lovable-ai-chat', {
+      // Build messages array for the API
+      const messagesForApi = [
+        ...messages.map(m => ({
+          role: m.role,
+          content: m.content,
+        })),
+        {
+          role: 'user' as const,
+          content: userMessage.content,
+        }
+      ];
+
+      // Map model IDs to the format expected by chat-with-ai
+      const modelMapping: Record<string, string> = {
+        'gpt-5-mini': 'chatgpt',
+        'gpt-5': 'chatgpt',
+        'gpt-5-nano': 'chatgpt',
+        'gemini-flash': 'gemini',
+        'gemini-pro': 'gemini',
+        'gemini-lite': 'gemini',
+        'claude': 'claude',
+        'perplexity': 'perplexity',
+        'grok': 'grok',
+      };
+
+      const mappedModels = modelsToUse.map(id => modelMapping[id] || id);
+
+      const { data, error } = await supabase.functions.invoke('chat-with-ai', {
         body: {
-          message: userMessage.content,
-          models: modelsToUse.map(id => {
-            const model = aiModels.find(m => m.id === id);
-            return model?.id || id;
-          }),
+          messages: messagesForApi,
+          selectedModels: mappedModels,
           chatId,
           attachmentUrl: currentAttachmentUrl,
-          attachmentType: currentAttachmentType,
         },
       });
 
@@ -411,13 +445,35 @@ const Chat = () => {
     setLoading(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('lovable-ai-chat', {
+      // Build messages up to the user message that triggered this response
+      const messagesUpToUser = messages
+        .filter(m => m.timestamp <= userMsg.timestamp)
+        .map(m => ({
+          role: m.role,
+          content: m.content,
+        }));
+
+      // Map model ID to format expected by chat-with-ai
+      const modelMapping: Record<string, string> = {
+        'gpt-5-mini': 'chatgpt',
+        'gpt-5': 'chatgpt',
+        'gpt-5-nano': 'chatgpt',
+        'gemini-flash': 'gemini',
+        'gemini-pro': 'gemini',
+        'gemini-lite': 'gemini',
+        'claude': 'claude',
+        'perplexity': 'perplexity',
+        'grok': 'grok',
+      };
+
+      const mappedModel = modelMapping[message.model] || message.model;
+
+      const { data, error } = await supabase.functions.invoke('chat-with-ai', {
         body: {
-          message: userMsg.content,
-          models: [message.model],
+          messages: messagesUpToUser,
+          selectedModels: [mappedModel],
           chatId,
           attachmentUrl: userMsg.attachmentUrl,
-          attachmentType: userMsg.attachmentType,
         },
       });
 
