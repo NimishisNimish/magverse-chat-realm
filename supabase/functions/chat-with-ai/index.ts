@@ -16,7 +16,7 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
 const VALID_MODELS = ['chatgpt', 'gemini', 'perplexity', 'deepseek', 'claude', 'llama', 'grok', 
-  'gemini-flash', 'gemini-lite', 'gemini-pro', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano'] as const;
+  'gemini-flash', 'gemini-lite', 'gemini-pro', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gemini-flash-image'] as const;
 
 const STORAGE_BUCKET_URL = 'https://pqdgpxetysqcdcjwormb.supabase.co/storage/';
 const MAX_FILE_SIZE = 10_000_000; // 10MB
@@ -33,6 +33,7 @@ const MODEL_MAPPING: Record<string, string> = {
   'gemini-flash': 'google/gemini-2.5-flash',
   'gemini-lite': 'google/gemini-2.5-flash-lite',
   'gemini-pro': 'google/gemini-2.5-pro',
+  'gemini-flash-image': 'google/gemini-2.5-flash-image',
   'claude': 'google/gemini-2.5-pro', // Fallback to Gemini Pro
   'perplexity': 'google/gemini-2.5-flash', // Fallback to Gemini Flash
   'grok': 'openai/gpt-5', // Fallback to GPT-5
@@ -69,6 +70,7 @@ const chatRequestSchema = z.object({
   deepResearchMode: z.boolean().nullish(),
   deepResearch: z.boolean().nullish(),
   stream: z.boolean().nullish(),
+  generateImage: z.boolean().nullish(),
 });
 
 serve(async (req) => {
@@ -124,6 +126,7 @@ serve(async (req) => {
     
     const { chatId, attachmentUrl, attachmentExtension } = rawData;
     const deepResearchMode = rawData.deepResearchMode || rawData.deepResearch || false;
+    const isImageGeneration = rawData.generateImage === true;
 
     // Authenticate user
     const authHeader = req.headers.get('authorization');
@@ -302,6 +305,74 @@ serve(async (req) => {
       content: messageContent,
       attachment_url: attachmentUrl || null,
     });
+
+    // Handle image generation requests
+    if (isImageGeneration) {
+      console.log('🎨 Processing image generation request...');
+      const imageModel = 'google/gemini-2.5-flash-image';
+      
+      try {
+        const response = await fetch(LOVABLE_AI_URL, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: imageModel,
+            messages: processedMessages,
+            modalities: ["image", "text"],
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`❌ Image generation error (${response.status}):`, errorText);
+          
+          if (response.status === 429) {
+            return new Response(
+              JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
+              { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          if (response.status === 402) {
+            return new Response(
+              JSON.stringify({ error: 'Payment required. Please add credits to your Lovable workspace.' }),
+              { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          return new Response(
+            JSON.stringify({ error: 'Image generation failed' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const data = await response.json();
+        const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        
+        if (!imageUrl) {
+          return new Response(
+            JSON.stringify({ error: 'No image generated' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log('✅ Image generated successfully');
+        
+        return new Response(
+          JSON.stringify({ success: true, image: imageUrl }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (error: any) {
+        console.error('❌ Image generation error:', error.message);
+        return new Response(
+          JSON.stringify({ error: 'Image generation failed', details: error.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     console.log(`🚀 Processing ${selectedModels.length} model(s) via Lovable AI...`);
 
