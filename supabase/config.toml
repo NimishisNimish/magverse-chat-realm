@@ -91,3 +91,6 @@ verify_jwt = false
 
 [functions.generate-prompt-suggestions]
 verify_jwt = true
+
+[functions.upscale-image]
+verify_jwt = false

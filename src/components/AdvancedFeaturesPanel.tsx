@@ -30,6 +30,7 @@ export const AdvancedFeaturesPanel = ({
   const [lastGeneratedPrompt, setLastGeneratedPrompt] = useState('');
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStage, setGenerationStage] = useState('');
+  const [takingLonger, setTakingLonger] = useState(false);
   const [fastMode, setFastMode] = useState(false);
   const [reasoningMode, setReasoningMode] = useState(false);
 
@@ -54,11 +55,18 @@ export const AdvancedFeaturesPanel = ({
     setGenerating(true);
     setGenerationProgress(0);
     setGenerationStage('Preparing prompt...');
+    setTakingLonger(false);
     
     // Simulate progress with stages
     const progressInterval = setInterval(() => {
       setGenerationProgress(prev => {
-        if (prev >= 90) return prev;
+        if (prev >= 90) {
+          // After 30 seconds at 90%, show "taking longer" message
+          if (!takingLonger) {
+            setTimeout(() => setTakingLonger(true), 30000);
+          }
+          return prev;
+        }
         
         const stages = [
           { threshold: 20, text: 'Initializing AI model...' },
@@ -80,13 +88,24 @@ export const AdvancedFeaturesPanel = ({
       // Enhance prompt with style
       const enhancedPrompt = `${promptToUse}, ${imageStyle} style, ultra high resolution`;
       
-      const { data, error } = await supabase.functions.invoke('chat-with-ai', {
+      // Add timeout wrapper
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout - please try again')), 60000)
+      );
+      
+      const apiPromise = supabase.functions.invoke('chat-with-ai', {
         body: {
           message: enhancedPrompt,
           selectedModels: ['gemini-flash-image'],
           generateImage: true,
         }
       });
+      
+      // Race between API call and timeout
+      const { data, error } = await Promise.race([
+        apiPromise,
+        timeoutPromise.then(() => ({ data: null, error: new Error('Timeout') }))
+      ]) as any;
 
       if (error) throw error;
 
@@ -102,16 +121,24 @@ export const AdvancedFeaturesPanel = ({
           title: "Image generated!",
           description: "Your image has been created successfully",
         });
+      } else {
+        throw new Error('No image returned from API');
       }
     } catch (error: any) {
       console.error('Image generation error:', error);
+      
+      const errorMessage = error.message === 'Request timeout - please try again' 
+        ? 'Image generation timed out. The AI is busy - please try again in a moment.'
+        : error.message || "Failed to generate image";
+      
       toast({
         title: "Generation failed",
-        description: error.message || "Failed to generate image",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
       clearInterval(progressInterval);
+      setTakingLonger(false);
       setTimeout(() => {
         setGenerating(false);
         setGenerationProgress(0);
@@ -215,6 +242,11 @@ export const AdvancedFeaturesPanel = ({
                           <span>{generationProgress.toFixed(0)}%</span>
                         </div>
                         <Progress value={generationProgress} className="h-2" />
+                        {takingLonger && generationProgress >= 90 && (
+                          <p className="text-xs text-yellow-500">
+                            ⏳ This is taking longer than usual. The AI is working hard on your image...
+                          </p>
+                        )}
                       </div>
                     ) : (
                       <>
