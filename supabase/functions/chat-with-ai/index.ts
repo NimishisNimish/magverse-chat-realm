@@ -80,6 +80,8 @@ const chatRequestSchema = z.object({
 });
 
 serve(async (req) => {
+  console.log('🚀 chat-with-ai function called');
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -87,8 +89,10 @@ serve(async (req) => {
   const startTime = Date.now();
 
   try {
+    console.log('📥 Parsing request body...');
     // Parse and validate request
     const requestBody = await req.json();
+    console.log('✅ Request body parsed, validating...');
     const validationResult = chatRequestSchema.safeParse(requestBody);
     
     if (!validationResult.success) {
@@ -1194,9 +1198,15 @@ serve(async (req) => {
     );
 
   } catch (error: any) {
-    console.error('❌ Unexpected error:', error);
+    console.error('❌ Unexpected error in chat-with-ai:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', JSON.stringify(error, null, 2));
     return new Response(
-      JSON.stringify({ error: 'An unexpected error occurred', details: error.message }),
+      JSON.stringify({ 
+        error: 'An unexpected error occurred', 
+        details: error.message,
+        stack: error.stack 
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

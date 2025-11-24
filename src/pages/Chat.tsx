@@ -863,12 +863,19 @@ const Chat = () => {
           content: userMessage.content,
         }
       ];
+      
+      console.log('🚀 Sending message to AI...', { 
+        models: modelsToUse, 
+        messageCount: messagesForApi.length,
+        streaming: modelsToUse.length === 1 
+      });
 
       // Track request start time for metrics
       const startTime = Date.now();
 
       // Use streaming for single model requests
       if (modelsToUse.length === 1) {
+        console.log('📡 Using streaming mode for', modelsToUse[0]);
         const streamingClient = new (await import('@/utils/streamingClient')).StreamingClient();
         
         let streamingMessageId: string | null = null;
@@ -883,45 +890,54 @@ const Chat = () => {
 
         setMessages(prev => [...prev, streamingMessage]);
 
-        await streamingClient.startStream(
-          messagesForApi,
-          modelsToUse[0],
-          chatId,
-          (model, token, fullContent) => {
-            setMessages(prev => 
-              prev.map(msg => 
-                msg.id === streamingMessage.id
-                  ? { ...msg, content: fullContent }
-                  : msg
-              )
-            );
-          },
-          (model, messageId) => {
-            streamingMessageId = messageId;
-            setMessages(prev => 
-              prev.map(msg => 
-                msg.id === streamingMessage.id
-                  ? { ...msg, id: messageId || msg.id }
-                  : msg
-              )
-            );
-          },
-          (model, error) => {
-            throw new Error(error);
-          }
-        );
+        try {
+          await streamingClient.startStream(
+            messagesForApi,
+            modelsToUse[0],
+            chatId,
+            (model, token, fullContent) => {
+              setMessages(prev => 
+                prev.map(msg => 
+                  msg.id === streamingMessage.id
+                    ? { ...msg, content: fullContent }
+                    : msg
+                )
+              );
+            },
+            (model, messageId) => {
+              streamingMessageId = messageId;
+              setMessages(prev => 
+                prev.map(msg => 
+                  msg.id === streamingMessage.id
+                    ? { ...msg, id: messageId || msg.id }
+                    : msg
+                )
+              );
+            },
+            (model, error) => {
+              console.error('Streaming error:', error);
+              throw new Error(error);
+            }
+          );
 
-        await refreshProfile();
-        setRetryAttempt(0);
-        
-        if (soundEnabled && isSoundSupported()) {
-          playSound('complete');
+          console.log('✅ Streaming complete');
+          await refreshProfile();
+          setRetryAttempt(0);
+          
+          if (soundEnabled && isSoundSupported()) {
+            playSound('complete');
+          }
+          
+          break;
+        } catch (streamError: any) {
+          console.error('❌ Streaming failed:', streamError);
+          // Fall back to non-streaming
+          console.log('⚠️ Falling back to non-streaming mode');
         }
-        
-        break;
       }
 
-      // Fallback to non-streaming for multiple models
+      // Fallback to non-streaming for multiple models or if streaming failed
+      console.log('📤 Using non-streaming mode');
       const invokePromise = supabase.functions.invoke('chat-with-ai', {
         body: {
           messages: messagesForApi,
@@ -940,6 +956,17 @@ const Chat = () => {
       );
 
       const { data, error } = await Promise.race([invokePromise, timeoutPromise]) as any;
+
+      console.log('📥 Response received:', { 
+        hasData: !!data, 
+        hasError: !!error,
+        responsesCount: data?.responses?.length 
+      });
+
+      if (error) {
+        console.error('❌ Function invoke error:', error);
+        throw error;
+      }
 
       // Record metrics for each model
       if (data?.responses && user) {
