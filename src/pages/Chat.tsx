@@ -999,6 +999,7 @@ const Chat = () => {
           setElapsedTime(0);
           setResponseStartTime(null);
           setRetryAttempt(0);
+          setProcessingStage(null);
           return;
         }
         
@@ -1007,15 +1008,39 @@ const Chat = () => {
           if (soundEnabled && isSoundSupported()) {
             playSound('error');
           }
+          
+          // Better error messages
+          let errorMessage = "Failed to send message after multiple attempts";
+          if (error.message?.includes('Rate limit')) {
+            errorMessage = "Rate limit exceeded. Please try again in a moment.";
+          } else if (error.message?.includes('API key')) {
+            errorMessage = "API configuration error. Please contact support.";
+          } else if (error.message?.includes('timeout')) {
+            errorMessage = "Request timed out. Please try again.";
+          } else if (error.message) {
+            errorMessage = error.message;
+          }
+          
           toast({
             title: "Error",
-            description: lastError?.message || "Failed to send message after multiple attempts",
+            description: errorMessage,
             variant: "destructive",
           });
+        }
+      } finally {
+        // ALWAYS clear loading state
+        if (attempt === maxRetries) {
+          setLoading(false);
+          setElapsedTime(0);
+          setResponseStartTime(null);
+          setRetryAttempt(0);
+          setProcessingStage(null);
+          abortControllerRef.current = null;
         }
       }
     }
     
+    // Final cleanup after retry loop (redundant safety net)
     setLoading(false);
     setElapsedTime(0);
     setResponseStartTime(null);

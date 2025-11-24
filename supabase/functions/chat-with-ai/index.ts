@@ -9,6 +9,7 @@ const corsHeaders = {
 };
 
 // API Keys
+const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 const NVIDIA_NIM_API_KEY = Deno.env.get('NVIDIA_NIM_API_KEY');
 const GOOGLE_AI_API_KEY = Deno.env.get('GOOGLE_AI_API_KEY');
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
@@ -28,14 +29,14 @@ const MAX_MODELS_PER_REQUEST = 5;
 
 // Model configuration - stable, working models
 const MODEL_CONFIG: Record<string, { 
-  provider: 'nvidia' | 'google' | 'openrouter' | 'perplexity' | 'groq' | 'bytez', 
+  provider: 'openai' | 'nvidia' | 'google' | 'openrouter' | 'perplexity' | 'groq' | 'bytez', 
   model: string,
   supportsReasoning: boolean,
   maxTokens?: number,
   supportsStreaming?: boolean
 }> = {
-  'chatgpt': { provider: 'nvidia', model: 'meta/llama-3.1-405b-instruct', supportsReasoning: true, maxTokens: 8192, supportsStreaming: true },
-  'gemini': { provider: 'google', model: 'gemini-2.0-flash-exp', supportsReasoning: true, supportsStreaming: true },
+  'chatgpt': { provider: 'openai', model: 'gpt-4o', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true },
+  'gemini': { provider: 'google', model: 'gemini-1.5-flash', supportsReasoning: true, supportsStreaming: true },
   'claude': { provider: 'openrouter', model: 'anthropic/claude-3.5-sonnet', supportsReasoning: true, supportsStreaming: true },
   'perplexity': { provider: 'perplexity', model: 'llama-3.1-sonar-large-128k-online', supportsReasoning: true, supportsStreaming: true },
   'grok': { provider: 'groq', model: 'llama-3.3-70b-versatile', supportsReasoning: true, supportsStreaming: true },
@@ -393,6 +394,21 @@ serve(async (req) => {
           try {
             let streamResponse;
             
+            // API key validation
+            if (config.provider === 'nvidia' && !NVIDIA_NIM_API_KEY) {
+              throw new Error('NVIDIA API key not configured');
+            } else if (config.provider === 'google' && !GOOGLE_AI_API_KEY) {
+              throw new Error('Google AI API key not configured');
+            } else if (config.provider === 'openrouter' && !OPENROUTER_API_KEY) {
+              throw new Error('OpenRouter API key not configured');
+            } else if (config.provider === 'perplexity' && !PERPLEXITY_API_KEY) {
+              throw new Error('Perplexity API key not configured');
+            } else if (config.provider === 'groq' && !GROQ_API_KEY) {
+              throw new Error('Groq API key not configured');
+            } else if (config.provider === 'openai' && !OPENAI_API_KEY) {
+              throw new Error('OpenAI API key not configured');
+            }
+            
             if (config.provider === 'nvidia') {
               streamResponse = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
                 method: 'POST',
@@ -462,6 +478,24 @@ serve(async (req) => {
                   model: config.model,
                   messages: processedMessages,
                   max_tokens: 4096,
+                  temperature: 0.7,
+                  stream: true,
+                }),
+              });
+            } else if (config.provider === 'openai') {
+              if (!OPENAI_API_KEY) {
+                throw new Error('OpenAI API key not configured');
+              }
+              streamResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  model: config.model,
+                  messages: processedMessages,
+                  max_tokens: config.maxTokens || 4096,
                   temperature: 0.7,
                   stream: true,
                 }),
@@ -572,6 +606,49 @@ serve(async (req) => {
         let usage;
         let thinkingProcess = '';
         let reasoningSteps: Array<{ step: number; thought: string; conclusion: string }> | undefined;
+
+        // API key validation
+        if (config.provider === 'nvidia' && !NVIDIA_NIM_API_KEY) {
+          console.error('❌ NVIDIA API key not configured');
+          return {
+            success: false,
+            model: modelId,
+            response: 'NVIDIA API key not configured',
+            error: true
+          };
+        } else if (config.provider === 'google' && !GOOGLE_AI_API_KEY) {
+          console.error('❌ Google AI API key not configured');
+          return {
+            success: false,
+            model: modelId,
+            response: 'Google AI API key not configured',
+            error: true
+          };
+        } else if (config.provider === 'openrouter' && !OPENROUTER_API_KEY) {
+          console.error('❌ OpenRouter API key not configured');
+          return {
+            success: false,
+            model: modelId,
+            response: 'OpenRouter API key not configured',
+            error: true
+          };
+        } else if (config.provider === 'perplexity' && !PERPLEXITY_API_KEY) {
+          console.error('❌ Perplexity API key not configured');
+          return {
+            success: false,
+            model: modelId,
+            response: 'Perplexity API key not configured',
+            error: true
+          };
+        } else if (config.provider === 'groq' && !GROQ_API_KEY) {
+          console.error('❌ Groq API key not configured');
+          return {
+            success: false,
+            model: modelId,
+            response: 'Groq API key not configured',
+            error: true
+          };
+        }
 
         if (config.provider === 'nvidia') {
           // NVIDIA NIM API call for ChatGPT replacement
@@ -815,8 +892,82 @@ serve(async (req) => {
               }));
             }
           }
+        } else if (config.provider === 'openai') {
+          // OpenAI API call
+          if (!OPENAI_API_KEY) {
+            console.error('❌ OpenAI API key not configured');
+            return {
+              success: false,
+              model: modelId,
+              response: 'OpenAI API key not configured',
+              error: true
+            };
+          }
+          
+          let messagesToSend = processedMessages;
+          if (enableMultiStepReasoning && config.supportsReasoning) {
+            messagesToSend = [
+              { 
+                role: 'system', 
+                content: 'Think step by step and explain your reasoning process before providing the final answer.' 
+              },
+              ...processedMessages
+            ];
+          }
+          
+          response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${OPENAI_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: config.model,
+              messages: messagesToSend,
+              max_tokens: config.maxTokens || 4096,
+              temperature: 0.7,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ ${modelId} OpenAI API error (${response.status}):`, errorText);
+            return {
+              success: false,
+              model: modelId,
+              response: response.status === 429 ? 'Rate limit exceeded' : 'API error occurred',
+              error: true
+            };
+          }
+
+          const data = await response.json();
+          content = data.choices?.[0]?.message?.content || 'No response';
+          usage = data.usage;
+          
+          // Parse reasoning steps if available
+          if (enableMultiStepReasoning && config.supportsReasoning) {
+            const stepMatches = content.matchAll(/(?:Step |)(\d+)[:\.\s]+([^\n]+)/gi);
+            const steps = Array.from(stepMatches);
+            if (steps.length > 0) {
+              reasoningSteps = steps.map(match => ({
+                step: parseInt(match[1]),
+                thought: match[2].trim(),
+                conclusion: ''
+              }));
+            }
+          }
         } else if (config.provider === 'bytez') {
-          // Bytez AI API call (small models)
+          // Bytez AI API call (small models) - FIXED URL
+          if (!BYTEZ_API_KEY) {
+            console.error('❌ Bytez API key not configured');
+            return {
+              success: false,
+              model: modelId,
+              response: 'Bytez API key not configured',
+              error: true
+            };
+          }
+          
           let messagesToSend = processedMessages;
           if (enableMultiStepReasoning && config.supportsReasoning) {
             messagesToSend = [
@@ -828,20 +979,21 @@ serve(async (req) => {
             ];
           }
           
-          response = await fetch(`https://api.bytez.com/models/v2/openai-community/${encodeURIComponent(config.model)}`, {
+          const messagesAsText = messagesToSend.map((msg: any) => 
+            `${msg.role}: ${typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)}`
+          ).join('\n');
+          
+          response = await fetch('https://api.bytez.com/model/run', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${BYTEZ_API_KEY}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              messages: messagesToSend.map(msg => ({
-                role: msg.role === 'system' ? 'system' : msg.role === 'assistant' ? 'assistant' : 'user',
-                content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
-              })),
-              stream: false,
+              modelId: config.model,
+              prompt: messagesAsText,
               params: {
-                max_tokens: 4096,
+                max_tokens: 2048,
                 temperature: 0.7,
               }
             }),
