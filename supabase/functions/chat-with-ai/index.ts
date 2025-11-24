@@ -133,6 +133,7 @@ serve(async (req) => {
     const deepResearchMode = rawData.deepResearchMode || rawData.deepResearch || false;
     const isImageGeneration = rawData.generateImage === true;
     const enableMultiStepReasoning = rawData.enableMultiStepReasoning || false;
+    const streamResponse = rawData.stream === true;
 
     // Authenticate user
     const authHeader = req.headers.get('authorization');
@@ -369,7 +370,175 @@ serve(async (req) => {
       }
     }
 
-    console.log(`🚀 Processing ${selectedModels.length} model(s) directly...`);
+    console.log(`🚀 Processing ${selectedModels.length} model(s) ${streamResponse ? 'with streaming' : 'directly'}...`);
+
+    // If streaming is enabled and only one model is selected, use SSE
+    if (streamResponse && selectedModels.length === 1) {
+      const modelId = selectedModels[0];
+      const config = MODEL_CONFIG[modelId];
+      
+      if (!config || !config.supportsStreaming) {
+        console.log(`⚠️ Model ${modelId} does not support streaming, falling back to regular mode`);
+      } else {
+      console.log(`📡 Starting SSE stream for ${modelId}...`);
+
+      const stream = new ReadableStream({
+        async start(controller) {
+          const encoder = new TextEncoder();
+          
+          const sendEvent = (event: string, data: any) => {
+            controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+          };
+
+          try {
+            let streamResponse;
+            
+            if (config.provider === 'nvidia') {
+              streamResponse = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${NVIDIA_NIM_API_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  model: config.model,
+                  messages: processedMessages,
+                  max_tokens: config.maxTokens || 8192,
+                  temperature: 0.7,
+                  stream: true,
+                }),
+              });
+            } else if (config.provider === 'google') {
+              streamResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${config.model}:streamGenerateContent?alt=sse&key=${GOOGLE_AI_API_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: processedMessages.map(msg => ({
+                    role: msg.role === 'assistant' ? 'model' : 'user',
+                    parts: [{ text: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content) }]
+                  })),
+                  generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
+                }),
+              });
+            } else if (config.provider === 'openrouter') {
+              streamResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                  'Content-Type': 'application/json',
+                  'HTTP-Referer': 'https://magverse.app',
+                },
+                body: JSON.stringify({
+                  model: config.model,
+                  messages: processedMessages,
+                  max_tokens: 4096,
+                  temperature: 0.7,
+                  stream: true,
+                }),
+              });
+            } else if (config.provider === 'perplexity') {
+              streamResponse = await fetch('https://api.perplexity.ai/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  model: config.model,
+                  messages: processedMessages,
+                  temperature: 0.2,
+                  max_tokens: 4096,
+                  stream: true,
+                }),
+              });
+            } else if (config.provider === 'groq') {
+              streamResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${GROQ_API_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  model: config.model,
+                  messages: processedMessages,
+                  max_tokens: 4096,
+                  temperature: 0.7,
+                  stream: true,
+                }),
+              });
+            }
+
+            if (!streamResponse || !streamResponse.ok) {
+              throw new Error(`Stream failed: ${streamResponse?.status}`);
+            }
+
+            const reader = streamResponse.body?.getReader();
+            const decoder = new TextDecoder();
+            let fullContent = '';
+
+            while (true) {
+              const { done, value } = await reader!.read();
+              if (done) break;
+
+              const chunk = decoder.decode(value);
+              const lines = chunk.split('\n').filter(line => line.trim());
+
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6);
+                  if (data === '[DONE]') continue;
+
+                  try {
+                    const parsed = JSON.parse(data);
+                    let token = '';
+
+                    if (config.provider === 'google') {
+                      token = parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                    } else {
+                      token = parsed.choices?.[0]?.delta?.content || '';
+                    }
+
+                    if (token) {
+                      fullContent += token;
+                      sendEvent('token', { model: modelId, token, fullContent });
+                    }
+                  } catch (e) {
+                    console.error('Parse error:', e);
+                  }
+                }
+              }
+            }
+
+            // Save message to database
+            const { data: newMessage } = await supabase.from('chat_messages').insert({
+              chat_id: currentChatId,
+              user_id: user.id,
+              role: 'assistant',
+              content: fullContent,
+              model: modelId,
+            }).select().single();
+
+            sendEvent('done', { model: modelId, messageId: newMessage?.id });
+            controller.close();
+
+          } catch (error: any) {
+            console.error('SSE stream error:', error);
+            sendEvent('error', { model: modelId, error: error.message });
+            controller.close();
+          }
+        }
+      });
+
+      return new Response(stream, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+      }
+    }
 
     // Add timeout wrapper for each model request (60 seconds per model)
     const timeoutPromise = (promise: Promise<any>, timeout: number, modelId: string) => {
