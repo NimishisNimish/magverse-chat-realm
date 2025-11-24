@@ -11,9 +11,9 @@ const corsHeaders = {
 // API Keys
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 const GOOGLE_AI_API_KEY = Deno.env.get('GOOGLE_AI_API_KEY');
-const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
 const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
-const GROK_API_KEY = Deno.env.get('GROK_API_KEY');
+const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -27,15 +27,15 @@ const MAX_MODELS_PER_REQUEST = 5;
 
 // Model configuration - all with reasoning capabilities
 const MODEL_CONFIG: Record<string, { 
-  provider: 'openai' | 'google' | 'anthropic' | 'perplexity' | 'grok', 
+  provider: 'openai' | 'google' | 'openrouter' | 'perplexity' | 'groq', 
   model: string,
   supportsReasoning: boolean 
 }> = {
   'chatgpt': { provider: 'openai', model: 'o3-2025-04-16', supportsReasoning: true },
   'gemini': { provider: 'google', model: 'gemini-3-pro-preview', supportsReasoning: true },
-  'claude': { provider: 'anthropic', model: 'claude-sonnet-4-5', supportsReasoning: true },
+  'claude': { provider: 'openrouter', model: 'anthropic/claude-sonnet-4-20250514', supportsReasoning: true },
   'perplexity': { provider: 'perplexity', model: 'llama-3.1-sonar-large-128k-online', supportsReasoning: true },
-  'grok': { provider: 'grok', model: 'grok-2-1212', supportsReasoning: true },
+  'grok': { provider: 'groq', model: 'llama-3.3-70b-versatile', supportsReasoning: true },
   'gemini-flash-image': { provider: 'google', model: 'gemini-2.5-flash-image', supportsReasoning: false },
 };
 
@@ -527,6 +527,116 @@ serve(async (req) => {
             completion_tokens: data.usageMetadata?.candidatesTokenCount || 0,
             total_tokens: data.usageMetadata?.totalTokenCount || 0
           };
+        } else if (config.provider === 'openrouter') {
+          // OpenRouter (Claude) API call
+          let messagesToSend = processedMessages;
+          if (enableMultiStepReasoning && config.supportsReasoning) {
+            messagesToSend = [
+              { 
+                role: 'system', 
+                content: 'Break down complex problems into clear reasoning steps. Show your thought process before providing the final answer.' 
+              },
+              ...processedMessages
+            ];
+          }
+          
+          response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+              'Content-Type': 'application/json',
+              'HTTP-Referer': 'https://magverse.app',
+              'X-Title': 'MagVerse AI'
+            },
+            body: JSON.stringify({
+              model: config.model,
+              messages: messagesToSend,
+              max_tokens: 4096,
+              temperature: 0.7,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ ${modelId} API error (${response.status}):`, errorText);
+            return {
+              success: false,
+              model: modelId,
+              response: response.status === 429 ? 'Rate limit exceeded' : 'API error occurred',
+              error: true
+            };
+          }
+
+          const data = await response.json();
+          content = data.choices?.[0]?.message?.content || 'No response';
+          usage = data.usage;
+          
+          // Parse reasoning steps if available
+          if (enableMultiStepReasoning && config.supportsReasoning) {
+            const stepMatches = content.matchAll(/(?:Step |)(\d+)[:\.\s]+([^\n]+)/gi);
+            const steps = Array.from(stepMatches);
+            if (steps.length > 0) {
+              reasoningSteps = steps.map(match => ({
+                step: parseInt(match[1]),
+                thought: match[2].trim(),
+                conclusion: ''
+              }));
+            }
+          }
+        } else if (config.provider === 'groq') {
+          // Groq API call
+          let messagesToSend = processedMessages;
+          if (enableMultiStepReasoning && config.supportsReasoning) {
+            messagesToSend = [
+              { 
+                role: 'system', 
+                content: 'Think step by step and explain your reasoning process before providing the final answer.' 
+              },
+              ...processedMessages
+            ];
+          }
+          
+          response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${GROQ_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: config.model,
+              messages: messagesToSend,
+              max_tokens: 4096,
+              temperature: 0.7,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ ${modelId} API error (${response.status}):`, errorText);
+            return {
+              success: false,
+              model: modelId,
+              response: response.status === 429 ? 'Rate limit exceeded' : 'API error occurred',
+              error: true
+            };
+          }
+
+          const data = await response.json();
+          content = data.choices?.[0]?.message?.content || 'No response';
+          usage = data.usage;
+          
+          // Parse reasoning steps if available
+          if (enableMultiStepReasoning && config.supportsReasoning) {
+            const stepMatches = content.matchAll(/(?:Step |)(\d+)[:\.\s]+([^\n]+)/gi);
+            const steps = Array.from(stepMatches);
+            if (steps.length > 0) {
+              reasoningSteps = steps.map(match => ({
+                step: parseInt(match[1]),
+                thought: match[2].trim(),
+                conclusion: ''
+              }));
+            }
+          }
         }
 
         const responseTime = Date.now() - modelStartTime;
