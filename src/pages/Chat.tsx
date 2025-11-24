@@ -27,9 +27,11 @@ import {
   FileSearch,
   Search,
   Code,
-  Settings
+  Settings,
+  Eye
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import FilePreview from "@/components/FilePreview";
 import { useToast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -152,6 +154,8 @@ const Chat = () => {
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isDraggingPdf, setIsDraggingPdf] = useState(false);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
   const [searchParams] = useSearchParams();
   const [activeQuickAction, setActiveQuickAction] = useState<QuickActionType>(null);
@@ -397,21 +401,42 @@ const Chat = () => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
+    setIsDraggingPdf(false);
     
     const file = e.dataTransfer.files?.[0];
-    if (file) await processFileUpload(file);
+    if (file) {
+      // If PDF, open document analysis dialog
+      if (file.type === 'application/pdf') {
+        setDocumentFile(file);
+        setDocumentDialogOpen(true);
+      } else {
+        await processFileUpload(file);
+      }
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
+    
+    // Check if dragged file is PDF
+    const items = e.dataTransfer.items;
+    if (items.length > 0) {
+      const item = items[0];
+      if (item.type === 'application/pdf') {
+        setIsDraggingPdf(true);
+      } else {
+        setIsDraggingPdf(false);
+      }
+    }
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
+    setIsDraggingPdf(false);
   };
 
   const removeAttachment = () => {
@@ -431,6 +456,14 @@ const Chat = () => {
       setLoading(false);
       sonnerToast.info("Response stopped");
     }
+  };
+
+  // Timeout wrapper to prevent infinite loading
+  const fetchWithTimeout = async (promise: Promise<any>, timeout: number = 60000) => {
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Request timed out. Please try again.')), timeout);
+    });
+    return Promise.race([promise, timeoutPromise]);
   };
 
   const handleSend = async (specificModels?: string[]) => {
@@ -504,16 +537,19 @@ const Chat = () => {
       // Track request start time for metrics
       const startTime = Date.now();
 
-      const { data, error } = await supabase.functions.invoke('chat-with-ai', {
-        body: {
-          messages: messagesForApi,
-          selectedModels: modelsToUse,
-          chatId,
-          attachmentUrl: currentAttachmentUrl,
-          webSearchEnabled: activeQuickAction === 'research',
-          deepResearch: activeQuickAction === 'research',
-        },
-      });
+      const { data, error } = await fetchWithTimeout(
+        supabase.functions.invoke('chat-with-ai', {
+          body: {
+            messages: messagesForApi,
+            selectedModels: modelsToUse,
+            chatId,
+            attachmentUrl: currentAttachmentUrl,
+            webSearchEnabled: activeQuickAction === 'research',
+            deepResearch: activeQuickAction === 'research',
+          },
+        }),
+        60000 // 60 second timeout
+      );
 
       // Record metrics for each model
       if (data?.responses && user) {
@@ -587,14 +623,17 @@ const Chat = () => {
           content: m.content,
         }));
 
-      const { data, error } = await supabase.functions.invoke('chat-with-ai', {
-        body: {
-          messages: messagesUpToUser,
-          selectedModels: [message.model],
-          chatId,
-          attachmentUrl: userMsg.attachmentUrl,
-        },
-      });
+      const { data, error } = await fetchWithTimeout(
+        supabase.functions.invoke('chat-with-ai', {
+          body: {
+            messages: messagesUpToUser,
+            selectedModels: [message.model],
+            chatId,
+            attachmentUrl: userMsg.attachmentUrl,
+          },
+        }),
+        60000 // 60 second timeout
+      );
 
       if (error) throw error;
 
@@ -1117,21 +1156,72 @@ const Chat = () => {
           {/* Fixed Input Area at Bottom */}
           <div className="border-t border-border/40 bg-background">
             <div className="px-6 py-3">
-              {/* File Preview */}
-              {attachmentUrl && (
+              {/* Enhanced File Preview */}
+              {(attachmentUrl || pendingFile) && (
                 <div className="mb-3">
-                  <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border border-border/40">
-                    <div className="flex items-center gap-2 flex-1">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm truncate">{attachmentFileName || 'File attached'}</span>
+                  <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg border border-border/40">
+                    {/* Visual Preview */}
+                    {pendingFile && (
+                      <div className="relative shrink-0">
+                        {pendingFile.type.startsWith('image/') ? (
+                          <div className="w-16 h-16 rounded-lg overflow-hidden border border-border/40">
+                            <img 
+                              src={URL.createObjectURL(pendingFile)} 
+                              alt="Preview"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center border border-border/40">
+                            <FileText className="h-8 w-8 text-muted-foreground" />
+                          </div>
+                        )}
+                        {uploading && (
+                          <div className="absolute inset-0 bg-background/50 flex items-center justify-center rounded-lg">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* File Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {attachmentFileName || 'File attached'}
+                      </p>
+                      {pendingFile && (
+                        <p className="text-xs text-muted-foreground">
+                          {(pendingFile.size / 1024).toFixed(1)} KB
+                        </p>
+                      )}
+                      {uploadStatus === 'success' && (
+                        <p className="text-xs text-green-500">✓ Uploaded successfully</p>
+                      )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={removeAttachment}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                    
+                    {/* Preview & Remove Buttons */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {attachmentUrl && attachmentType === 'image' && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setPreviewModalOpen(true)}
+                          className="h-8 w-8"
+                          title="Preview"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={removeAttachment}
+                        className="h-8 w-8"
+                        title="Remove"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1255,15 +1345,53 @@ const Chat = () => {
         </div>
       </div>
 
-      {/* Drag overlay */}
+      {/* Enhanced Drag Overlay */}
       {isDragging && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="text-center">
-            <Plus className="h-12 w-12 mx-auto mb-4 text-primary" />
-            <p className="text-lg font-medium">Drop your file here</p>
+          <div className="text-center p-8 rounded-2xl border-2 border-dashed border-primary">
+            {isDraggingPdf ? (
+              <>
+                <FileSearch className="h-12 w-12 mx-auto mb-4 text-primary" />
+                <p className="text-lg font-medium">Drop PDF for Document Analysis</p>
+                <p className="text-sm text-muted-foreground mt-1">Extract and analyze text content</p>
+              </>
+            ) : (
+              <>
+                <Plus className="h-12 w-12 mx-auto mb-4 text-primary" />
+                <p className="text-lg font-medium">Drop your file here</p>
+                <p className="text-sm text-muted-foreground mt-1">Images, PDFs, text files supported</p>
+              </>
+            )}
           </div>
         </div>
       )}
+
+      {/* File Preview Modal */}
+      <Dialog open={previewModalOpen} onOpenChange={setPreviewModalOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>File Preview</DialogTitle>
+          </DialogHeader>
+          {attachmentUrl && attachmentType === 'image' && (
+            <div className="max-h-[70vh] overflow-auto rounded-lg">
+              <img 
+                src={attachmentUrl} 
+                alt="Preview" 
+                className="w-full h-auto rounded-lg"
+              />
+            </div>
+          )}
+          {attachmentUrl && attachmentType === 'pdf' && (
+            <div className="h-[500px]">
+              <iframe 
+                src={attachmentUrl} 
+                className="w-full h-full rounded-lg border"
+                title="PDF Preview"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Model Selection Dialog */}
       <Dialog open={modelSelectionOpen} onOpenChange={setModelSelectionOpen}>
