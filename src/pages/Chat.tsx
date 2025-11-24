@@ -178,6 +178,9 @@ const Chat = () => {
   const [responseStartTime, setResponseStartTime] = useState<number | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [retryAttempt, setRetryAttempt] = useState(0);
+  const [processingStage, setProcessingStage] = useState<'analyzing' | 'thinking' | 'generating' | null>(null);
+  const [messageQueue, setMessageQueue] = useState<Array<{ content: string; models: string[]; attachment?: { url: string; type: string; fileName: string } }>>([]);
+  const [isProcessingQueue, setIsProcessingQueue] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   
   const { user, profile, refreshProfile } = useAuth();
@@ -251,16 +254,55 @@ const Chat = () => {
     
     if (loading && responseStartTime) {
       intervalId = setInterval(() => {
-        setElapsedTime(Math.floor((Date.now() - responseStartTime) / 1000));
+        const elapsed = Math.floor((Date.now() - responseStartTime) / 1000);
+        setElapsedTime(elapsed);
+        
+        // Update processing stage based on elapsed time
+        if (elapsed < 2) {
+          setProcessingStage('analyzing');
+        } else if (elapsed < 5) {
+          setProcessingStage('thinking');
+        } else {
+          setProcessingStage('generating');
+        }
       }, 1000);
     } else {
       setElapsedTime(0);
+      setProcessingStage(null);
     }
     
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
   }, [loading, responseStartTime]);
+
+  // Process message queue
+  useEffect(() => {
+    const processQueue = async () => {
+      if (messageQueue.length > 0 && !loading && !isProcessingQueue) {
+        setIsProcessingQueue(true);
+        const nextMessage = messageQueue[0];
+        setMessageQueue(prev => prev.slice(1));
+        
+        // Set input and attachment from queue
+        setInput(nextMessage.content);
+        if (nextMessage.attachment) {
+          setAttachmentUrl(nextMessage.attachment.url);
+          setAttachmentType(nextMessage.attachment.type);
+          setAttachmentFileName(nextMessage.attachment.fileName);
+        }
+        
+        // Small delay to allow UI to update
+        await sleep(100);
+        
+        // Send the queued message
+        await handleSend(nextMessage.models);
+        setIsProcessingQueue(false);
+      }
+    };
+    
+    processQueue();
+  }, [messageQueue, loading, isProcessingQueue]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -498,14 +540,45 @@ const Chat = () => {
       setElapsedTime(0);
       setResponseStartTime(null);
       setRetryAttempt(0);
+      setProcessingStage(null);
+      setIsProcessingQueue(false);
       sonnerToast.info("Response stopped");
     }
+  };
+
+  const cancelQueuedMessage = (index: number) => {
+    setMessageQueue(prev => prev.filter((_, i) => i !== index));
+    sonnerToast.success("Message removed from queue");
+  };
+
+  const clearQueue = () => {
+    setMessageQueue([]);
+    sonnerToast.success("Queue cleared");
   };
 
   const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
   const handleSend = async (specificModels?: string[]) => {
-    if ((!input.trim() && !attachmentUrl) || loading) return;
+    if (!input.trim() && !attachmentUrl) return;
+    
+    // If AI is currently responding, queue the message
+    if (loading) {
+      const queuedMessage = {
+        content: input,
+        models: specificModels || selectedModels,
+        attachment: attachmentUrl ? {
+          url: attachmentUrl,
+          type: attachmentType || 'other',
+          fileName: attachmentFileName || 'file'
+        } : undefined
+      };
+      
+      setMessageQueue(prev => [...prev, queuedMessage]);
+      setInput("");
+      removeAttachment();
+      sonnerToast.info(`Message added to queue (${messageQueue.length + 1} in queue)`);
+      return;
+    }
     if (!user) {
       toast({
         title: "Authentication required",
@@ -553,6 +626,7 @@ const Chat = () => {
     setLoading(true);
     setResponseStartTime(Date.now());
     setElapsedTime(0);
+    setProcessingStage('analyzing');
     
     // Create abort controller
     abortControllerRef.current = new AbortController();
@@ -668,6 +742,7 @@ const Chat = () => {
     setElapsedTime(0);
     setResponseStartTime(null);
     setRetryAttempt(0);
+    setProcessingStage(null);
     abortControllerRef.current = null;
   };
 
@@ -680,6 +755,7 @@ const Chat = () => {
     setLoading(true);
     setResponseStartTime(Date.now());
     setElapsedTime(0);
+    setProcessingStage('analyzing');
     
     // Retry logic with exponential backoff
     let lastError: any = null;
@@ -750,6 +826,7 @@ const Chat = () => {
     setElapsedTime(0);
     setResponseStartTime(null);
     setRetryAttempt(0);
+    setProcessingStage(null);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -1208,19 +1285,38 @@ const Chat = () => {
                   className="space-y-3"
                 >
                   <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg border border-border/40">
-                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    {processingStage === 'analyzing' && (
+                      <FileSearch className="h-5 w-5 animate-pulse text-blue-500" />
+                    )}
+                    {processingStage === 'thinking' && (
+                      <Brain className="h-5 w-5 animate-pulse text-purple-500" />
+                    )}
+                    {processingStage === 'generating' && (
+                      <Sparkles className="h-5 w-5 animate-pulse text-primary" />
+                    )}
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">AI is thinking...</span>
+                        <span className="text-sm font-medium">
+                          {processingStage === 'analyzing' && 'Analyzing input...'}
+                          {processingStage === 'thinking' && 'Processing your request...'}
+                          {processingStage === 'generating' && 'Generating response...'}
+                        </span>
                         {retryAttempt > 0 && (
                           <Badge variant="outline" className="text-xs">
                             Retry {retryAttempt}/3
                           </Badge>
                         )}
                       </div>
-                      <span className="text-xs text-muted-foreground">
-                        {elapsedTime}s elapsed
-                      </span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-muted-foreground">
+                          {elapsedTime}s elapsed
+                        </span>
+                        <div className="flex gap-1">
+                          <div className={`h-1 w-8 rounded-full transition-all ${processingStage === 'analyzing' ? 'bg-blue-500' : 'bg-muted'}`} />
+                          <div className={`h-1 w-8 rounded-full transition-all ${processingStage === 'thinking' ? 'bg-purple-500' : 'bg-muted'}`} />
+                          <div className={`h-1 w-8 rounded-full transition-all ${processingStage === 'generating' ? 'bg-primary' : 'bg-muted'}`} />
+                        </div>
+                      </div>
                     </div>
                     <Button
                       onClick={handleStop}
@@ -1231,6 +1327,59 @@ const Chat = () => {
                       <Square className="h-4 w-4 mr-1" />
                       Stop
                     </Button>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Message Queue Display */}
+              {messageQueue.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-2"
+                >
+                  <div className="flex items-center justify-between px-3 py-2 bg-muted/30 rounded-lg border border-border/40">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">
+                        {messageQueue.length} message{messageQueue.length > 1 ? 's' : ''} in queue
+                      </span>
+                    </div>
+                    <Button
+                      onClick={clearQueue}
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs"
+                    >
+                      Clear All
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+                    {messageQueue.map((msg, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 20 }}
+                        className="flex items-center gap-2 p-2 bg-background/50 rounded border border-border/30"
+                      >
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          #{index + 1}
+                        </Badge>
+                        <p className="text-xs text-muted-foreground flex-1 truncate">
+                          {msg.content}
+                        </p>
+                        <Button
+                          onClick={() => cancelQueuedMessage(index)}
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0 shrink-0"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </motion.div>
+                    ))}
                   </div>
                 </motion.div>
               )}
