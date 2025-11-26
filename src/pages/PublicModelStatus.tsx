@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, AlertTriangle, Activity, TrendingUp, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subHours } from "date-fns";
+import { MODEL_CONFIG } from "@/config/modelConfig";
 
 interface ModelStatus {
   id: string;
@@ -19,17 +20,7 @@ const PublicModelStatus = () => {
   const [overallStatus, setOverallStatus] = useState<'operational' | 'degraded' | 'down'>('operational');
   const [loading, setLoading] = useState(true);
 
-  const modelConfigs = [
-    { id: "gpt-5", name: "GPT-5.1", description: "Most capable OpenAI model" },
-    { id: "gpt-5-mini", name: "GPT-5 Mini", description: "Balanced performance and speed" },
-    { id: "gpt-5-nano", name: "GPT-5 Nano", description: "Fastest lightweight model" },
-    { id: "gemini-flash", name: "Gemini 3 Flash", description: "Google's fastest model" },
-    { id: "gemini-pro", name: "Gemini 3 Pro", description: "Google's most capable model" },
-    { id: "gemini-lite", name: "Gemini Lite", description: "Efficient lightweight model" },
-    { id: "claude", name: "Claude 3.5 Sonnet", description: "Anthropic's latest model" },
-    { id: "perplexity", name: "Perplexity", description: "Web-enhanced AI search" },
-    { id: "grok", name: "Grok", description: "Real-time knowledge model" },
-  ];
+  const modelConfigs = MODEL_CONFIG;
 
   useEffect(() => {
     loadModelStatuses();

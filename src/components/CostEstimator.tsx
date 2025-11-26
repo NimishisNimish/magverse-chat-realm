@@ -18,13 +18,15 @@ interface CostEstimatorProps {
 }
 
 const MODEL_COSTS: Record<string, number> = {
-  'gpt-5-mini': 1,
-  'gemini-flash': 1,
-  'gpt-5': 2,
+  'chatgpt': 2,
+  'gemini': 1,
   'claude': 2,
   'grok': 2,
   'perplexity': 2,
-  'gemini-pro': 3,
+  'bytez-qwen': 1,
+  'bytez-phi3': 1,
+  'bytez-mistral': 1,
+  'gemini-flash-image': 3,
 };
 
 export const CostEstimator = ({

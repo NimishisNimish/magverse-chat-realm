@@ -13,6 +13,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { format, subDays } from 'date-fns';
+import { MODEL_CONFIG } from '@/config/modelConfig';
 
 interface UptimeData {
   date: string;
@@ -24,15 +25,15 @@ interface Props {
 }
 
 const MODEL_COLORS: Record<string, string> = {
-  'gpt-5-mini': '#a855f7',
-  'gemini-flash': '#3b82f6',
-  'gemini-pro': '#10b981',
-  'gemini-lite': '#6b7280',
-  'gpt-5': '#f59e0b',
-  'gpt-5-nano': '#60a5fa',
+  'chatgpt': '#f59e0b',
+  'gemini': '#3b82f6',
   'claude': '#fb923c',
   'perplexity': '#22c55e',
   'grok': '#06b6d4',
+  'bytez-qwen': '#a855f7',
+  'bytez-phi3': '#60a5fa',
+  'bytez-mistral': '#6b7280',
+  'gemini-flash-image': '#ec4899',
 };
 
 export const ModelUptimeChart = ({ models }: Props) => {

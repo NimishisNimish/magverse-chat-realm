@@ -3,17 +3,11 @@ import Navbar from "@/components/Navbar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, CheckCircle2, XCircle, Clock, Zap, Brain, Bot, Globe, Sparkles, Cpu, Star, AlertTriangle } from "lucide-react";
+import { RefreshCw, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { useModelHealth } from "@/hooks/useModelHealth";
 import { ModelUptimeChart } from "@/components/ModelUptimeChart";
 import { useAdminActivityLog } from "@/hooks/useAdminActivityLog";
-
-interface ModelConfig {
-  id: string;
-  name: string;
-  icon: any;
-  color: string;
-}
+import { MODEL_CONFIG } from "@/config/modelConfig";
 
 const ModelStatus = () => {
   const { getAllModelHealth, attemptRecovery } = useModelHealth();
@@ -25,17 +19,7 @@ const ModelStatus = () => {
     metadata: { page: 'Model Status' }
   });
   
-  const modelConfigs: ModelConfig[] = [
-    { id: "gpt-5", name: "GPT-5.1", icon: Bot, color: "text-accent" },
-    { id: "gpt-5-mini", name: "GPT-5 Mini", icon: Sparkles, color: "text-purple-400" },
-    { id: "gpt-5-nano", name: "GPT-5 Nano", icon: Star, color: "text-blue-400" },
-    { id: "gemini-flash", name: "Gemini 3 Flash", icon: Zap, color: "text-primary" },
-    { id: "gemini-pro", name: "Gemini 3 Pro", icon: Brain, color: "text-secondary" },
-    { id: "gemini-lite", name: "Gemini Lite", icon: Cpu, color: "text-muted-foreground" },
-    { id: "claude", name: "Claude", icon: Bot, color: "text-orange-400" },
-    { id: "perplexity", name: "Perplexity", icon: Globe, color: "text-green-400" },
-    { id: "grok", name: "Grok", icon: Zap, color: "text-cyan-400" },
-  ];
+  const modelConfigs = MODEL_CONFIG;
 
   const handleRecoveryAttempt = () => {
     modelConfigs.forEach(config => {

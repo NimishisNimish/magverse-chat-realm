@@ -66,6 +66,18 @@ export class StreamingClient {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Stream failed:', response.status, errorText);
+        
+        // Better error messages for common failures
+        if (response.status === 429) {
+          throw new Error('Rate limit exceeded. Too many requests - please wait a moment and try again.');
+        } else if (response.status === 402) {
+          throw new Error('Payment required. Please add credits to continue using AI models.');
+        } else if (response.status === 503) {
+          throw new Error('Service temporarily unavailable. AI models are overloaded - please try again.');
+        } else if (response.status === 500) {
+          throw new Error('Server error. The AI model encountered an error - please try a different model.');
+        }
+        
         throw new Error(`Stream failed: ${response.status} - ${errorText}`);
       }
 
