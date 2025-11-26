@@ -815,6 +815,18 @@ const Chat = () => {
       return;
     }
 
+    // Validate model IDs match backend
+    const VALID_MODEL_IDS = ['chatgpt', 'gemini', 'claude', 'perplexity', 'grok', 'bytez-qwen', 'bytez-phi3', 'bytez-mistral', 'gemini-flash-image'];
+    const validModels = modelsToUse.filter(m => VALID_MODEL_IDS.includes(m));
+    
+    if (validModels.length === 0) {
+      console.warn('⚠️ Invalid model IDs detected:', modelsToUse, 'Falling back to gemini');
+      validModels.push('gemini');
+    }
+    
+    modelsToUse = validModels;
+    console.log('✅ Validated models:', modelsToUse);
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
@@ -1905,8 +1917,8 @@ const Chat = () => {
                 setInput('Please summarize our conversation so far');
                 setTimeout(() => handleSend(), 100);
               } else if (action === 'image') {
-                // Auto-select Gemini 3 Flash for image generation
-                setSelectedModels(['gemini-flash']);
+                // Auto-select Gemini Flash Image for image generation
+                setSelectedModels(['gemini-flash-image']);
               }
             }}
           />

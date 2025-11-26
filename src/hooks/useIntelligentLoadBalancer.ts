@@ -30,28 +30,28 @@ interface ModelCapability {
 }
 
 const MODEL_CAPABILITIES: ModelCapability[] = [
-  { id: 'gpt-5', name: 'GPT-5.1', capabilities: ['text', 'vision', 'reasoning'], tier: 'premium' },
-  { id: 'gpt-5-mini', name: 'GPT-5 Mini', capabilities: ['text', 'vision', 'reasoning'], tier: 'standard' },
-  { id: 'gpt-5-nano', name: 'GPT-5 Nano', capabilities: ['text'], tier: 'lite' },
-  { id: 'gemini-pro', name: 'Gemini 3 Pro', capabilities: ['text', 'vision', 'reasoning'], tier: 'premium' },
-  { id: 'gemini-flash', name: 'Gemini 3 Flash', capabilities: ['text', 'vision', 'image-gen'], tier: 'standard' },
-  { id: 'gemini-lite', name: 'Gemini Lite', capabilities: ['text'], tier: 'lite' },
+  { id: 'chatgpt', name: 'ChatGPT', capabilities: ['text', 'vision', 'reasoning'], tier: 'premium' },
+  { id: 'gemini', name: 'Gemini', capabilities: ['text', 'vision', 'reasoning'], tier: 'premium' },
   { id: 'claude', name: 'Claude', capabilities: ['text', 'vision', 'reasoning'], tier: 'premium' },
   { id: 'perplexity', name: 'Perplexity', capabilities: ['text', 'search'], tier: 'standard' },
-  { id: 'grok', name: 'Grok', capabilities: ['text'], tier: 'standard' },
+  { id: 'grok', name: 'Grok', capabilities: ['text', 'reasoning'], tier: 'standard' },
+  { id: 'bytez-qwen', name: 'Qwen 2.5', capabilities: ['text'], tier: 'lite' },
+  { id: 'bytez-phi3', name: 'Phi-3', capabilities: ['text'], tier: 'lite' },
+  { id: 'bytez-mistral', name: 'Mistral 7B', capabilities: ['text'], tier: 'lite' },
+  { id: 'gemini-flash-image', name: 'Gemini Flash Image', capabilities: ['text', 'image-gen'], tier: 'standard' },
 ];
 
 // Fallback chains based on capabilities and performance tiers
 const CAPABILITY_FALLBACKS: Record<string, string[]> = {
-  'gpt-5': ['gpt-5-mini', 'gemini-pro', 'claude', 'gemini-flash'],
-  'gpt-5-mini': ['gemini-flash', 'gpt-5-nano', 'gemini-lite'],
-  'gpt-5-nano': ['gemini-lite', 'gemini-flash'],
-  'gemini-pro': ['gpt-5', 'claude', 'gemini-flash', 'gpt-5-mini'],
-  'gemini-flash': ['gpt-5-mini', 'gemini-lite', 'gpt-5-nano'],
-  'gemini-lite': ['gemini-flash', 'gpt-5-nano'],
-  'claude': ['gpt-5', 'gemini-pro', 'gpt-5-mini'],
-  'perplexity': ['grok', 'gemini-flash'],
-  'grok': ['perplexity', 'gemini-flash'],
+  'chatgpt': ['gemini', 'claude', 'grok'],
+  'gemini': ['chatgpt', 'claude', 'grok'],
+  'claude': ['chatgpt', 'gemini', 'grok'],
+  'perplexity': ['grok', 'gemini'],
+  'grok': ['perplexity', 'gemini', 'chatgpt'],
+  'bytez-qwen': ['bytez-phi3', 'bytez-mistral'],
+  'bytez-phi3': ['bytez-qwen', 'bytez-mistral'],
+  'bytez-mistral': ['bytez-qwen', 'bytez-phi3'],
+  'gemini-flash-image': ['gemini'],
 };
 
 const DEFAULT_CONFIG: LoadBalancerConfig = {
