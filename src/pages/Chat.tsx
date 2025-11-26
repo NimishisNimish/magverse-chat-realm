@@ -267,12 +267,12 @@ const Chat = () => {
     
     if (loading) {
       timeoutId = setTimeout(() => {
-        console.warn('Loading state auto-reset after 3 minutes');
+        console.warn('⏰ Loading state auto-reset after 60 seconds');
         setLoading(false);
         setElapsedTime(0);
         setResponseStartTime(null);
-        sonnerToast.warning("Request is taking longer than expected. You can try sending your message again.");
-      }, 180000); // 3 minutes
+        sonnerToast.error("Request timeout - AI models took too long. Please try again with different models or a shorter prompt.");
+      }, 60000); // 60 seconds
     }
     
     return () => {
@@ -1710,7 +1710,10 @@ const Chat = () => {
                             <FeedbackButtons
                               messageId={message.id}
                               chatId={chatId || ''}
-                              model={message.model}
+                              model={message.model || 'AI'}
+                              content={message.content}
+                              timestamp={message.timestamp}
+                              role={message.role}
                             />
                           </div>
                         )}

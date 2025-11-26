@@ -22,11 +22,22 @@ export class StreamingClient {
     onDone: (model: string, messageId: string) => void,
     onError: (model: string, error: string) => void
   ): Promise<void> {
+    const MAX_TIMEOUT = 60000; // 60 seconds max
     this.abortController = new AbortController();
+    
+    // Set timeout
+    const timeoutId = setTimeout(() => {
+      console.warn(`⏰ [StreamingClient] Request timeout after ${MAX_TIMEOUT}ms`);
+      this.abortController?.abort();
+      onError(selectedModel, 'Request timeout - AI model took too long to respond. Please try again.');
+    }, MAX_TIMEOUT);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
+      if (!session) {
+        clearTimeout(timeoutId);
+        throw new Error('Not authenticated');
+      }
 
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-with-ai`;
       console.log('🔌 Connecting to:', url);
@@ -110,8 +121,13 @@ export class StreamingClient {
           }
         }
       }
+      
+      clearTimeout(timeoutId);
     } catch (error: any) {
-      if (error.name !== 'AbortError') {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        onError(selectedModel, 'Request cancelled or timed out. Please try again.');
+      } else if (error.name !== 'AbortError') {
         throw error;
       }
     }
