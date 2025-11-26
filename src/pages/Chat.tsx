@@ -48,6 +48,7 @@ import { CustomInstructionsButton } from "@/components/CustomInstructionsDialog"
 import { BudgetAlertDialog } from "@/components/BudgetAlertDialog";
 import { renderWithCitations } from "@/utils/citationRenderer";
 import { VALID_MODEL_IDS, DEFAULT_MODEL_ID, sanitizeModelIds } from "@/config/modelConfig";
+import { softCleanMarkdown } from "@/utils/markdownCleaner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -262,62 +263,22 @@ const Chat = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Safety net: auto-reset loading after 3 minutes as last resort
+  // Safety net: auto-reset loading after timeout
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
     
     if (loading) {
       timeoutId = setTimeout(() => {
-        console.warn('⏰ Loading state auto-reset after 60 seconds');
+        console.warn('⏰ Loading state auto-reset after 90 seconds');
         setLoading(false);
-        setElapsedTime(0);
-        setResponseStartTime(null);
-        sonnerToast.error("Request timeout - AI models took too long. Please try again with different models or a shorter prompt.");
-      }, 60000); // 60 seconds
+        sonnerToast.error("Request timeout. Please try again.");
+      }, 90000); // 90 seconds
     }
     
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, [loading]);
-
-  // Track elapsed time during AI response and play sounds
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout;
-    let lastStage: typeof processingStage = null;
-    
-    if (loading && responseStartTime) {
-      intervalId = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - responseStartTime) / 1000);
-        setElapsedTime(elapsed);
-        
-        // Update processing stage based on elapsed time
-        let newStage: typeof processingStage = null;
-        if (elapsed < 2) {
-          newStage = 'analyzing';
-        } else if (elapsed < 5) {
-          newStage = 'thinking';
-        } else {
-          newStage = 'generating';
-        }
-        
-        // Play sound when stage changes
-        if (newStage !== lastStage && soundEnabled && isSoundSupported()) {
-          if (newStage) playSound(newStage);
-          lastStage = newStage;
-        }
-        
-        setProcessingStage(newStage);
-      }, 1000);
-    } else {
-      setElapsedTime(0);
-      setProcessingStage(null);
-    }
-    
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [loading, responseStartTime, soundEnabled]);
 
   // Process message queue (sort by priority)
   useEffect(() => {
@@ -609,10 +570,7 @@ const Chat = () => {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
       setLoading(false);
-      setElapsedTime(0);
-      setResponseStartTime(null);
       setRetryAttempt(0);
-      setProcessingStage(null);
       setIsProcessingQueue(false);
       setBatchProcessingStatus({ total: 0, completed: 0, inProgress: [] });
       sonnerToast.info("Response stopped");
@@ -1033,13 +991,10 @@ const Chat = () => {
         console.error('Chat error:', error);
         lastError = error;
         
-        // Don't retry if aborted
+          // Don't retry if aborted
         if (error.name === 'AbortError') {
           setLoading(false);
-          setElapsedTime(0);
-          setResponseStartTime(null);
           setRetryAttempt(0);
-          setProcessingStage(null);
           return;
         }
         
@@ -1071,10 +1026,7 @@ const Chat = () => {
         // ALWAYS clear loading state
         if (attempt === maxRetries) {
           setLoading(false);
-          setElapsedTime(0);
-          setResponseStartTime(null);
           setRetryAttempt(0);
-          setProcessingStage(null);
           abortControllerRef.current = null;
         }
       }
@@ -1082,10 +1034,7 @@ const Chat = () => {
     
     // Final cleanup after retry loop (redundant safety net)
     setLoading(false);
-    setElapsedTime(0);
-    setResponseStartTime(null);
     setRetryAttempt(0);
-    setProcessingStage(null);
     abortControllerRef.current = null;
   };
 
@@ -1096,9 +1045,6 @@ const Chat = () => {
     if (!userMsg) return;
 
     setLoading(true);
-    setResponseStartTime(Date.now());
-    setElapsedTime(0);
-    setProcessingStage('analyzing');
     
     // Retry logic with exponential backoff
     let lastError: any = null;
@@ -1175,10 +1121,7 @@ const Chat = () => {
     }
     
     setLoading(false);
-    setElapsedTime(0);
-    setResponseStartTime(null);
     setRetryAttempt(0);
-    setProcessingStage(null);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -1627,8 +1570,8 @@ const Chat = () => {
                           </div>
                         ) : null}
                           
-                          <div className="prose prose-sm dark:prose-invert max-w-none">
-                            {renderWithCitations(message.content)}
+                          <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
+                            {softCleanMarkdown(renderWithCitations(message.content))}
                           </div>
                           
                           {/* Thinking Process Display */}
