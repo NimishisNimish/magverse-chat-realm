@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { Trophy, TrendingUp, Zap, ThumbsUp, Award } from 'lucide-react';
 import { subDays } from 'date-fns';
+import { MODEL_CONFIG } from '@/config/modelConfig';
 
 interface ModelPerformance {
   modelId: string;
@@ -17,17 +18,7 @@ interface ModelPerformance {
   overallScore: number;
 }
 
-const MODEL_CONFIGS = [
-  { id: 'gpt-5', name: 'GPT-5', color: 'text-blue-500' },
-  { id: 'gpt-5-mini', name: 'GPT-5 Mini', color: 'text-blue-400' },
-  { id: 'gpt-5-nano', name: 'GPT-5 Nano', color: 'text-blue-300' },
-  { id: 'gemini-pro', name: 'Gemini Pro', color: 'text-purple-500' },
-  { id: 'gemini-flash', name: 'Gemini Flash', color: 'text-purple-400' },
-  { id: 'gemini-lite', name: 'Gemini Lite', color: 'text-purple-300' },
-  { id: 'claude', name: 'Claude', color: 'text-orange-500' },
-  { id: 'perplexity', name: 'Perplexity', color: 'text-cyan-500' },
-  { id: 'grok', name: 'Grok', color: 'text-green-500' },
-];
+const MODEL_CONFIGS = MODEL_CONFIG;
 
 export const ModelPerformanceLeaderboard = () => {
   const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('7d');

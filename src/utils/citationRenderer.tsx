@@ -28,15 +28,15 @@ export const getEstimatedResponseTime = (modelId: string, responseTimes: Map<str
   if (!times || times.length === 0) {
     // Default estimates per model (in seconds)
     const defaults: Record<string, number> = {
-      'gemini-flash': 8,
-      'gemini-lite': 6,
-      'gpt-5-nano': 7,
-      'gpt-5-mini': 10,
-      'gemini-pro': 15,
-      'gpt-5': 18,
+      'chatgpt': 18,
+      'gemini': 8,
       'claude': 20,
       'perplexity': 12,
       'grok': 15,
+      'bytez-qwen': 7,
+      'bytez-phi3': 6,
+      'bytez-mistral': 7,
+      'gemini-flash-image': 10,
     };
     return defaults[modelId] || 10;
   }

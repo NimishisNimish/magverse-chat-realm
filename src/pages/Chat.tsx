@@ -47,6 +47,7 @@ import { FeedbackButtons } from "@/components/FeedbackButtons";
 import { CustomInstructionsButton } from "@/components/CustomInstructionsDialog";
 import { BudgetAlertDialog } from "@/components/BudgetAlertDialog";
 import { renderWithCitations } from "@/utils/citationRenderer";
+import { VALID_MODEL_IDS, DEFAULT_MODEL_ID, sanitizeModelIds } from "@/config/modelConfig";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -815,15 +816,8 @@ const Chat = () => {
       return;
     }
 
-    // Validate model IDs match backend
-    const VALID_MODEL_IDS = ['chatgpt', 'gemini', 'claude', 'perplexity', 'grok', 'bytez-qwen', 'bytez-phi3', 'bytez-mistral', 'gemini-flash-image'];
-    const validModels = modelsToUse.filter(m => VALID_MODEL_IDS.includes(m));
-    
-    if (validModels.length === 0) {
-      console.warn('⚠️ Invalid model IDs detected:', modelsToUse, 'Falling back to gemini');
-      validModels.push('gemini');
-    }
-    
+    // Validate model IDs match backend using centralized config
+    const validModels = sanitizeModelIds(modelsToUse);
     modelsToUse = validModels;
     console.log('✅ Validated models:', modelsToUse);
 
