@@ -1017,7 +1017,7 @@ serve(async (req) => {
             }
           }
         } else if (config.provider === 'bytez') {
-          // Bytez AI API call (small models) - FIXED URL
+          // Bytez AI API call (small models) - CORRECT ENDPOINT
           if (!BYTEZ_API_KEY) {
             console.error('❌ Bytez API key not configured');
             return {
@@ -1039,21 +1039,20 @@ serve(async (req) => {
             ];
           }
           
-          const messagesAsText = messagesToSend.map((msg: any) => 
-            `${msg.role}: ${typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)}`
-          ).join('\n');
+          console.log(`📤 Calling ${modelId} (${config.model}) with reasoning mode...`);
           
-          response = await fetch('https://api.bytez.com/model/run', {
+          // Bytez uses /models/v2/{model-id} endpoint with messages format
+          response = await fetch(`https://api.bytez.com/models/v2/${config.model}`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${BYTEZ_API_KEY}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              modelId: config.model,
-              prompt: messagesAsText,
+              messages: messagesToSend,
+              stream: false,
               params: {
-                max_tokens: 2048,
+                max_length: 2048,
                 temperature: 0.7,
               }
             }),
