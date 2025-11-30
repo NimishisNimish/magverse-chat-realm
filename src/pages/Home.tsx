@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { useParallax } from "@/hooks/useParallax";
 import { motion } from "framer-motion";
+import { AIModelsShowcase } from "@/components/AIModelsShowcase";
 
 const Home = () => {
   const {
@@ -208,6 +209,8 @@ const Home = () => {
         </div>
       </section>
 
+      {/* AI Models Showcase */}
+      <AIModelsShowcase />
       
       {/* Features Section */}
       <section className="container mx-auto px-4 py-20 relative z-10">

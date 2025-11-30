@@ -31,7 +31,10 @@ import {
   Eye,
   Volume2,
   VolumeX,
-  Layers
+  Layers,
+  AlertCircle,
+  CheckCircle2,
+  StopCircle,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import FilePreview from "@/components/FilePreview";
@@ -47,7 +50,8 @@ import { FeedbackButtons } from "@/components/FeedbackButtons";
 import { CustomInstructionsButton } from "@/components/CustomInstructionsDialog";
 import { BudgetAlertDialog } from "@/components/BudgetAlertDialog";
 import { renderWithCitations } from "@/utils/citationRenderer";
-import { VALID_MODEL_IDS, DEFAULT_MODEL_ID, sanitizeModelIds } from "@/config/modelConfig";
+import { VALID_MODEL_IDS, DEFAULT_MODEL_ID, sanitizeModelIds, MODEL_CONFIG } from "@/config/modelConfig";
+import { AIModelLogo } from "@/components/AIModelLogo";
 import { softCleanMarkdown } from "@/utils/markdownCleaner";
 import {
   DropdownMenu,
@@ -1294,7 +1298,7 @@ const Chat = () => {
 
       // Call edge function to extract text
       const { data, error } = await supabase.functions.invoke('extract-pdf-text', {
-        body: { fileUrl: publicUrl }
+        body: { url: publicUrl }
       });
 
       if (error) throw error;
@@ -1652,6 +1656,14 @@ const Chat = () => {
                               timestamp={message.timestamp}
                               role={message.role}
                             />
+                          </div>
+                        )}
+                        
+                        {/* Show model info for assistant messages */}
+                        {message.role === 'assistant' && message.model && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2 pt-2 border-t border-border/30">
+                            <AIModelLogo modelId={message.model} size="sm" />
+                            <span>{MODEL_CONFIG.find(m => m.id === message.model)?.name || message.model}</span>
                           </div>
                         )}
                       </div>
@@ -2142,27 +2154,40 @@ const Chat = () => {
           <ScrollArea className="max-h-[400px] pr-4">
             <div className="space-y-2">
               {aiModels.map(model => {
-                const Icon = model.icon;
+                const modelConfig = MODEL_CONFIG.find(m => m.id === model.id);
+                const isAvailable = modelConfig?.available !== false;
                 const isSelected = selectedModels.includes(model.id);
+                
                 return (
                   <Button
                     key={model.id}
                     variant={isSelected ? "secondary" : "outline"}
-                    className="w-full justify-start h-auto py-3"
-                    onClick={() => handleModelToggle(model.id)}
+                    className={`w-full justify-start h-auto py-3 ${!isAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    onClick={() => isAvailable && handleModelToggle(model.id)}
+                    disabled={!isAvailable}
                   >
                     <div className="flex items-center gap-3 w-full">
-                      <Icon className={`h-5 w-5 ${model.color}`} />
+                      <AIModelLogo modelId={model.id} size="md" />
                       <div className="flex-1 text-left">
-                        <div className="font-medium">{model.name}</div>
+                        <div className="font-medium flex items-center gap-2">
+                          {model.name}
+                          {!isAvailable && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                              Limited
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-muted-foreground capitalize">
                           {model.category}
                         </div>
                       </div>
-                      {isSelected && (
+                      {isSelected && isAvailable && (
                         <Badge variant="default" className="text-xs">
                           Selected
                         </Badge>
+                      )}
+                      {!isAvailable && (
+                        <AlertCircle className="w-4 h-4 text-amber-500" />
                       )}
                     </div>
                   </Button>

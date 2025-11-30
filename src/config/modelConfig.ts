@@ -6,6 +6,7 @@ export interface ModelConfig {
   description: string;
   icon: any;
   color: string;
+  available?: boolean; // Indicates if model is currently working
 }
 
 // These IDs MUST match the backend exactly (chat-with-ai edge function)
@@ -15,7 +16,8 @@ export const MODEL_CONFIG: ModelConfig[] = [
     name: 'ChatGPT (GPT-4o)', 
     description: 'Most capable OpenAI model', 
     icon: Bot, 
-    color: 'text-accent' 
+    color: 'text-accent',
+    available: false // API quota exceeded
   },
   { 
     id: 'gemini', 
@@ -36,7 +38,8 @@ export const MODEL_CONFIG: ModelConfig[] = [
     name: 'Perplexity', 
     description: 'Web-enhanced AI search', 
     icon: Globe, 
-    color: 'text-green-400' 
+    color: 'text-green-400',
+    available: false // API key expired
   },
   { 
     id: 'grok', 
