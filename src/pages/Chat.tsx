@@ -1706,7 +1706,6 @@ const Chat = () => {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium">
-                            {processingStage === 'analyzing' && 'Analyzing input...'}
                             {processingStage === 'thinking' && 'Processing your request...'}
                             {processingStage === 'generating' && 'Generating response...'}
                           </span>
@@ -2157,6 +2156,26 @@ const Chat = () => {
               Choose up to 3 AI models (currently {selectedModels.length}/3 selected)
             </DialogDescription>
           </DialogHeader>
+          
+          {/* Gemini Reasoning Toggle */}
+          {selectedModels.includes('gemini') && (
+            <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/20">
+              <div className="flex items-center gap-2">
+                <Brain className="h-4 w-4 text-primary" />
+                <div>
+                  <div className="text-sm font-medium">Gemini Reasoning Mode</div>
+                  <div className="text-xs text-muted-foreground">Enable advanced reasoning for complex queries</div>
+                </div>
+              </div>
+              <Switch
+                checked={enableMultiStepReasoning}
+                onCheckedChange={(checked) => {
+                  setEnableMultiStepReasoning(checked);
+                  localStorage.setItem('enableMultiStepReasoning', JSON.stringify(checked));
+                }}
+              />
+            </div>
+          )}
           
           <ScrollArea className="max-h-[400px] pr-4">
             <div className="space-y-2">

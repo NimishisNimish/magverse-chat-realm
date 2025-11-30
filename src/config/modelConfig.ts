@@ -16,8 +16,7 @@ export const MODEL_CONFIG: ModelConfig[] = [
     name: 'ChatGPT (GPT-4o)', 
     description: 'Most capable OpenAI model', 
     icon: Bot, 
-    color: 'text-accent',
-    available: false // API quota exceeded
+    color: 'text-accent'
   },
   { 
     id: 'gemini', 
@@ -38,8 +37,7 @@ export const MODEL_CONFIG: ModelConfig[] = [
     name: 'Perplexity', 
     description: 'Web-enhanced AI search', 
     icon: Globe, 
-    color: 'text-green-400',
-    available: false // API key expired
+    color: 'text-green-400'
   },
   { 
     id: 'grok', 
