@@ -1,4 +1,4 @@
-import chatgptLogo from "@/assets/ai-logos/chatgpt-logo-clean.png";
+import chatgptLogo from "@/assets/ai-logos/chatgpt-logo.png";
 import geminiLogo from "@/assets/ai-logos/gemini-logo.svg";
 import claudeLogo from "@/assets/ai-logos/claude-logo.png";
 import perplexityLogo from "@/assets/ai-logos/perplexity-logo.svg";
