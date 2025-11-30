@@ -69,16 +69,18 @@ export class StreamingClient {
         
         // Better error messages for common failures
         if (response.status === 429) {
-          throw new Error('Rate limit exceeded. Too many requests - please wait a moment and try again.');
+          throw new Error('⚠️ Rate limit exceeded. Too many requests - please wait a moment and try again.');
         } else if (response.status === 402) {
-          throw new Error('Payment required. Please add credits to continue using AI models.');
+          throw new Error('💳 Payment required. Please add credits to your Lovable AI workspace to continue.');
         } else if (response.status === 503) {
-          throw new Error('Service temporarily unavailable. AI models are overloaded - please try again.');
+          throw new Error('⏳ Service temporarily unavailable. AI models are overloaded - please try again in a few moments.');
         } else if (response.status === 500) {
-          throw new Error('Server error. The AI model encountered an error - please try a different model.');
+          throw new Error('⚠️ Server error. The AI model encountered an error - please try a different model or retry.');
+        } else if (response.status === 401 || response.status === 403) {
+          throw new Error('🔒 Authentication error. Please refresh the page and try again.');
         }
         
-        throw new Error(`Stream failed: ${response.status} - ${errorText}`);
+        throw new Error(`❌ Stream failed: ${response.status} - ${errorText}`);
       }
 
       const reader = response.body?.getReader();
@@ -138,9 +140,12 @@ export class StreamingClient {
     } catch (error: any) {
       clearTimeout(timeoutId);
       if (error.name === 'AbortError') {
-        onError(selectedModel, 'Request cancelled or timed out. Please try again.');
-      } else if (error.name !== 'AbortError') {
-        throw error;
+        onError(selectedModel, '⏹️ Request cancelled or timed out. Please try again with a different model.');
+      } else {
+        // Don't throw, just pass the error to onError to show it in the UI
+        const errorMessage = error.message || 'Unknown error occurred';
+        console.error('❌ Streaming error:', errorMessage);
+        onError(selectedModel, errorMessage);
       }
     }
   }
