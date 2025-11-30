@@ -52,6 +52,7 @@ import { BudgetAlertDialog } from "@/components/BudgetAlertDialog";
 import { renderWithCitations } from "@/utils/citationRenderer";
 import { VALID_MODEL_IDS, DEFAULT_MODEL_ID, sanitizeModelIds, MODEL_CONFIG } from "@/config/modelConfig";
 import { AIModelLogo } from "@/components/AIModelLogo";
+import { AITypingIndicator } from "@/components/AITypingIndicator";
 import { softCleanMarkdown } from "@/utils/markdownCleaner";
 import {
   DropdownMenu,
@@ -1526,11 +1527,14 @@ const Chat = () => {
               ) : (
                 <AnimatePresence>
                   {messages.map((message) => (
-                    <motion.div
+                     <motion.div
                       key={message.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
+                      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ 
+                        duration: 0.4,
+                        ease: [0.25, 0.1, 0.25, 1]
+                      }}
                       className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} mb-6`}
                     >
                       <div className={`max-w-[85%] ${message.role === 'user' ? 'ml-auto' : ''}`}>
@@ -1544,11 +1548,20 @@ const Chat = () => {
                         >
                         {message.attachmentUrl && message.attachmentType === 'image' ? (
                           <div className="mb-3 rounded-lg overflow-hidden border border-border/40">
-                            <img 
+                            <motion.img 
                               src={message.attachmentUrl} 
                               alt="Generated image"
                               className="w-full max-w-md h-auto object-contain"
+                              initial={{ opacity: 0, scale: 0.9 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ duration: 0.5, ease: "easeOut" }}
                             />
+                            {message.model === 'gemini-flash-image' && (
+                              <div className="px-3 py-2 bg-muted/50 border-t border-border/40 flex items-center gap-2">
+                                <AIModelLogo modelId="gemini-flash-image" size="sm" />
+                                <span className="text-xs text-muted-foreground">Made by Gemini Flash Images</span>
+                              </div>
+                            )}
                           </div>
                         ) : message.attachmentUrl ? (
                           <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
@@ -1656,56 +1669,76 @@ const Chat = () => {
               )}
               
               {loading && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="space-y-3"
-                >
-                  <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg border border-border/40">
-                    {processingStage === 'analyzing' && (
-                      <FileSearch className="h-5 w-5 animate-pulse text-blue-500" />
-                    )}
-                    {processingStage === 'thinking' && (
-                      <Brain className="h-5 w-5 animate-pulse text-purple-500" />
-                    )}
-                    {processingStage === 'generating' && (
-                      <Sparkles className="h-5 w-5 animate-pulse text-primary" />
-                    )}
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">
-                          {processingStage === 'analyzing' && 'Analyzing input...'}
-                          {processingStage === 'thinking' && 'Processing your request...'}
-                          {processingStage === 'generating' && 'Generating response...'}
-                        </span>
-                        {retryAttempt > 0 && (
-                          <Badge variant="outline" className="text-xs">
-                            Retry {retryAttempt}/3
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-muted-foreground">
-                          {elapsedTime}s elapsed
-                        </span>
-                        <div className="flex gap-1">
-                          <div className={`h-1 w-8 rounded-full transition-all ${processingStage === 'analyzing' ? 'bg-blue-500' : 'bg-muted'}`} />
-                          <div className={`h-1 w-8 rounded-full transition-all ${processingStage === 'thinking' ? 'bg-purple-500' : 'bg-muted'}`} />
-                          <div className={`h-1 w-8 rounded-full transition-all ${processingStage === 'generating' ? 'bg-primary' : 'bg-muted'}`} />
+                <>
+                  {/* AI Model Typing Indicator */}
+                  {selectedModels.length > 0 && (
+                    <AnimatePresence>
+                      {selectedModels.map((modelId) => {
+                        const model = MODEL_CONFIG.find(m => m.id === modelId);
+                        if (!model) return null;
+                        return (
+                          <AITypingIndicator
+                            key={modelId}
+                            modelId={modelId}
+                            modelName={model.name}
+                          />
+                        );
+                      })}
+                    </AnimatePresence>
+                  )}
+                  
+                  {/* Processing Stage Indicator */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-3"
+                  >
+                    <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg border border-border/40">
+                      {processingStage === 'analyzing' && (
+                        <FileSearch className="h-5 w-5 animate-pulse text-blue-500" />
+                      )}
+                      {processingStage === 'thinking' && (
+                        <Brain className="h-5 w-5 animate-pulse text-purple-500" />
+                      )}
+                      {processingStage === 'generating' && (
+                        <Sparkles className="h-5 w-5 animate-pulse text-primary" />
+                      )}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">
+                            {processingStage === 'analyzing' && 'Analyzing input...'}
+                            {processingStage === 'thinking' && 'Processing your request...'}
+                            {processingStage === 'generating' && 'Generating response...'}
+                          </span>
+                          {retryAttempt > 0 && (
+                            <Badge variant="outline" className="text-xs">
+                              Retry {retryAttempt}/3
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-muted-foreground">
+                            {elapsedTime}s elapsed
+                          </span>
+                          <div className="flex gap-1">
+                            <div className={`h-1 w-8 rounded-full transition-all ${processingStage === 'analyzing' ? 'bg-blue-500' : 'bg-muted'}`} />
+                            <div className={`h-1 w-8 rounded-full transition-all ${processingStage === 'thinking' ? 'bg-purple-500' : 'bg-muted'}`} />
+                            <div className={`h-1 w-8 rounded-full transition-all ${processingStage === 'generating' ? 'bg-primary' : 'bg-muted'}`} />
+                          </div>
                         </div>
                       </div>
+                      <Button
+                        onClick={handleStop}
+                        size="sm"
+                        variant="destructive"
+                        className="h-8"
+                      >
+                        <Square className="h-4 w-4 mr-1" />
+                        Stop
+                      </Button>
                     </div>
-                    <Button
-                      onClick={handleStop}
-                      size="sm"
-                      variant="destructive"
-                      className="h-8"
-                    >
-                      <Square className="h-4 w-4 mr-1" />
-                      Stop
-                    </Button>
-                  </div>
-                </motion.div>
+                  </motion.div>
+                </>
               )}
 
               {/* Message Queue Display */}
@@ -1865,44 +1898,36 @@ const Chat = () => {
               {(attachmentUrl || pendingFile) && (
                 <div className="mb-3">
                   <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg border border-border/40">
-                    {/* Visual Preview */}
-                    {pendingFile && (
-                      <div className="relative shrink-0">
-                        {pendingFile.type.startsWith('image/') ? (
-                          <div className="w-16 h-16 rounded-lg overflow-hidden border border-border/40">
-                            <img 
-                              src={URL.createObjectURL(pendingFile)} 
-                              alt="Preview"
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center border border-border/40">
-                            <FileText className="h-8 w-8 text-muted-foreground" />
-                          </div>
-                        )}
-                        {uploading && (
-                          <div className="absolute inset-0 bg-background/50 flex items-center justify-center rounded-lg">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    
-                    {/* File Info */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {attachmentFileName || 'File attached'}
-                      </p>
-                      {pendingFile && (
-                        <p className="text-xs text-muted-foreground">
-                          {(pendingFile.size / 1024).toFixed(1)} KB
-                        </p>
-                      )}
-                      {uploadStatus === 'success' && (
-                        <p className="text-xs text-green-500">✓ Uploaded successfully</p>
-                      )}
-                    </div>
+                     {/* Visual Preview */}
+                     {pendingFile && (
+                       <div className="relative shrink-0">
+                         {pendingFile.type.startsWith('image/') ? (
+                           <div className="w-16 h-16 rounded-lg overflow-hidden border border-border/40">
+                             <img 
+                               src={URL.createObjectURL(pendingFile)} 
+                               alt="Preview"
+                               className="w-full h-full object-cover"
+                             />
+                           </div>
+                         ) : (
+                           <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center border border-border/40">
+                             <FileText className="h-8 w-8 text-muted-foreground" />
+                           </div>
+                         )}
+                       </div>
+                     )}
+                     
+                     {/* File Info */}
+                     <div className="flex-1 min-w-0">
+                       <p className="text-sm font-medium truncate">
+                         {attachmentFileName || 'File attached'}
+                       </p>
+                       {pendingFile && (
+                         <p className="text-xs text-muted-foreground">
+                           {(pendingFile.size / 1024).toFixed(1)} KB
+                         </p>
+                       )}
+                     </div>
                     
                     {/* Preview & Remove Buttons */}
                     <div className="flex items-center gap-1 shrink-0">
@@ -1950,11 +1975,11 @@ const Chat = () => {
                   className="shrink-0 rounded-full h-10 w-10"
                   title="Add files"
                 >
-                  {uploading ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Plus className="h-5 w-5" />
-                  )}
+                {uploading ? (
+                  <Plus className="h-5 w-5" />
+                ) : (
+                  <Plus className="h-5 w-5" />
+                )}
                 </Button>
 
                 {/* Tools Dropdown */}
