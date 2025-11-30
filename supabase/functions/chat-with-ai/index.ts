@@ -326,37 +326,51 @@ serve(async (req) => {
       console.log('🎨 Processing image generation request...');
       
       try {
-        const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent', {
+        // Use OpenAI's image generation API (DALL-E)
+        const userPrompt = processedMessages[processedMessages.length - 1]?.content || 'Generate an image';
+        const imagePrompt = typeof userPrompt === 'string' ? userPrompt : JSON.stringify(userPrompt);
+        
+        const response = await fetch('https://api.openai.com/v1/images/generations', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-goog-api-key': GOOGLE_AI_API_KEY!,
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
           },
           body: JSON.stringify({
-            contents: processedMessages.map(msg => ({
-              role: msg.role === 'assistant' ? 'model' : 'user',
-              parts: [{ text: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content) }]
-            })),
-            generationConfig: {
-              temperature: 0.9,
-              maxOutputTokens: 2048,
-            }
+            model: 'gpt-image-1', // Latest OpenAI image generation model
+            prompt: imagePrompt,
+            n: 1,
+            size: '1024x1024',
+            quality: 'standard',
+            response_format: 'b64_json', // Get base64 directly
           }),
         });
 
         if (!response.ok) {
           const errorText = await response.text();
           console.error(`❌ Image generation error (${response.status}):`, errorText);
+          
+          // Check if it's API key issue
+          if (response.status === 401 || response.status === 429) {
+            return new Response(
+              JSON.stringify({ 
+                error: 'Image generation unavailable. OpenAI API quota exceeded. Please try text chat instead.',
+                details: 'The image generation service is temporarily unavailable.'
+              }),
+              { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
           return new Response(
-            JSON.stringify({ error: 'Image generation failed' }),
+            JSON.stringify({ error: 'Image generation failed', details: errorText.substring(0, 200) }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
         const data = await response.json();
-        const imageUrl = data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        const imageBase64 = data.data?.[0]?.b64_json;
         
-        if (!imageUrl) {
+        if (!imageBase64) {
           return new Response(
             JSON.stringify({ error: 'No image generated' }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -365,8 +379,26 @@ serve(async (req) => {
 
         console.log('✅ Image generated successfully');
         
+        // Save image message to chat
+        const imageMessage = await supabase
+          .from('chat_messages')
+          .insert({
+            chat_id: currentChatId,
+            user_id: user.id,
+            role: 'assistant',
+            content: 'Here is your generated image:',
+            model: 'gpt-image-1',
+            attachment_url: `data:image/png;base64,${imageBase64}`,
+          })
+          .select()
+          .single();
+        
         return new Response(
-          JSON.stringify({ success: true, image: `data:image/png;base64,${imageUrl}` }),
+          JSON.stringify({ 
+            success: true, 
+            image: `data:image/png;base64,${imageBase64}`,
+            messageId: imageMessage.data?.id 
+          }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (error: any) {
