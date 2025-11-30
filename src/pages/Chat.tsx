@@ -758,9 +758,9 @@ const Chat = () => {
       if (activeQuickAction === 'fast') {
         modelsToUse = ['bytez-phi3', 'bytez-mistral'];
       } else if (activeQuickAction === 'reasoning') {
-        modelsToUse = ['chatgpt', 'claude'];
+        modelsToUse = ['claude', 'gemini'];
       } else if (activeQuickAction === 'research') {
-        modelsToUse = ['perplexity'];
+        modelsToUse = ['grok'];
       }
     }
     

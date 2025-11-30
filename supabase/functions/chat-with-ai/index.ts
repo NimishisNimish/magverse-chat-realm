@@ -754,8 +754,8 @@ serve(async (req) => {
               contents: geminiMessages,
               generationConfig: {
                 temperature: 0.7,
-                maxOutputTokens: 4096,
-                ...(config.supportsReasoning && { thinkingConfig: { enabled: true } })
+                maxOutputTokens: 4096
+                // thinkingConfig removed - not supported by Gemini API
               }
             }),
           });
@@ -951,10 +951,19 @@ serve(async (req) => {
           if (!response.ok) {
             const errorText = await response.text();
             console.error(`❌ ${modelId} OpenAI API error (${response.status}):`, errorText);
+            
+            // User-friendly error messages
+            let errorMessage = 'API error occurred';
+            if (response.status === 429) {
+              errorMessage = 'ChatGPT quota exceeded. Try Gemini or Claude instead.';
+            } else if (response.status === 401) {
+              errorMessage = 'ChatGPT API key invalid. Try Gemini or Claude instead.';
+            }
+            
             return {
               success: false,
               model: modelId,
-              response: response.status === 429 ? 'Rate limit exceeded' : 'API error occurred',
+              response: errorMessage,
               error: true
             };
           }
@@ -1086,10 +1095,19 @@ serve(async (req) => {
           if (!response.ok) {
             const errorText = await response.text();
             console.error(`❌ ${modelId} API error (${response.status}):`, errorText);
+            
+            // User-friendly error messages
+            let errorMessage = 'API error occurred';
+            if (response.status === 429) {
+              errorMessage = 'Rate limit exceeded. Try again in a moment.';
+            } else if (response.status === 401) {
+              errorMessage = 'Perplexity API key expired. Try Grok for research instead.';
+            }
+            
             return {
               success: false,
               model: modelId,
-              response: response.status === 429 ? 'Rate limit exceeded' : 'API error occurred',
+              response: errorMessage,
               error: true
             };
           }
