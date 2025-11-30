@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 // API Keys
-const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+const SUDO_API_KEY = Deno.env.get('SUDO_API_KEY'); // ChatGPT Sudo API
 const NVIDIA_NIM_API_KEY = Deno.env.get('NVIDIA_NIM_API_KEY');
 const GOOGLE_AI_API_KEY = Deno.env.get('GOOGLE_AI_API_KEY');
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
@@ -334,7 +334,7 @@ serve(async (req) => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'Authorization': `Bearer ${SUDO_API_KEY}`,
           },
           body: JSON.stringify({
             model: 'gpt-image-1', // Latest OpenAI image generation model
@@ -444,8 +444,8 @@ serve(async (req) => {
               throw new Error('Perplexity API key not configured');
             } else if (config.provider === 'groq' && !GROQ_API_KEY) {
               throw new Error('Groq API key not configured');
-            } else if (config.provider === 'openai' && !OPENAI_API_KEY) {
-              throw new Error('OpenAI API key not configured');
+            } else if (config.provider === 'openai' && !SUDO_API_KEY) {
+              throw new Error('Sudo API key not configured');
             }
             
             if (config.provider === 'nvidia') {
@@ -522,13 +522,13 @@ serve(async (req) => {
                 }),
               });
             } else if (config.provider === 'openai') {
-              if (!OPENAI_API_KEY) {
-                throw new Error('OpenAI API key not configured');
+              if (!SUDO_API_KEY) {
+                throw new Error('Sudo API key not configured');
               }
               streamResponse = await fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
                 headers: {
-                  'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                  'Authorization': `Bearer ${SUDO_API_KEY}`,
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
@@ -944,13 +944,13 @@ serve(async (req) => {
             }
           }
         } else if (config.provider === 'openai') {
-          // OpenAI API call
-          if (!OPENAI_API_KEY) {
-            console.error('❌ OpenAI API key not configured');
+          // OpenAI API call (Sudo API)
+          if (!SUDO_API_KEY) {
+            console.error('❌ Sudo API key not configured');
             return {
               success: false,
               model: modelId,
-              response: 'OpenAI API key not configured',
+              response: 'Sudo API key not configured',
               error: true
             };
           }
@@ -969,7 +969,7 @@ serve(async (req) => {
           response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${OPENAI_API_KEY}`,
+              'Authorization': `Bearer ${SUDO_API_KEY}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
