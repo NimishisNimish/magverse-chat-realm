@@ -1,11 +1,11 @@
-import chatgptLogo from "@/assets/ai-logos/chatgpt-logo.png";
+import chatgptLogo from "@/assets/ai-logos/chatgpt-logo-clean.png";
 import geminiLogo from "@/assets/ai-logos/gemini-logo.svg";
-import claudeLogo from "@/assets/ai-logos/claude-logo.png";
-import perplexityLogo from "@/assets/ai-logos/perplexity-logo.png";
-import grokLogo from "@/assets/ai-logos/grok-logo.png";
-import qwenLogo from "@/assets/ai-logos/qwen-logo.png";
-import phi3Logo from "@/assets/ai-logos/phi3-logo.png";
-import mistralLogo from "@/assets/ai-logos/mistral-logo.png";
+import claudeLogo from "@/assets/ai-logos/claude-logo-clean.png";
+import perplexityLogo from "@/assets/ai-logos/perplexity-logo.svg";
+import grokLogo from "@/assets/ai-logos/grok-logo.svg";
+import qwenLogo from "@/assets/ai-logos/qwen-logo-clean.png";
+import phi3Logo from "@/assets/ai-logos/phi3-logo-clean.png";
+import mistralLogo from "@/assets/ai-logos/mistral-logo-clean.png";
 
 interface AIModelLogoProps {
   modelId: string;

@@ -1508,7 +1508,6 @@ const Chat = () => {
                   </p>
                   <div className="flex flex-wrap gap-2 justify-center">
                     {aiModels.slice(0, 3).map((model) => {
-                      const Icon = model.icon;
                       return (
                         <Button
                           key={model.id}
@@ -1517,7 +1516,7 @@ const Chat = () => {
                           onClick={() => handleModelToggle(model.id)}
                           className="gap-2"
                         >
-                          <Icon className={`h-4 w-4 ${model.color}`} />
+                          <AIModelLogo modelId={model.id} size="sm" />
                           {model.name}
                         </Button>
                       );
@@ -1535,22 +1534,6 @@ const Chat = () => {
                       className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} mb-6`}
                     >
                       <div className={`max-w-[85%] ${message.role === 'user' ? 'ml-auto' : ''}`}>
-                        {message.role === 'assistant' && (
-                          <div className="flex items-center gap-2 mb-2">
-                            {(() => {
-                              const model = aiModels.find(m => m.id === message.model);
-                              const Icon = model?.icon || Bot;
-                              return (
-                                <>
-                                  <Icon className={`h-4 w-4 ${model?.color || 'text-primary'}`} />
-                                  <span className="text-xs font-medium text-muted-foreground">
-                                    {model?.name || 'AI'}
-                                  </span>
-                                </>
-                              );
-                            })()}
-                          </div>
-                        )}
                         
                         <div
                           className={`rounded-2xl px-4 py-3 ${
@@ -1659,11 +1642,11 @@ const Chat = () => {
                           </div>
                         )}
                         
-                        {/* Show model info for assistant messages */}
+                        {/* Show model logo for assistant messages */}
                         {message.role === 'assistant' && message.model && (
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2 pt-2 border-t border-border/30">
-                            <AIModelLogo modelId={message.model} size="sm" />
-                            <span>{MODEL_CONFIG.find(m => m.id === message.model)?.name || message.model}</span>
+                          <div className="flex items-center gap-2 mt-2">
+                            <AIModelLogo modelId={message.model} size="md" />
+                            <span className="text-sm font-medium">{MODEL_CONFIG.find(m => m.id === message.model)?.name || message.model}</span>
                           </div>
                         )}
                       </div>
@@ -2070,17 +2053,16 @@ const Chat = () => {
               {selectedModels.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {aiModels.map(model => {
-                    const Icon = model.icon;
                     const isSelected = selectedModels.includes(model.id);
                     if (!isSelected) return null;
                     return (
                       <Badge
                         key={model.id}
                         variant="secondary"
-                        className="h-6 px-2 gap-1 text-xs cursor-pointer hover:bg-secondary/80 transition-colors"
+                        className="h-7 px-2 gap-1.5 text-xs cursor-pointer hover:bg-secondary/80 transition-colors"
                         onClick={() => handleModelToggle(model.id)}
                       >
-                        <Icon className={`h-3 w-3 ${model.color}`} />
+                        <AIModelLogo modelId={model.id} size="sm" />
                         {model.name}
                         <X className="h-3 w-3 ml-1" />
                       </Badge>
@@ -2143,7 +2125,7 @@ const Chat = () => {
 
       {/* Model Selection Dialog */}
       <Dialog open={modelSelectionOpen} onOpenChange={setModelSelectionOpen}>
-        <DialogContent className="sm:max-w-lg">
+          <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Select AI Models</DialogTitle>
             <DialogDescription>
