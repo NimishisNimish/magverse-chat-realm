@@ -202,7 +202,6 @@ const Chat = () => {
   const [responseStartTime, setResponseStartTime] = useState<number | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [retryAttempt, setRetryAttempt] = useState(0);
-  const [processingStage, setProcessingStage] = useState<'analyzing' | 'thinking' | 'generating' | null>(null);
   const [messageQueue, setMessageQueue] = useState<QueuedMessage[]>([]);
   const [isProcessingQueue, setIsProcessingQueue] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(getSoundPreference());
@@ -291,10 +290,8 @@ const Chat = () => {
       if (messageQueue.length > 0 && !loading && !isProcessingQueue && !batchModeEnabled) {
         setIsProcessingQueue(true);
         
-        // Sort queue by priority (urgent first) then by timestamp
+        // Sort queue by timestamp
         const sortedQueue = [...messageQueue].sort((a, b) => {
-          if (a.priority === 'urgent' && b.priority !== 'urgent') return -1;
-          if (b.priority === 'urgent' && a.priority !== 'urgent') return 1;
           return a.timestamp - b.timestamp;
         });
         
@@ -581,16 +578,6 @@ const Chat = () => {
       sonnerToast.info("Response stopped");
     }
   };
-  
-  const markAsUrgent = (messageId: string) => {
-    setMessageQueue(prev => prev.map(msg => 
-      msg.id === messageId ? { ...msg, priority: 'urgent' } : msg
-    ));
-    if (soundEnabled && isSoundSupported()) {
-      playSound('urgentQueue');
-    }
-    sonnerToast.info("Message marked as urgent and moved to front of queue");
-  };
 
   const cancelQueuedMessage = (messageId: string) => {
     setMessageQueue(prev => prev.filter(m => m.id !== messageId));
@@ -605,10 +592,8 @@ const Chat = () => {
   const processBatch = async () => {
     if (messageQueue.length === 0 || loading) return;
     
-    // Sort by priority first
+    // Sort by timestamp
     const sortedQueue = [...messageQueue].sort((a, b) => {
-      if (a.priority === 'urgent' && b.priority !== 'urgent') return -1;
-      if (b.priority === 'urgent' && a.priority !== 'urgent') return 1;
       return a.timestamp - b.timestamp;
     });
     
@@ -731,10 +716,10 @@ const Chat = () => {
       removeAttachment();
       
       if (soundEnabled && isSoundSupported()) {
-        playSound(urgent ? 'urgentQueue' : 'queueAdd');
+        playSound('queueAdd');
       }
       
-      sonnerToast.info(`Message ${urgent ? '⚡ urgently ' : ''}added to queue (${messageQueue.length + 1} in queue)`);
+      sonnerToast.info(`Message added to queue (${messageQueue.length + 1} in queue)`);
       return;
     }
     if (!user) {
@@ -799,7 +784,6 @@ const Chat = () => {
     setLoading(true);
     setResponseStartTime(Date.now());
     setElapsedTime(0);
-    setProcessingStage('analyzing');
     
     // Create abort controller
     abortControllerRef.current = new AbortController();
@@ -1132,9 +1116,7 @@ const Chat = () => {
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      // Check for urgent message shortcut (Ctrl+Shift+Enter)
-      const urgent = e.ctrlKey && e.shiftKey;
-      handleSend(undefined, urgent);
+      handleSend();
     }
   };
 
@@ -1687,56 +1669,6 @@ const Chat = () => {
                     </AnimatePresence>
                   )}
                   
-                  {/* Processing Stage Indicator */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="space-y-3"
-                  >
-                    <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg border border-border/40">
-                      {processingStage === 'analyzing' && (
-                        <FileSearch className="h-5 w-5 animate-pulse text-blue-500" />
-                      )}
-                      {processingStage === 'thinking' && (
-                        <Brain className="h-5 w-5 animate-pulse text-purple-500" />
-                      )}
-                      {processingStage === 'generating' && (
-                        <Sparkles className="h-5 w-5 animate-pulse text-primary" />
-                      )}
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">
-                            {processingStage === 'thinking' && 'Processing your request...'}
-                            {processingStage === 'generating' && 'Generating response...'}
-                          </span>
-                          {retryAttempt > 0 && (
-                            <Badge variant="outline" className="text-xs">
-                              Retry {retryAttempt}/3
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-xs text-muted-foreground">
-                            {elapsedTime}s elapsed
-                          </span>
-                          <div className="flex gap-1">
-                            <div className={`h-1 w-8 rounded-full transition-all ${processingStage === 'analyzing' ? 'bg-blue-500' : 'bg-muted'}`} />
-                            <div className={`h-1 w-8 rounded-full transition-all ${processingStage === 'thinking' ? 'bg-purple-500' : 'bg-muted'}`} />
-                            <div className={`h-1 w-8 rounded-full transition-all ${processingStage === 'generating' ? 'bg-primary' : 'bg-muted'}`} />
-                          </div>
-                        </div>
-                      </div>
-                      <Button
-                        onClick={handleStop}
-                        size="sm"
-                        variant="destructive"
-                        className="h-8"
-                      >
-                        <Square className="h-4 w-4 mr-1" />
-                        Stop
-                      </Button>
-                    </div>
-                  </motion.div>
                 </>
               )}
 
@@ -1825,28 +1757,10 @@ const Chat = () => {
                           #{index + 1}
                         </Badge>
                         
-                        {msg.priority === 'urgent' && (
-                          <Badge variant="destructive" className="text-xs shrink-0">
-                            <Zap className="h-3 w-3 mr-1" />
-                            Urgent
-                          </Badge>
-                        )}
                         
                         <p className="text-xs text-muted-foreground flex-1 truncate">
                           {msg.content}
                         </p>
-                        
-                        {msg.priority !== 'urgent' && (
-                          <Button
-                            onClick={() => markAsUrgent(msg.id)}
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 w-6 p-0 shrink-0"
-                            title="Mark as urgent"
-                          >
-                            <Zap className="h-3 w-3 text-orange-500" />
-                          </Button>
-                        )}
                         
                         <Button
                           onClick={() => cancelQueuedMessage(msg.id)}
@@ -2036,7 +1950,7 @@ const Chat = () => {
                   />
                 </div>
 
-                {/* Send/Stop Button with Urgent Option */}
+                {/* Send/Stop Button */}
                 {loading ? (
                   <Button
                     onClick={handleStop}
@@ -2048,28 +1962,15 @@ const Chat = () => {
                     <Square className="h-5 w-5" />
                   </Button>
                 ) : (
-                  <div className="flex gap-1">
-                    <Button
-                      onClick={() => handleSend()}
-                      disabled={!input.trim() && !attachmentUrl}
-                      size="icon"
-                      className="shrink-0 rounded-full h-10 w-10"
-                      title="Send message (Enter)"
-                    >
-                      <Send className="h-5 w-5" />
-                    </Button>
-                    
-                    <Button
-                      onClick={() => handleSend(undefined, true)}
-                      disabled={!input.trim() && !attachmentUrl}
-                      size="icon"
-                      variant="secondary"
-                      className="shrink-0 rounded-full h-10 w-10"
-                      title="Send as urgent (Ctrl+Shift+Enter)"
-                    >
-                      <Zap className="h-5 w-5 text-orange-500" />
-                    </Button>
-                  </div>
+                  <Button
+                    onClick={() => handleSend()}
+                    disabled={!input.trim() && !attachmentUrl}
+                    size="icon"
+                    className="shrink-0 rounded-full h-10 w-10 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all shadow-lg"
+                    title="Send message (Enter)"
+                  >
+                    <Send className="h-5 w-5 fill-current" />
+                  </Button>
                 )}
               </div>
 
