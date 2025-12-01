@@ -22,14 +22,14 @@ export class StreamingClient {
     onDone: (model: string, messageId: string) => void,
     onError: (model: string, error: string) => void
   ): Promise<void> {
-    const MAX_TIMEOUT = 300000; // 300 seconds (5 minutes) for better reliability
+    const MAX_TIMEOUT = 120000; // 120 seconds (2 minutes) for faster feedback
     this.abortController = new AbortController();
     
     // Set timeout
     const timeoutId = setTimeout(() => {
       console.warn(`⏰ [StreamingClient] Request timeout after ${MAX_TIMEOUT}ms`);
       this.abortController?.abort();
-      onError(selectedModel, 'Request timeout - AI model took too long to respond. Try a different model.');
+      onError(selectedModel, '⏱️ Response timed out. Try again or use a different model.');
     }, MAX_TIMEOUT);
 
     try {

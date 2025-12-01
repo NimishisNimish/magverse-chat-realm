@@ -904,12 +904,10 @@ const Chat = () => {
         } catch (streamError: any) {
           console.error('❌ Streaming failed after', Date.now() - startTime, 'ms:', streamError.message);
           
-          // Remove the error message after showing it briefly
-          setMessages(prev => prev.filter(msg => msg.id !== streamingMessage.id));
-          
           // If this isn't the last retry, continue to next attempt
           if (attempt < maxRetries) {
-            console.log(`🔄 Will retry... (${attempt + 1}/${maxRetries})`);
+            console.log(`🔄 Retrying... (${attempt + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
             continue;
           }
           console.log('⚠️ Falling back to non-streaming mode');
@@ -1641,8 +1639,36 @@ const Chat = () => {
 
                         {message.role === 'assistant' && (
                           <div className="flex items-center gap-1 mt-2">
+                            {/* Retry button for error messages */}
+                            {message.isError && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={async () => {
+                                  // Find the user message that triggered this response
+                                  const messageIndex = messages.findIndex(m => m.id === message.id);
+                                  if (messageIndex > 0) {
+                                    const userMessage = messages[messageIndex - 1];
+                                    if (userMessage.role === 'user') {
+                                      // Remove the error message
+                                      setMessages(prev => prev.filter(m => m.id !== message.id));
+                                      // Retry with the same input
+                                      setInput(userMessage.content);
+                                      // Trigger send after a brief delay
+                                      setTimeout(() => handleSend(), 100);
+                                    }
+                                  }
+                                }}
+                                disabled={loading}
+                                className="h-7 px-2 text-primary hover:text-primary"
+                                title="Retry this request"
+                              >
+                                <RefreshCw className="h-3 w-3" />
+                              </Button>
+                            )}
+                            
                             {/* Download button for images */}
-                            {message.attachmentUrl && message.attachmentType === 'image' && (
+                            {!message.isError && message.attachmentUrl && message.attachmentType === 'image' && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1657,32 +1683,36 @@ const Chat = () => {
                               </Button>
                             )}
                             
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRegenerate(message)}
-                              disabled={loading}
-                              className="h-7 px-2"
-                              title="Regenerate response"
-                            >
-                              <RefreshCw className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => copyToClipboard(message.content)}
-                              className="h-7 px-2"
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                            <FeedbackButtons
-                              messageId={message.id}
-                              chatId={chatId || ''}
-                              model={message.model || 'AI'}
-                              content={message.content}
-                              timestamp={message.timestamp}
-                              role={message.role}
-                            />
+                            {!message.isError && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleRegenerate(message)}
+                                  disabled={loading}
+                                  className="h-7 px-2"
+                                  title="Regenerate response"
+                                >
+                                  <RefreshCw className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => copyToClipboard(message.content)}
+                                  className="h-7 px-2"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                                <FeedbackButtons
+                                  messageId={message.id}
+                                  chatId={chatId || ''}
+                                  model={message.model || 'AI'}
+                                  content={message.content}
+                                  timestamp={message.timestamp}
+                                  role={message.role}
+                                />
+                              </>
+                            )}
                           </div>
                         )}
                         
