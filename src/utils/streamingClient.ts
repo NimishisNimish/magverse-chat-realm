@@ -39,9 +39,25 @@ export class StreamingClient {
         throw new Error('Not authenticated');
       }
 
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-with-ai`;
+      // Determine which function to call based on model
+      const isLovableModel = selectedModel.startsWith('lovable-');
+      const functionName = isLovableModel ? 'lovable-ai-chat' : 'chat-with-ai';
+      
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${functionName}`;
       console.log('🔌 Connecting to:', url);
       console.log('📤 Streaming request for model:', selectedModel);
+
+      // Prepare request body based on function
+      const requestBody = isLovableModel ? {
+        messages,
+        model: selectedModel.replace('lovable-', 'google/gemini-2.5-').replace('gpt5', 'gpt-5'),
+        stream: true,
+      } : {
+        messages,
+        selectedModels: [selectedModel],
+        chatId,
+        stream: true,
+      };
 
       const response = await fetch(
         url,
@@ -51,12 +67,7 @@ export class StreamingClient {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({
-            messages,
-            selectedModels: [selectedModel],
-            chatId,
-            stream: true,
-          }),
+          body: JSON.stringify(requestBody),
           signal: this.abortController.signal,
         }
       );
@@ -137,17 +148,27 @@ export class StreamingClient {
       }
       
       clearTimeout(timeoutId);
-    } catch (error: any) {
-      clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        onError(selectedModel, '⏹️ Request cancelled or timed out. Please try again with a different model.');
-      } else {
-        // Don't throw, just pass the error to onError to show it in the UI
-        const errorMessage = error.message || 'Unknown error occurred';
-        console.error('❌ Streaming error:', errorMessage);
-        onError(selectedModel, errorMessage);
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        
+        // Track API error for quota notifications
+        if (typeof window !== 'undefined' && (window as any).__trackApiError) {
+          const status = error.message.includes('429') ? 429 :
+                       error.message.includes('402') ? 402 :
+                       error.message.includes('503') ? 503 :
+                       error.message.includes('401') || error.message.includes('403') ? 401 : 500;
+          (window as any).__trackApiError(status, selectedModel, error.message);
+        }
+        
+        if (error.name === 'AbortError') {
+          onError(selectedModel, '⏹️ Request cancelled or timed out. Please try again with a different model.');
+        } else {
+          // Don't throw, just pass the error to onError to show it in the UI
+          const errorMessage = error.message || 'Unknown error occurred';
+          console.error('❌ Streaming error:', errorMessage);
+          onError(selectedModel, errorMessage);
+        }
       }
-    }
   }
 
   abort() {

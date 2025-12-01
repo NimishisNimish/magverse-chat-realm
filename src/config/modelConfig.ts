@@ -11,6 +11,37 @@ export interface ModelConfig {
 
 // These IDs MUST match the backend exactly (chat-with-ai edge function)
 export const MODEL_CONFIG: ModelConfig[] = [
+  // Lovable AI models (via gateway)
+  { 
+    id: 'lovable-gemini-flash', 
+    name: 'Gemini Flash (Lovable)', 
+    description: 'Fast & efficient via Lovable AI', 
+    icon: Zap, 
+    color: 'text-primary' 
+  },
+  { 
+    id: 'lovable-gemini-pro', 
+    name: 'Gemini Pro (Lovable)', 
+    description: 'Most capable Gemini via Lovable AI', 
+    icon: Brain, 
+    color: 'text-purple-400' 
+  },
+  { 
+    id: 'lovable-gpt5', 
+    name: 'GPT-5 (Lovable)', 
+    description: 'OpenAI\'s latest via Lovable AI', 
+    icon: Bot, 
+    color: 'text-blue-400' 
+  },
+  { 
+    id: 'lovable-gpt5-mini', 
+    name: 'GPT-5 Mini (Lovable)', 
+    description: 'Lightweight GPT-5 via Lovable AI', 
+    icon: Sparkles, 
+    color: 'text-cyan-400' 
+  },
+  
+  // Direct API models (existing)
   { 
     id: 'chatgpt', 
     name: 'ChatGPT (GPT-4o)', 
