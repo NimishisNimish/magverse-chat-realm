@@ -53,6 +53,7 @@ import { renderWithCitations } from "@/utils/citationRenderer";
 import { VALID_MODEL_IDS, DEFAULT_MODEL_ID, sanitizeModelIds, MODEL_CONFIG } from "@/config/modelConfig";
 import { AIModelLogo } from "@/components/AIModelLogo";
 import { AITypingIndicator } from "@/components/AITypingIndicator";
+import { AIModelBadge } from "@/components/AIModelBadge";
 import { softCleanMarkdown } from "@/utils/markdownCleaner";
 import {
   DropdownMenu,
@@ -98,9 +99,6 @@ const aiModels = [
   { id: "claude", name: "Claude", icon: Brain, color: "text-purple-400", category: "reasoning" },
   { id: "perplexity", name: "Perplexity", icon: Globe, color: "text-orange-400", category: "research" },
   { id: "grok", name: "Grok", icon: Zap, color: "text-cyan-400", category: "reasoning" },
-  { id: "bytez-qwen", name: "Qwen 2.5", icon: Cpu, color: "text-pink-400", category: "small" },
-  { id: "bytez-phi3", name: "Phi-3", icon: Cpu, color: "text-indigo-400", category: "small" },
-  { id: "bytez-mistral", name: "Mistral 7B", icon: Cpu, color: "text-amber-400", category: "small" },
 ];
 
 const tools = [
@@ -186,6 +184,7 @@ const Chat = () => {
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const [imagePrompt, setImagePrompt] = useState("");
   const [imageStyle, setImageStyle] = useState("realistic");
+  const [imageGenerationModel, setImageGenerationModel] = useState("gpt-image-1");
   const [generating, setGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStage, setGenerationStage] = useState("");
@@ -746,7 +745,7 @@ const Chat = () => {
     // Apply quick action model selection - only if not using specificModels or auto-selection
     if (!specificModels && !autoSelectModel) {
       if (activeQuickAction === 'fast') {
-        modelsToUse = ['bytez-phi3', 'bytez-mistral'];
+        modelsToUse = ['gemini']; // Use Gemini Flash for fast responses
       } else if (activeQuickAction === 'reasoning') {
         modelsToUse = ['claude', 'gemini'];
       } else if (activeQuickAction === 'research') {
@@ -1590,6 +1589,16 @@ const Chat = () => {
                           )}
                         </div>
 
+                        {/* AI Model Badge */}
+                        {message.role === 'assistant' && message.model && (
+                          <div className="mt-2">
+                            <AIModelBadge 
+                              modelId={message.model} 
+                              showReasoningMode={activeQuickAction === 'reasoning' || enableMultiStepReasoning}
+                            />
+                          </div>
+                        )}
+
                         {message.role === 'assistant' && (
                           <div className="flex items-center gap-1 mt-2">
                             {/* Download button for images */}
@@ -2244,6 +2253,29 @@ const Chat = () => {
                   <SelectItem value="watercolor">Watercolor</SelectItem>
                   <SelectItem value="oil-painting">Oil Painting</SelectItem>
                   <SelectItem value="sketch">Pencil Sketch</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="image-model">Image Generation Model</Label>
+              <Select value={imageGenerationModel} onValueChange={setImageGenerationModel}>
+                <SelectTrigger id="image-model">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="gpt-image-1">
+                    <div className="flex items-center gap-2">
+                      <span>OpenAI DALL-E</span>
+                      <Badge variant="secondary" className="text-xs">Premium</Badge>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="gemini-flash-image">
+                    <div className="flex items-center gap-2">
+                      <span>Gemini Flash Image</span>
+                      <Badge variant="outline" className="text-xs">Fast</Badge>
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

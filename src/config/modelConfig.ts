@@ -41,31 +41,10 @@ export const MODEL_CONFIG: ModelConfig[] = [
   },
   { 
     id: 'grok', 
-    name: 'Grok (Llama 3.3)', 
+    name: 'Grok 3.1', 
     description: 'Real-time knowledge model', 
     icon: Zap, 
     color: 'text-cyan-400' 
-  },
-  { 
-    id: 'bytez-qwen', 
-    name: 'Qwen 2.5', 
-    description: 'Efficient open-source model', 
-    icon: Cpu, 
-    color: 'text-purple-400' 
-  },
-  { 
-    id: 'bytez-phi3', 
-    name: 'Phi-3 Mini', 
-    description: 'Microsoft\'s compact AI', 
-    icon: Sparkles, 
-    color: 'text-blue-400' 
-  },
-  { 
-    id: 'bytez-mistral', 
-    name: 'Mistral 7B', 
-    description: 'Fast open-source model', 
-    icon: Brain, 
-    color: 'text-red-400' 
   },
   { 
     id: 'gemini-flash-image', 
