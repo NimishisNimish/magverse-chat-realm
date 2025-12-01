@@ -47,10 +47,21 @@ export class StreamingClient {
       console.log('🔌 Connecting to:', url);
       console.log('📤 Streaming request for model:', selectedModel);
 
+      // Map Lovable model IDs to actual API model names
+      const getLovableModelName = (modelId: string): string => {
+        const mapping: Record<string, string> = {
+          'lovable-gemini-flash': 'google/gemini-2.5-flash',
+          'lovable-gemini-pro': 'google/gemini-2.5-pro',
+          'lovable-gpt5': 'openai/gpt-5',
+          'lovable-gpt5-mini': 'openai/gpt-5-mini',
+        };
+        return mapping[modelId] || modelId;
+      };
+
       // Prepare request body based on function
       const requestBody = isLovableModel ? {
         messages,
-        model: selectedModel.replace('lovable-', 'google/gemini-2.5-').replace('gpt5', 'gpt-5'),
+        model: getLovableModelName(selectedModel),
         stream: true,
       } : {
         messages,
