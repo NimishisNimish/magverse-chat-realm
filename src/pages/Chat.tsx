@@ -58,6 +58,7 @@ import { VALID_MODEL_IDS, DEFAULT_MODEL_ID, sanitizeModelIds, MODEL_CONFIG } fro
 import { AIModelLogo } from "@/components/AIModelLogo";
 import { AITypingIndicator } from "@/components/AITypingIndicator";
 import { AIModelBadge } from "@/components/AIModelBadge";
+import { CreditBalanceIndicator } from "@/components/CreditBalanceIndicator";
 import { softCleanMarkdown } from "@/utils/markdownCleaner";
 import {
   DropdownMenu,
@@ -1601,6 +1602,11 @@ const Chat = () => {
                       );
                     })}
                   </div>
+                  
+                  {/* Credit Balance Indicator */}
+                  <div className="mt-8 max-w-md w-full">
+                    <CreditBalanceIndicator />
+                  </div>
                 </div>
               ) : (
                 <AnimatePresence>
@@ -1995,6 +2001,13 @@ const Chat = () => {
               }
             }}
           />
+
+          {/* Credit Balance Warning in Chat */}
+          {messages.length > 0 && (
+            <div className="px-6 pb-2">
+              <CreditBalanceIndicator />
+            </div>
+          )}
 
           {/* Fixed Input Area at Bottom */}
           <div className="border-t border-border/40 bg-background">
