@@ -87,6 +87,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
+import { MessageSkeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
 import { SmartPromptSuggestions } from "@/components/SmartPromptSuggestions";
 import { QuickActions, QuickActionType } from "@/components/QuickActions";
@@ -856,7 +857,7 @@ const Chat = () => {
               setMessages(prev => 
                 prev.map(msg => 
                   msg.id === streamingMessage.id
-                    ? { ...msg, content: fullContent }
+                    ? { ...msg, content: fullContent, isError: false }
                     : msg
                 )
               );
@@ -866,18 +867,22 @@ const Chat = () => {
               setMessages(prev => 
                 prev.map(msg => 
                   msg.id === streamingMessage.id
-                    ? { ...msg, id: messageId || msg.id }
+                    ? { ...msg, id: messageId || msg.id, isError: false }
                     : msg
                 )
               );
             },
             (model, error) => {
               console.error('❌ Stream error:', model, error);
-              // Update message with error content instead of empty
+              // Update message with detailed error
+              const errorMsg = error.includes('timeout') 
+                ? '⏱️ Response timed out. The AI model is taking too long. Try again or use a different model.'
+                : `❌ ${error}`;
+              
               setMessages(prev => 
                 prev.map(msg => 
                   msg.id === streamingMessage.id
-                    ? { ...msg, content: `❌ Error: ${error}`, isError: true }
+                    ? { ...msg, content: errorMsg, isError: true }
                     : msg
                 )
               );
@@ -898,6 +903,15 @@ const Chat = () => {
           break;
         } catch (streamError: any) {
           console.error('❌ Streaming failed after', Date.now() - startTime, 'ms:', streamError.message);
+          
+          // Remove the error message after showing it briefly
+          setMessages(prev => prev.filter(msg => msg.id !== streamingMessage.id));
+          
+          // If this isn't the last retry, continue to next attempt
+          if (attempt < maxRetries) {
+            console.log(`🔄 Will retry... (${attempt + 1}/${maxRetries})`);
+            continue;
+          }
           console.log('⚠️ Falling back to non-streaming mode');
           
           // Remove the failed streaming message
@@ -1517,6 +1531,20 @@ const Chat = () => {
                 </div>
               ) : (
                 <AnimatePresence>
+                  {/* Show loading skeleton while AI is processing */}
+                  {loading && (
+                    <motion.div
+                      key="loading-skeleton"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                      className="mb-6"
+                    >
+                      <MessageSkeleton />
+                    </motion.div>
+                  )}
+                  
                   {messages.map((message) => (
                      <motion.div
                       key={message.id}

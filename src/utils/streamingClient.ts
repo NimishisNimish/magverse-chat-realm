@@ -22,7 +22,7 @@ export class StreamingClient {
     onDone: (model: string, messageId: string) => void,
     onError: (model: string, error: string) => void
   ): Promise<void> {
-    const MAX_TIMEOUT = 180000; // 180 seconds (3 minutes) max for faster feedback
+    const MAX_TIMEOUT = 300000; // 300 seconds (5 minutes) for better reliability
     this.abortController = new AbortController();
     
     // Set timeout
