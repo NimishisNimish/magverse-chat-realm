@@ -59,6 +59,7 @@ import { AIModelLogo } from "@/components/AIModelLogo";
 import { AITypingIndicator } from "@/components/AITypingIndicator";
 import { AIModelBadge } from "@/components/AIModelBadge";
 import { CreditBalanceIndicator } from "@/components/CreditBalanceIndicator";
+import { CreditTopUpDialog } from "@/components/CreditTopUpDialog";
 import { softCleanMarkdown } from "@/utils/markdownCleaner";
 import {
   DropdownMenu,
@@ -187,6 +188,7 @@ const Chat = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [isDraggingPdf, setIsDraggingPdf] = useState(false);
   const [dragCounter, setDragCounter] = useState(0);
+  const [showCreditTopUpDialog, setShowCreditTopUpDialog] = useState(false);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
   const [searchParams] = useSearchParams();
@@ -877,9 +879,11 @@ const Chat = () => {
 
       const startTime = Date.now();
 
-      // Use streaming for single model requests
-      if (modelsToUse.length === 1) {
-        console.log('📡 Starting streaming for', modelsToUse[0]);
+      // Use streaming ONLY for Lovable AI models
+      const isLovableModel = modelsToUse.length === 1 && modelsToUse[0].startsWith('lovable-');
+      
+      if (isLovableModel) {
+        console.log('📡 Starting streaming for Lovable model:', modelsToUse[0]);
         const streamingClient = new (await import('@/utils/streamingClient')).StreamingClient();
         
         let hasReceivedToken = false;
@@ -2519,6 +2523,12 @@ const Chat = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Credit Top-Up Dialog */}
+      <CreditTopUpDialog 
+        open={showCreditTopUpDialog}
+        onOpenChange={setShowCreditTopUpDialog}
+      />
     </div>
   );
 };

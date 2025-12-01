@@ -17,6 +17,11 @@ const logoMap: Record<string, string> = {
   'claude': claudeLogo,
   'perplexity': perplexityLogo,
   'grok': grokLogo,
+  // Lovable AI models use real brand logos
+  'lovable-gemini-flash': geminiLogo,
+  'lovable-gemini-pro': geminiLogo,
+  'lovable-gpt5': chatgptLogo,
+  'lovable-gpt5-mini': chatgptLogo,
 };
 
 const sizeClasses = {

@@ -39,9 +39,15 @@ export class StreamingClient {
         throw new Error('Not authenticated');
       }
 
-      // Determine which function to call based on model
+      // CRITICAL: Only Lovable models support streaming
+      // Direct API models (chatgpt, gemini, claude, etc.) must use non-streaming
       const isLovableModel = selectedModel.startsWith('lovable-');
-      const functionName = isLovableModel ? 'lovable-ai-chat' : 'chat-with-ai';
+      
+      if (!isLovableModel) {
+        throw new Error('Streaming not supported for direct API models. Use non-streaming mode.');
+      }
+      
+      const functionName = 'lovable-ai-chat';
       
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${functionName}`;
       console.log('🔌 Connecting to:', url);
@@ -58,15 +64,10 @@ export class StreamingClient {
         return mapping[modelId] || modelId;
       };
 
-      // Prepare request body based on function
-      const requestBody = isLovableModel ? {
+      // Prepare request body for Lovable AI Gateway
+      const requestBody = {
         messages,
         model: getLovableModelName(selectedModel),
-        stream: true,
-      } : {
-        messages,
-        selectedModels: [selectedModel],
-        chatId,
         stream: true,
       };
 
