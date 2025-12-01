@@ -15,12 +15,11 @@ const GOOGLE_AI_API_KEY = Deno.env.get('GOOGLE_AI_API_KEY');
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
 const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
 const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
-const BYTEZ_API_KEY = Deno.env.get('BYTEZ_API_KEY');
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-const VALID_MODELS = ['chatgpt', 'gemini', 'claude', 'perplexity', 'grok', 'bytez-qwen', 'bytez-phi3', 'bytez-mistral', 'gemini-flash-image'] as const;
+const VALID_MODELS = ['chatgpt', 'gemini', 'claude', 'perplexity', 'grok', 'gemini-flash-image'] as const;
 
 const STORAGE_BUCKET_URL = 'https://pqdgpxetysqcdcjwormb.supabase.co/storage/';
 const MAX_FILE_SIZE = 10_000_000; // 10MB
@@ -29,7 +28,7 @@ const MAX_MODELS_PER_REQUEST = 5;
 
 // Model configuration - stable, working models
 const MODEL_CONFIG: Record<string, { 
-  provider: 'openai' | 'nvidia' | 'google' | 'openrouter' | 'perplexity' | 'groq' | 'bytez', 
+  provider: 'openai' | 'nvidia' | 'google' | 'openrouter' | 'perplexity' | 'groq', 
   model: string,
   supportsReasoning: boolean,
   maxTokens?: number,
@@ -40,9 +39,6 @@ const MODEL_CONFIG: Record<string, {
   'claude': { provider: 'openrouter', model: 'anthropic/claude-3.5-sonnet', supportsReasoning: true, supportsStreaming: true },
   'perplexity': { provider: 'perplexity', model: 'llama-3.1-sonar-large-128k-online', supportsReasoning: true, supportsStreaming: true },
   'grok': { provider: 'groq', model: 'llama-3.3-70b-versatile', supportsReasoning: true, supportsStreaming: true },
-  'bytez-qwen': { provider: 'bytez', model: 'Qwen/Qwen2.5-7B-Instruct', supportsReasoning: true, supportsStreaming: false },
-  'bytez-phi3': { provider: 'bytez', model: 'microsoft/Phi-3-mini-4k-instruct', supportsReasoning: true, supportsStreaming: false },
-  'bytez-mistral': { provider: 'bytez', model: 'mistralai/Mistral-7B-Instruct-v0.3', supportsReasoning: true, supportsStreaming: false },
   'gemini-flash-image': { provider: 'google', model: 'gemini-2.5-flash-image', supportsReasoning: false, supportsStreaming: false },
 };
 
@@ -1003,81 +999,6 @@ serve(async (req) => {
           const data = await response.json();
           content = data.choices?.[0]?.message?.content || 'No response';
           usage = data.usage;
-          
-          // Parse reasoning steps if available
-          if (enableMultiStepReasoning && config.supportsReasoning) {
-            const stepMatches = content.matchAll(/(?:Step |)(\d+)[:\.\s]+([^\n]+)/gi);
-            const steps = Array.from(stepMatches);
-            if (steps.length > 0) {
-              reasoningSteps = steps.map(match => ({
-                step: parseInt(match[1]),
-                thought: match[2].trim(),
-                conclusion: ''
-              }));
-            }
-          }
-        } else if (config.provider === 'bytez') {
-          // Bytez AI API call (small models) - CORRECT ENDPOINT
-          if (!BYTEZ_API_KEY) {
-            console.error('❌ Bytez API key not configured');
-            return {
-              success: false,
-              model: modelId,
-              response: 'Bytez API key not configured',
-              error: true
-            };
-          }
-          
-          let messagesToSend = processedMessages;
-          if (enableMultiStepReasoning && config.supportsReasoning) {
-            messagesToSend = [
-              { 
-                role: 'system', 
-                content: 'Think step by step and explain your reasoning before providing the final answer.' 
-              },
-              ...processedMessages
-            ];
-          }
-          
-          console.log(`📤 Calling ${modelId} (${config.model}) with reasoning mode...`);
-          
-          // Bytez uses /models/v2/{model-id} endpoint with messages format
-          response = await fetch(`https://api.bytez.com/models/v2/${config.model}`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${BYTEZ_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              messages: messagesToSend,
-              stream: false,
-              params: {
-                max_length: 2048,
-                temperature: 0.7,
-              }
-            }),
-          });
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`❌ ${modelId} API error (${response.status}):`, errorText);
-            return {
-              success: false,
-              model: modelId,
-              response: response.status === 429 ? 'Rate limit exceeded' : 'API error occurred',
-              error: true
-            };
-          }
-
-          const data = await response.json();
-          content = data.output || 'No response';
-          
-          // Bytez doesn't provide token usage in the same format
-          usage = {
-            prompt_tokens: 0,
-            completion_tokens: 0,
-            total_tokens: 0
-          };
           
           // Parse reasoning steps if available
           if (enableMultiStepReasoning && config.supportsReasoning) {

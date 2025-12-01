@@ -1,11 +1,8 @@
-import chatgptLogo from "@/assets/ai-logos/chatgpt-logo.png";
+import chatgptLogo from "@/assets/ai-logos/chatgpt-logo-clean.png";
 import geminiLogo from "@/assets/ai-logos/gemini-logo.svg";
-import claudeLogo from "@/assets/ai-logos/claude-logo.png";
+import claudeLogo from "@/assets/ai-logos/claude-logo-clean.png";
 import perplexityLogo from "@/assets/ai-logos/perplexity-logo.svg";
 import grokLogo from "@/assets/ai-logos/grok-logo.svg";
-import qwenLogo from "@/assets/ai-logos/qwen-logo.png";
-import phi3Logo from "@/assets/ai-logos/phi3-logo.png";
-import mistralLogo from "@/assets/ai-logos/mistral-logo.png";
 
 interface AIModelLogoProps {
   modelId: string;
@@ -20,16 +17,13 @@ const logoMap: Record<string, string> = {
   'claude': claudeLogo,
   'perplexity': perplexityLogo,
   'grok': grokLogo,
-  'bytez-qwen': qwenLogo,
-  'bytez-phi3': phi3Logo,
-  'bytez-mistral': mistralLogo,
 };
 
 const sizeClasses = {
-  sm: 'w-4 h-4',
-  md: 'w-6 h-6',
-  lg: 'w-8 h-8',
-  xl: 'w-12 h-12',
+  sm: 'w-5 h-5',
+  md: 'w-7 h-7',
+  lg: 'w-9 h-9',
+  xl: 'w-14 h-14',
 };
 
 export const AIModelLogo = ({ modelId, size = 'md', className = '' }: AIModelLogoProps) => {
@@ -48,7 +42,8 @@ export const AIModelLogo = ({ modelId, size = 'md', className = '' }: AIModelLog
     <img 
       src={logoSrc} 
       alt={`${modelId} logo`} 
-      className={`${sizeClasses[size]} ${className} object-contain rounded-lg`}
+      className={`${sizeClasses[size]} ${className} object-contain`}
+      style={{ imageRendering: 'crisp-edges' }}
     />
   );
 };
