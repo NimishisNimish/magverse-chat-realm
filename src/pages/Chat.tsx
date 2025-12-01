@@ -184,6 +184,7 @@ const Chat = () => {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isDraggingPdf, setIsDraggingPdf] = useState(false);
+  const [dragCounter, setDragCounter] = useState(0);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
   const [searchParams] = useSearchParams();
@@ -554,6 +555,7 @@ const Chat = () => {
     e.stopPropagation();
     setIsDragging(false);
     setIsDraggingPdf(false);
+    setDragCounter(0);
     
     const file = e.dataTransfer.files?.[0];
     if (file) {
@@ -567,28 +569,43 @@ const Chat = () => {
     }
   };
 
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragCounter(prev => prev + 1);
+    
+    if (!isDragging) {
+      setIsDragging(true);
+      
+      // Check if dragged file is PDF
+      const items = e.dataTransfer.items;
+      if (items.length > 0) {
+        const item = items[0];
+        if (item.type === 'application/pdf') {
+          setIsDraggingPdf(true);
+        } else {
+          setIsDraggingPdf(false);
+        }
+      }
+    }
+  };
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(true);
-    
-    // Check if dragged file is PDF
-    const items = e.dataTransfer.items;
-    if (items.length > 0) {
-      const item = items[0];
-      if (item.type === 'application/pdf') {
-        setIsDraggingPdf(true);
-      } else {
-        setIsDraggingPdf(false);
-      }
-    }
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(false);
-    setIsDraggingPdf(false);
+    setDragCounter(prev => {
+      const newCount = prev - 1;
+      if (newCount === 0) {
+        setIsDragging(false);
+        setIsDraggingPdf(false);
+      }
+      return newCount;
+    });
   };
 
   const removeAttachment = () => {
@@ -789,14 +806,11 @@ const Chat = () => {
       }
     }
     
-    // Ensure at least one model is selected
+    // Ensure at least one model is selected - default to Gemini if none selected
     if (modelsToUse.length === 0) {
-      toast({
-        title: "No model selected",
-        description: "Please select at least one AI model to continue.",
-        variant: "destructive",
-      });
-      return;
+      console.log('⚠️ No model selected, defaulting to Gemini');
+      modelsToUse = ['gemini'];
+      setSelectedModels(['gemini']);
     }
 
     // Validate model IDs match backend using centralized config
@@ -1457,6 +1471,7 @@ const Chat = () => {
       <div 
         className="flex-1 flex flex-col items-center overflow-hidden"
         onDrop={handleDrop}
+        onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
       >

@@ -429,20 +429,28 @@ serve(async (req) => {
           try {
             let streamResponse;
             
-            // API key validation
+            // API key validation with detailed logging
+            console.log(`🔑 Checking API key for provider: ${config.provider}, model: ${modelId}`);
             if (config.provider === 'nvidia' && !NVIDIA_NIM_API_KEY) {
+              console.error('❌ NVIDIA_NIM_API_KEY not configured');
               throw new Error('NVIDIA API key not configured');
             } else if (config.provider === 'google' && !GOOGLE_AI_API_KEY) {
-              throw new Error('Google AI API key not configured');
+              console.error('❌ GOOGLE_AI_API_KEY not configured for model:', config.model);
+              throw new Error('Google AI API key not configured. Please add GOOGLE_AI_API_KEY to Supabase secrets.');
             } else if (config.provider === 'openrouter' && !OPENROUTER_API_KEY) {
+              console.error('❌ OPENROUTER_API_KEY not configured');
               throw new Error('OpenRouter API key not configured');
             } else if (config.provider === 'perplexity' && !PERPLEXITY_API_KEY) {
+              console.error('❌ PERPLEXITY_API_KEY not configured');
               throw new Error('Perplexity API key not configured');
             } else if (config.provider === 'groq' && !GROQ_API_KEY) {
+              console.error('❌ GROQ_API_KEY not configured');
               throw new Error('Groq API key not configured');
             } else if (config.provider === 'openai' && !SUDO_API_KEY) {
+              console.error('❌ SUDO_API_KEY not configured');
               throw new Error('Sudo API key not configured');
             }
+            console.log(`✅ API key validated for ${config.provider}`);
             
             if (config.provider === 'nvidia') {
               streamResponse = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
