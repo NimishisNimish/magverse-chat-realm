@@ -71,10 +71,6 @@ export const CreditBalanceIndicator = () => {
         </Alert>
       )}
 
-      {/* Provider Note */}
-      <p className="text-xs text-muted-foreground">
-        Credits apply to Lovable AI models. Direct API models (ChatGPT, Claude, etc.) use your own API keys.
-      </p>
     </div>
   );
 };
