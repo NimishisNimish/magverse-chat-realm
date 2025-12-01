@@ -51,6 +51,7 @@ const CostTracking = lazy(() => import("./pages/CostTracking"));
 const ModelComparison = lazy(() => import("./pages/ModelComparison"));
 const Support = lazy(() => import("./pages/Support"));
 const ModelMetrics = lazy(() => import("./pages/ModelMetrics"));
+const Settings = lazy(() => import("./pages/Settings"));
 
 // Lazy load lightweight pages
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
@@ -130,6 +131,7 @@ const AnimatedRoutes = () => {
           <Route path="/cost-tracking" element={<AdminProtectedRoute><PageTransition variant="fade"><CostTracking /></PageTransition></AdminProtectedRoute>} />
           <Route path="/comparison" element={<ProtectedRoute><PageTransition variant="fade"><ModelComparison /></PageTransition></ProtectedRoute>} />
           <Route path="/model-metrics" element={<ProtectedRoute><PageTransition variant="fade"><ModelMetrics /></PageTransition></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><PageTransition variant="fade"><Settings /></PageTransition></ProtectedRoute>} />
           
           {/* Admin routes (all lazy loaded) */}
           <Route path="/admin" element={<AdminProtectedRoute><PageTransition variant={getTransitionVariant('/admin')}><Admin /></PageTransition></AdminProtectedRoute>} />

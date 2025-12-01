@@ -49,6 +49,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useCreditAlerts } from "@/hooks/useCreditAlerts";
 import { usePaymentNotifications } from "@/hooks/usePaymentNotifications";
 import { useCreditLimitNotifications } from "@/hooks/useCreditLimitNotifications";
+import { useApiQuotaNotifications } from "@/hooks/useApiQuotaNotifications";
 import { FeedbackButtons } from "@/components/FeedbackButtons";
 import { CustomInstructionsButton } from "@/components/CustomInstructionsDialog";
 import { BudgetAlertDialog } from "@/components/BudgetAlertDialog";
@@ -237,6 +238,7 @@ const Chat = () => {
   useCreditAlerts();
   usePaymentNotifications();
   useCreditLimitNotifications();
+  useApiQuotaNotifications();
 
   useEffect(() => {
     if (user) {
@@ -940,6 +942,14 @@ const Chat = () => {
         } catch (streamError: any) {
           console.error('❌ Streaming failed after', Date.now() - startTime, 'ms:', streamError.message);
           
+          // Track API error for notifications
+          if (typeof window !== 'undefined' && (window as any).__trackApiError) {
+            const status = streamError.message.includes('429') ? 429 :
+                         streamError.message.includes('402') ? 402 :
+                         streamError.message.includes('timeout') ? 504 : 500;
+            (window as any).__trackApiError(status, modelsToUse[0], streamError.message);
+          }
+          
           // If this isn't the last retry, remove the message and continue
           if (attempt < maxRetries) {
             console.log(`🔄 Retrying... (${attempt + 1}/${maxRetries})`);
@@ -1053,6 +1063,17 @@ const Chat = () => {
       } catch (error: any) {
         console.error('Chat error:', error);
         lastError = error;
+        
+        // Track API error for quota notifications
+        if (typeof window !== 'undefined' && (window as any).__trackApiError) {
+          const status = error.message?.includes('429') ? 429 :
+                       error.message?.includes('402') ? 402 :
+                       error.message?.includes('timeout') ? 504 :
+                       error.message?.includes('401') || error.message?.includes('403') ? 401 : 500;
+          modelsToUse.forEach(model => {
+            (window as any).__trackApiError(status, model, error.message || 'Unknown error');
+          });
+        }
         
           // Don't retry if aborted
         if (error.name === 'AbortError') {
