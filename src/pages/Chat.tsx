@@ -151,6 +151,7 @@ interface Message {
   userMessageId?: string; // Track which user message this is responding to
   thinkingProcess?: string; // Reasoning steps from thinking models
   reasoningSteps?: Array<{ step: number; thought: string; conclusion: string }>; // Multi-step reasoning
+  isError?: boolean; // Flag for error messages
 }
 
 interface QueuedMessage {
@@ -561,6 +562,7 @@ const Chat = () => {
     setAttachmentType(null);
     setAttachmentFileName(null);
     setPendingFile(null);
+    setUploadStatus('idle'); // Reset upload status to allow new uploads
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -871,6 +873,14 @@ const Chat = () => {
             },
             (model, error) => {
               console.error('❌ Stream error:', model, error);
+              // Update message with error content instead of empty
+              setMessages(prev => 
+                prev.map(msg => 
+                  msg.id === streamingMessage.id
+                    ? { ...msg, content: `❌ Error: ${error}`, isError: true }
+                    : msg
+                )
+              );
               throw new Error(error);
             }
           );
@@ -1518,13 +1528,15 @@ const Chat = () => {
                       }}
                       className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} mb-6`}
                     >
-                      <div className={`max-w-[85%] ${message.role === 'user' ? 'ml-auto' : ''}`}>
+                       <div className={`max-w-[85%] ${message.role === 'user' ? 'ml-auto' : ''}`}>
                         
                         <div
                           className={`rounded-2xl px-4 py-3 ${
                             message.role === 'user'
                               ? 'bg-primary text-primary-foreground'
-                              : 'bg-muted/50 border border-border/40'
+                              : message.isError
+                                ? 'bg-destructive/10 border-2 border-destructive/40'
+                                : 'bg-muted/50 border border-border/40'
                           }`}
                         >
                         {message.attachmentUrl && message.attachmentType === 'image' ? (
@@ -1646,13 +1658,6 @@ const Chat = () => {
                           </div>
                         )}
                         
-                        {/* Show model logo for assistant messages */}
-                        {message.role === 'assistant' && message.model && (
-                          <div className="flex items-center gap-2 mt-2">
-                            <AIModelLogo modelId={message.model} size="md" />
-                            <span className="text-sm font-medium">{MODEL_CONFIG.find(m => m.id === message.model)?.name || message.model}</span>
-                          </div>
-                        )}
                       </div>
                     </motion.div>
                   ))}

@@ -140,6 +140,94 @@ All colors MUST be HSL.
     }
   }
 
+  /* Aurora/Northern Lights Effect */
+  @keyframes aurora {
+    0%, 100% {
+      opacity: 0.3;
+      transform: translateY(0) scale(1) rotate(0deg);
+    }
+    33% {
+      opacity: 0.5;
+      transform: translateY(-15px) scale(1.05) rotate(2deg);
+    }
+    66% {
+      opacity: 0.4;
+      transform: translateY(-8px) scale(1.1) rotate(-2deg);
+    }
+  }
+
+  /* Mesh Gradient Animation */
+  @keyframes mesh-move {
+    0%, 100% {
+      border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+      transform: translate(0, 0) scale(1);
+    }
+    33% {
+      border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%;
+      transform: translate(20px, -20px) scale(1.05);
+    }
+    66% {
+      border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%;
+      transform: translate(-15px, 15px) scale(0.95);
+    }
+  }
+
+  /* Floating Glow Particles */
+  @keyframes particle-float {
+    0%, 100% {
+      transform: translateY(0) translateX(0);
+      opacity: 0.4;
+    }
+    25% {
+      transform: translateY(-30px) translateX(15px);
+      opacity: 0.7;
+    }
+    50% {
+      transform: translateY(-50px) translateX(-10px);
+      opacity: 0.5;
+    }
+    75% {
+      transform: translateY(-30px) translateX(-20px);
+      opacity: 0.6;
+    }
+  }
+
+  /* Smooth Color Shift */
+  @keyframes color-shift {
+    0%, 100% {
+      filter: hue-rotate(0deg);
+    }
+    50% {
+      filter: hue-rotate(30deg);
+    }
+  }
+
+  .aurora-layer {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.2),
+      hsl(var(--secondary) / 0.15),
+      hsl(var(--accent) / 0.2),
+      transparent
+    );
+    animation: aurora 12s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+
+  .mesh-blob {
+    animation: mesh-move 15s ease-in-out infinite;
+    will-change: transform, border-radius;
+  }
+
+  .particle-glow {
+    animation: particle-float 8s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+
+  .color-shift-bg {
+    animation: color-shift 20s ease-in-out infinite;
+  }
+
   /* Scroll Animation Classes */
   .animate-on-scroll {
     opacity: 0;

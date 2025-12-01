@@ -65,8 +65,37 @@ const Home = () => {
   const parallaxLayer3 = useParallax({ speed: 0.6, mouseInfluence: true, depth: 0.7 });
   
   return <div className="min-h-screen bg-background relative overflow-hidden">
-      {/* Animated gradient background */}
+      {/* Animated gradient background with aurora effect */}
       <div className="absolute inset-0 animated-gradient opacity-20 pointer-events-none" />
+      
+      {/* Aurora/Northern Lights Layers */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute inset-0 aurora-layer" style={{
+          background: 'linear-gradient(120deg, hsl(var(--primary) / 0.15), transparent 50%, hsl(var(--accent) / 0.12))',
+        }} />
+        <div className="absolute inset-0 aurora-layer" style={{
+          background: 'linear-gradient(240deg, hsl(var(--secondary) / 0.1), transparent 60%, hsl(var(--primary) / 0.15))',
+          animationDelay: '4s',
+          animationDuration: '15s',
+        }} />
+      </div>
+      
+      {/* Mesh Gradient Blobs */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-10 left-1/4 w-96 h-96 mesh-blob opacity-20 blur-3xl" style={{
+          background: 'radial-gradient(circle, hsl(var(--primary) / 0.4), hsl(var(--primary) / 0.1) 60%, transparent)',
+        }} />
+        <div className="absolute bottom-20 right-1/3 w-80 h-80 mesh-blob opacity-15 blur-3xl" style={{
+          background: 'radial-gradient(circle, hsl(var(--accent) / 0.35), hsl(var(--accent) / 0.08) 60%, transparent)',
+          animationDelay: '5s',
+          animationDuration: '18s',
+        }} />
+        <div className="absolute top-1/2 left-1/2 w-[500px] h-[500px] mesh-blob opacity-10 blur-3xl" style={{
+          background: 'radial-gradient(circle, hsl(var(--secondary) / 0.3), transparent)',
+          animationDelay: '8s',
+          animationDuration: '20s',
+        }} />
+      </div>
       
       {/* Floating orbs and particles */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -89,6 +118,26 @@ const Home = () => {
             background: 'radial-gradient(circle, hsl(var(--primary) / 0.4), transparent)'
           }} />
         </motion.div>
+        
+        {/* Glowing Particles */}
+        {[...Array(8)].map((_, i) => (
+          <motion.div
+            key={`particle-${i}`}
+            className="absolute w-2 h-2 rounded-full particle-glow"
+            style={{
+              left: `${15 + i * 12}%`,
+              top: `${20 + i * 8}%`,
+              background: i % 3 === 0 
+                ? 'radial-gradient(circle, hsl(var(--primary) / 0.6), transparent)'
+                : i % 3 === 1
+                ? 'radial-gradient(circle, hsl(var(--accent) / 0.6), transparent)'
+                : 'radial-gradient(circle, hsl(var(--secondary) / 0.6), transparent)',
+              boxShadow: `0 0 ${10 + i * 2}px currentColor`,
+              animationDelay: `${i * 1.2}s`,
+              animationDuration: `${8 + i * 0.5}s`,
+            }}
+          />
+        ))}
         
         <motion.div 
           className="absolute top-1/3 right-20 w-96 h-96 rounded-full opacity-20 blur-3xl"
