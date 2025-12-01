@@ -35,6 +35,9 @@ import {
   AlertCircle,
   CheckCircle2,
   StopCircle,
+  Edit2,
+  Check,
+  RotateCw,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import FilePreview from "@/components/FilePreview";
@@ -170,6 +173,8 @@ const Chat = () => {
   const [selectedModels, setSelectedModels] = useState<string[]>(["gemini"]);
   const [autoSelectModel, setAutoSelectModel] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
   const [chatId, setChatId] = useState<string | null>(null);
   const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
   const [attachmentType, setAttachmentType] = useState<string | null>(null);
@@ -438,6 +443,34 @@ const Chat = () => {
       };
       reader.readAsDataURL(file);
     });
+  };
+
+  const handleEditMessage = (messageId: string, content: string) => {
+    setEditingMessageId(messageId);
+    setEditText(content);
+  };
+
+  const handleSaveEdit = async (messageId: string) => {
+    if (!editText.trim()) return;
+    
+    const messageIndex = messages.findIndex(m => m.id === messageId);
+    if (messageIndex === -1) return;
+    
+    // Remove all messages after and including this one
+    const updatedMessages = messages.slice(0, messageIndex);
+    setMessages(updatedMessages);
+    
+    setEditingMessageId(null);
+    setEditText("");
+    
+    // Send the edited message
+    setInput(editText);
+    setTimeout(() => handleSend(), 100);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditText("");
   };
 
   const processFileUpload = async (file: File) => {
@@ -874,18 +907,7 @@ const Chat = () => {
             },
             (model, error) => {
               console.error('❌ Stream error:', model, error);
-              // Update message with detailed error
-              const errorMsg = error.includes('timeout') 
-                ? '⏱️ Response timed out. The AI model is taking too long. Try again or use a different model.'
-                : `❌ ${error}`;
-              
-              setMessages(prev => 
-                prev.map(msg => 
-                  msg.id === streamingMessage.id
-                    ? { ...msg, content: errorMsg, isError: true }
-                    : msg
-                )
-              );
+              // Don't show error message during retries - only on final failure
               throw new Error(error);
             }
           );
@@ -904,16 +926,33 @@ const Chat = () => {
         } catch (streamError: any) {
           console.error('❌ Streaming failed after', Date.now() - startTime, 'ms:', streamError.message);
           
-          // If this isn't the last retry, continue to next attempt
+          // If this isn't the last retry, remove the message and continue
           if (attempt < maxRetries) {
             console.log(`🔄 Retrying... (${attempt + 1}/${maxRetries})`);
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+            setMessages(prev => prev.filter(msg => msg.id !== streamingMessage.id));
             continue;
           }
-          console.log('⚠️ Falling back to non-streaming mode');
           
-          // Remove the failed streaming message
-          setMessages(prev => prev.filter(msg => msg.id !== streamingMessage.id));
+          // On final failure, show error message
+          console.log('❌ All retries exhausted, showing error');
+          const errorMsg = streamError.message.includes('timeout') 
+            ? '⏱️ Response timed out. The AI model is taking too long. Try again or use a different model.'
+            : `❌ ${streamError.message}`;
+          
+          setMessages(prev => 
+            prev.map(msg => 
+              msg.id === streamingMessage.id
+                ? { ...msg, content: errorMsg, isError: true }
+                : msg
+            )
+          );
+          
+          setLoading(false);
+          setRetryAttempt(0);
+          if (soundEnabled && isSoundSupported()) {
+            playSound('error');
+          }
+          return;
         }
       }
 
@@ -1589,9 +1628,54 @@ const Chat = () => {
                           </div>
                         ) : null}
                           
-                          <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
-                            {softCleanMarkdown(renderWithCitations(message.content))}
-                          </div>
+                          {message.role === 'user' ? (
+                            editingMessageId === message.id ? (
+                              <div className="space-y-2">
+                                <Textarea
+                                  value={editText}
+                                  onChange={(e) => setEditText(e.target.value)}
+                                  className="min-h-[100px] resize-none bg-background/50"
+                                  autoFocus
+                                />
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleSaveEdit(message.id)}
+                                    disabled={!editText.trim() || loading}
+                                  >
+                                    <Check className="h-4 w-4 mr-1" />
+                                    Save & Regenerate
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={handleCancelEdit}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="group relative">
+                                <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
+                                  {softCleanMarkdown(renderWithCitations(message.content))}
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm"
+                                  onClick={() => handleEditMessage(message.id, message.content)}
+                                  disabled={loading}
+                                >
+                                  <Edit2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )
+                          ) : (
+                            <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
+                              {softCleanMarkdown(renderWithCitations(message.content))}
+                            </div>
+                          )}
                           
                           {/* Thinking Process Display */}
                           {message.role === 'assistant' && (message.thinkingProcess || message.reasoningSteps) && (
@@ -1649,14 +1733,14 @@ const Chat = () => {
                                   const messageIndex = messages.findIndex(m => m.id === message.id);
                                   if (messageIndex > 0) {
                                     const userMessage = messages[messageIndex - 1];
-                                    if (userMessage.role === 'user') {
-                                      // Remove the error message
-                                      setMessages(prev => prev.filter(m => m.id !== message.id));
-                                      // Retry with the same input
-                                      setInput(userMessage.content);
-                                      // Trigger send after a brief delay
-                                      setTimeout(() => handleSend(), 100);
-                                    }
+                                     if (userMessage.role === 'user') {
+                                       // Remove the error message
+                                       setMessages(prev => prev.filter(m => m.id !== message.id));
+                                       // Retry with the same input
+                                       setInput(userMessage.content);
+                                       // Trigger send after a brief delay to ensure state updates
+                                       setTimeout(() => handleSend(), 100);
+                                     }
                                   }
                                 }}
                                 disabled={loading}
