@@ -13,11 +13,11 @@ export interface ModelConfig {
 
 // These IDs MUST match the backend exactly (chat-with-ai edge function)
 export const MODEL_CONFIG: ModelConfig[] = [
-  // Fast Models (Lovable AI Gateway - Recommended)
+  // Fast Models
   { 
     id: 'lovable-gemini-flash', 
     name: 'Gemini Flash', 
-    description: 'Fast & efficient via Lovable AI', 
+    description: 'Fast & efficient responses', 
     icon: Zap, 
     color: 'text-blue-400',
     category: 'fast',
@@ -26,18 +26,18 @@ export const MODEL_CONFIG: ModelConfig[] = [
   { 
     id: 'lovable-gpt5-mini', 
     name: 'GPT-5 Mini', 
-    description: 'Lightweight GPT-5 via Lovable AI', 
+    description: 'Quick & lightweight model', 
     icon: Sparkles, 
     color: 'text-emerald-400',
     category: 'fast',
     isLovable: true
   },
   
-  // Reasoning Models (Lovable AI Gateway)
+  // Reasoning Models
   { 
     id: 'lovable-gemini-pro', 
     name: 'Gemini Pro', 
-    description: 'Most capable Gemini via Lovable AI', 
+    description: 'Advanced reasoning & analysis', 
     icon: Brain, 
     color: 'text-purple-400',
     category: 'reasoning',
@@ -46,26 +46,26 @@ export const MODEL_CONFIG: ModelConfig[] = [
   { 
     id: 'lovable-gpt5', 
     name: 'GPT-5', 
-    description: 'OpenAI\'s latest via Lovable AI', 
+    description: 'Most capable reasoning model', 
     icon: Bot, 
     color: 'text-green-400',
     category: 'reasoning',
     isLovable: true
   },
   
-  // Direct API models (use user's API keys)
+  // Direct API models
   { 
     id: 'chatgpt', 
     name: 'ChatGPT (GPT-4o)', 
-    description: 'OpenAI Direct API', 
+    description: 'OpenAI flagship model', 
     icon: Bot, 
     color: 'text-green-500',
     category: 'reasoning'
   },
   { 
     id: 'gemini', 
-    name: 'Gemini Flash', 
-    description: 'Google Direct API', 
+    name: 'Gemini Direct', 
+    description: 'Google AI multimodal', 
     icon: Zap, 
     color: 'text-blue-500',
     category: 'fast'
@@ -73,7 +73,7 @@ export const MODEL_CONFIG: ModelConfig[] = [
   { 
     id: 'claude', 
     name: 'Claude Sonnet', 
-    description: 'Anthropic Direct API', 
+    description: 'Anthropic thoughtful AI', 
     icon: Bot, 
     color: 'text-orange-400',
     category: 'reasoning'
@@ -81,7 +81,7 @@ export const MODEL_CONFIG: ModelConfig[] = [
   { 
     id: 'perplexity', 
     name: 'Perplexity', 
-    description: 'Web-enhanced AI search', 
+    description: 'Web-enabled search AI', 
     icon: Globe, 
     color: 'text-cyan-400',
     category: 'research'
@@ -99,7 +99,7 @@ export const MODEL_CONFIG: ModelConfig[] = [
   { 
     id: 'gemini-flash-image', 
     name: 'Gemini Image', 
-    description: 'Google image generation', 
+    description: 'AI image generation', 
     icon: Image, 
     color: 'text-pink-400',
     category: 'image'

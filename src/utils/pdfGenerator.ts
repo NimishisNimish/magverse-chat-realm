@@ -57,7 +57,7 @@ export const generateChatPDF = async (messages: ChatMessage[], chatTitle: string
   messages.forEach((message, i) => {
     checkPageBreak(30);
 
-    // Message header
+    // Message header - show "You" for user, "AI Assistant" for AI (not model name)
     doc.setFontSize(11);
     if (message.role === 'user') {
       doc.setTextColor(59, 130, 246);
@@ -66,7 +66,7 @@ export const generateChatPDF = async (messages: ChatMessage[], chatTitle: string
     } else {
       doc.setTextColor(168, 85, 247);
       doc.setFont('helvetica', 'bold');
-      doc.text(message.model || 'AI', margin, yPosition);
+      doc.text('AI Assistant', margin, yPosition);
     }
 
     // Timestamp
