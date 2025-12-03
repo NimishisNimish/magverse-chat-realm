@@ -882,7 +882,6 @@ const Chat = () => {
         await sleep(backoffDelay);
       }
 
-      try {
       const messagesForApi = [
         ...messages.map(m => ({
           role: m.role,
@@ -952,7 +951,6 @@ const Chat = () => {
             },
             (model, error) => {
               console.error('❌ Stream error:', model, error);
-              // Don't show error message during retries - only on final failure
               throw new Error(error);
             }
           );
@@ -967,11 +965,11 @@ const Chat = () => {
             playSound('complete');
           }
           
-          break;
+          setLoading(false);
+          return; // Exit function on successful streaming
         } catch (streamError: any) {
           console.error('❌ Streaming failed after', Date.now() - startTime, 'ms:', streamError.message);
           
-          // Track API error for notifications
           if (typeof window !== 'undefined' && (window as any).__trackApiError) {
             const status = streamError.message.includes('429') ? 429 :
                          streamError.message.includes('402') ? 402 :
@@ -979,14 +977,12 @@ const Chat = () => {
             (window as any).__trackApiError(status, modelsToUse[0], streamError.message);
           }
           
-          // If this isn't the last retry, remove the message and continue
           if (attempt < maxRetries) {
             console.log(`🔄 Retrying... (${attempt + 1}/${maxRetries})`);
             setMessages(prev => prev.filter(msg => msg.id !== streamingMessage.id));
             continue;
           }
           
-          // On final failure, show error message
           console.log('❌ All retries exhausted, showing error');
           const errorMsg = streamError.message.includes('timeout') 
             ? '⏱️ Response timed out. The AI model is taking too long. Try again or use a different model.'
@@ -1007,145 +1003,137 @@ const Chat = () => {
           }
           return;
         }
-      }
-
-      // Fallback to non-streaming for multiple models or if streaming failed
-      console.log('📤 Using non-streaming mode');
-      const invokePromise = supabase.functions.invoke('chat-with-ai', {
-        body: {
-          messages: messagesForApi,
-          selectedModels: modelsToUse,
-          chatId,
-          attachmentUrl: currentAttachmentUrl,
-          webSearchEnabled: activeQuickAction === 'research',
-          deepResearch: activeQuickAction === 'research',
-          enableMultiStepReasoning,
-          stream: false,
-        },
-      });
-
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Request timeout - please try again or use fewer models')), 300000)
-      );
-
-      const { data, error } = await Promise.race([invokePromise, timeoutPromise]) as any;
-
-      console.log('📥 Response received:', { 
-        hasData: !!data, 
-        hasError: !!error,
-        responsesCount: data?.responses?.length 
-      });
-
-      if (error) {
-        console.error('❌ Function invoke error:', error);
-        throw error;
-      }
-
-      // Record metrics for each model
-      if (data?.responses && user) {
-        const responseTime = Date.now() - startTime;
-        for (const modelResponse of data.responses) {
-          await supabase.from('ai_model_metrics').insert({
-            user_id: user.id,
-            model_name: modelResponse.model || 'unknown',
-            response_time_ms: responseTime,
-            tokens_total: modelResponse.tokens || null,
-            message_id: modelResponse.messageId || null,
+      } else {
+        // Non-streaming for direct API models
+        try {
+          console.log('📤 Using non-streaming mode for:', modelsToUse);
+          const invokePromise = supabase.functions.invoke('chat-with-ai', {
+            body: {
+              messages: messagesForApi,
+              selectedModels: modelsToUse,
+              chatId,
+              attachmentUrl: currentAttachmentUrl,
+              webSearchEnabled: activeQuickAction === 'research',
+              deepResearch: activeQuickAction === 'research',
+              enableMultiStepReasoning,
+              stream: false,
+            },
           });
-        }
-      }
 
-      if (error) throw error;
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Request timeout - please try again or use fewer models')), 300000)
+          );
 
-      let currentChatId = chatId;
-      if (data.chatId && !chatId) {
-        setChatId(data.chatId);
-        currentChatId = data.chatId;
-      }
+          const { data, error } = await Promise.race([invokePromise, timeoutPromise]) as any;
 
-      if (data.responses && Array.isArray(data.responses)) {
-        const assistantMessages: Message[] = data.responses
-          .filter((response: any) => response.success)
-          .map((response: any) => ({
-            id: `${Date.now()}-${response.model}-${Math.random()}`,
-            role: "assistant" as const,
-            content: response.response,
-            model: response.model,
-            timestamp: new Date(),
-            userMessageId: userMessage.id,
-            thinkingProcess: response.thinkingProcess,
-            reasoningSteps: response.reasoningSteps,
-          }));
-
-        setMessages(prev => [...prev, ...assistantMessages]);
-      }
-
-        await refreshProfile();
-        setRetryAttempt(0);
-        
-        // Play completion sound on success
-        if (soundEnabled && isSoundSupported()) {
-          playSound('complete');
-        }
-        
-        break; // Success, exit retry loop
-      } catch (error: any) {
-        console.error('Chat error:', error);
-        lastError = error;
-        
-        // Track API error for quota notifications
-        if (typeof window !== 'undefined' && (window as any).__trackApiError) {
-          const status = error.message?.includes('429') ? 429 :
-                       error.message?.includes('402') ? 402 :
-                       error.message?.includes('timeout') ? 504 :
-                       error.message?.includes('401') || error.message?.includes('403') ? 401 : 500;
-          modelsToUse.forEach(model => {
-            (window as any).__trackApiError(status, model, error.message || 'Unknown error');
+          console.log('📥 Response received:', { 
+            hasData: !!data, 
+            hasError: !!error,
+            responsesCount: data?.responses?.length 
           });
-        }
-        
-          // Don't retry if aborted
-        if (error.name === 'AbortError') {
-          setLoading(false);
+
+          if (error) {
+            console.error('❌ Function invoke error:', error);
+            throw error;
+          }
+
+          // Record metrics for each model
+          if (data?.responses && user) {
+            const responseTime = Date.now() - startTime;
+            for (const modelResponse of data.responses) {
+              await supabase.from('ai_model_metrics').insert({
+                user_id: user.id,
+                model_name: modelResponse.model || 'unknown',
+                response_time_ms: responseTime,
+                tokens_total: modelResponse.tokens || null,
+                message_id: modelResponse.messageId || null,
+              });
+            }
+          }
+
+          let currentChatId = chatId;
+          if (data.chatId && !chatId) {
+            setChatId(data.chatId);
+            currentChatId = data.chatId;
+          }
+
+          if (data.responses && Array.isArray(data.responses)) {
+            const assistantMessages: Message[] = data.responses
+              .filter((response: any) => response.success)
+              .map((response: any) => ({
+                id: `${Date.now()}-${response.model}-${Math.random()}`,
+                role: "assistant" as const,
+                content: response.response,
+                model: response.model,
+                timestamp: new Date(),
+                userMessageId: userMessage.id,
+                thinkingProcess: response.thinkingProcess,
+                reasoningSteps: response.reasoningSteps,
+              }));
+
+            setMessages(prev => [...prev, ...assistantMessages]);
+          }
+
+          await refreshProfile();
           setRetryAttempt(0);
-          return;
-        }
-        
-        // If this was the last attempt, show error and play error sound
-        if (attempt === maxRetries) {
+          
           if (soundEnabled && isSoundSupported()) {
-            playSound('error');
+            playSound('complete');
           }
           
-          // Better error messages
-          let errorMessage = "Failed to send message after multiple attempts";
-          if (error.message?.includes('Rate limit')) {
-            errorMessage = "Rate limit exceeded. Please try again in a moment.";
-          } else if (error.message?.includes('API key')) {
-            errorMessage = "API configuration error. Please contact support.";
-          } else if (error.message?.includes('timeout')) {
-            errorMessage = "Request timed out. Please try again.";
-          } else if (error.message) {
-            errorMessage = error.message;
-          }
-          
-          toast({
-            title: "Error",
-            description: errorMessage,
-            variant: "destructive",
-          });
-        }
-      } finally {
-        // ALWAYS clear loading state
-        if (attempt === maxRetries) {
           setLoading(false);
-          setRetryAttempt(0);
-          abortControllerRef.current = null;
-        }
-      }
+          return; // Success, exit function
+        } catch (error: any) {
+          console.error('Chat error:', error);
+          lastError = error;
+          
+          // Track API error for quota notifications
+          if (typeof window !== 'undefined' && (window as any).__trackApiError) {
+            const status = error.message?.includes('429') ? 429 :
+                         error.message?.includes('402') ? 402 :
+                         error.message?.includes('timeout') ? 504 :
+                         error.message?.includes('401') || error.message?.includes('403') ? 401 : 500;
+            modelsToUse.forEach(model => {
+              (window as any).__trackApiError(status, model, error.message || 'Unknown error');
+            });
+          }
+          
+          // Don't retry if aborted
+          if (error.name === 'AbortError') {
+            setLoading(false);
+            setRetryAttempt(0);
+            return;
+          }
+          
+          // If this was the last attempt, show error and play error sound
+          if (attempt === maxRetries) {
+            if (soundEnabled && isSoundSupported()) {
+              playSound('error');
+            }
+            
+            // Better error messages
+            let errorMessage = "Failed to send message after multiple attempts";
+            if (error.message?.includes('Rate limit')) {
+              errorMessage = "Rate limit exceeded. Please try again in a moment.";
+            } else if (error.message?.includes('API key')) {
+              errorMessage = "API configuration error. Please contact support.";
+            } else if (error.message?.includes('timeout')) {
+              errorMessage = "Request timed out. Please try again.";
+            } else if (error.message) {
+              errorMessage = error.message;
+            }
+            
+            toast({
+              title: "Error",
+              description: errorMessage,
+              variant: "destructive",
+            });
+          }
+        } // End catch
+      } // End else (non-streaming)
     }
     
-    // Final cleanup after retry loop (redundant safety net)
+    // Final cleanup after retry loop
     setLoading(false);
     setRetryAttempt(0);
     abortControllerRef.current = null;

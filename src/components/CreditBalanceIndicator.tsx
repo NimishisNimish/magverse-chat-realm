@@ -1,76 +1,65 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { AlertCircle, Zap } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Coins, AlertCircle, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useNavigate } from "react-router-dom";
 
 export const CreditBalanceIndicator = () => {
   const { profile } = useAuth();
   const navigate = useNavigate();
-
+  
   if (!profile) return null;
 
-  const credits = profile.credits_remaining || 0;
+  const credits = profile.credits_remaining ?? 0;
   const subscriptionType = profile.subscription_type || 'free';
   const isLifetime = subscriptionType === 'lifetime';
   const isMonthly = subscriptionType === 'monthly';
-  const monthlyCreditsUsed = profile.monthly_credits_used || 0;
-  const dailyLimit = isMonthly ? 500 : 5;
-  const remainingToday = isMonthly ? Math.max(0, dailyLimit - monthlyCreditsUsed) : credits;
+  
+  // Determine credit display
+  const creditsToday = isLifetime ? '∞' : credits;
+  const dailyLimit = isMonthly ? 50 : 5;
 
-  // Show warning if credits are low
-  const showWarning = !isLifetime && remainingToday <= 2;
-  const showCritical = !isLifetime && remainingToday === 0;
+  // Show warning for low credits
+  const isLowCredits = !isLifetime && credits <= 2 && credits > 0;
+  const isOutOfCredits = !isLifetime && credits <= 0;
 
   return (
-    <div className="space-y-2">
-      {/* Credit Balance Badge */}
-      <div className="flex items-center gap-2 justify-between">
-        <div className="flex items-center gap-2">
-          <Zap className="h-4 w-4 text-yellow-500" />
-          <span className="text-sm text-muted-foreground">
-            {isLifetime ? (
-              <Badge variant="default" className="bg-green-500/20 text-green-600 dark:text-green-400 border-0">
-                Lifetime Pro
-              </Badge>
-            ) : (
-              <>
-                <span className="font-medium text-foreground">{remainingToday}</span>
-                <span className="text-xs"> / {dailyLimit} credits {isMonthly ? 'today' : 'remaining'}</span>
-              </>
-            )}
-          </span>
-        </div>
-        
-        {!isLifetime && (
-          <button
-            onClick={() => navigate('/pricing')}
-            className="text-xs text-primary hover:underline"
-          >
-            Upgrade
-          </button>
-        )}
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2 text-sm">
+        <Coins className="w-4 h-4 text-primary" />
+        <span className="text-muted-foreground">
+          Credits today: <span className="font-medium text-foreground">{creditsToday}</span>
+          {!isLifetime && <span className="text-muted-foreground">/{dailyLimit}</span>}
+        </span>
       </div>
-
-      {/* Warning Alerts */}
-      {showCritical && (
+      
+      {isOutOfCredits && (
         <Alert variant="destructive" className="py-2">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription className="text-xs">
-            Out of credits! Upgrade to continue using AI models.
+          <AlertDescription className="flex items-center justify-between">
+            <span>Out of credits!</span>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => navigate('/pricing')}
+              className="ml-2"
+            >
+              <TrendingUp className="w-3 h-3 mr-1" />
+              Upgrade
+            </Button>
           </AlertDescription>
         </Alert>
       )}
-
-      {showWarning && !showCritical && (
-        <Alert className="py-2 bg-amber-500/10 border-amber-500/20">
-          <AlertCircle className="h-4 w-4 text-amber-500" />
-          <AlertDescription className="text-xs text-amber-500">
-            Running low on credits. Consider upgrading to avoid interruptions.
+      
+      {isLowCredits && (
+        <Alert className="py-2 border-yellow-500/50 bg-yellow-500/10">
+          <AlertCircle className="h-4 w-4 text-yellow-500" />
+          <AlertDescription className="text-yellow-600 dark:text-yellow-400">
+            Only {credits} credit{credits !== 1 ? 's' : ''} remaining today
           </AlertDescription>
         </Alert>
       )}
-
     </div>
   );
 };
