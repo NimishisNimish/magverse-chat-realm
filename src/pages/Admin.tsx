@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { AdminSubscriptionManager } from "@/components/AdminSubscriptionManager";
 import { 
   CheckCircle, 
   XCircle, 
@@ -20,7 +21,9 @@ import {
   Search, 
   RefreshCw,
   Shield,
-  AlertTriangle
+  AlertTriangle,
+  CreditCard,
+  Users
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -332,49 +335,63 @@ const Admin = () => {
             </Card>
           </div>
 
-          {/* Search */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by user, transaction ID..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-
-          {/* Transactions */}
-          <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-            <TabsList>
-              <TabsTrigger value="pending">
-                Pending ({pendingCount})
+          {/* Main Admin Tabs */}
+          <Tabs defaultValue="payments" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="payments" className="flex items-center gap-2">
+                <CreditCard className="w-4 h-4" />
+                Payment Verification
               </TabsTrigger>
-              <TabsTrigger value="verified">
-                Verified ({verifiedCount})
-              </TabsTrigger>
-              <TabsTrigger value="rejected">
-                Rejected ({rejectedCount})
-              </TabsTrigger>
-              <TabsTrigger value="all">
-                All ({transactions.length})
+              <TabsTrigger value="subscriptions" className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Users & Subscriptions
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value={selectedTab} className="mt-6">
-              <ScrollArea className="h-[600px]">
-                <div className="space-y-4">
-                  {loading ? (
-                    <Card>
-                      <CardContent className="py-12 text-center">
-                        <p className="text-muted-foreground">Loading transactions...</p>
-                      </CardContent>
-                    </Card>
-                  ) : filteredTransactions.length === 0 ? (
-                    <Card>
-                      <CardContent className="py-12 text-center">
-                        <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <TabsContent value="payments" className="space-y-6">
+              {/* Search */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by user, transaction ID..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              {/* Transactions */}
+              <Tabs value={selectedTab} onValueChange={setSelectedTab}>
+                <TabsList>
+                  <TabsTrigger value="pending">
+                    Pending ({pendingCount})
+                  </TabsTrigger>
+                  <TabsTrigger value="verified">
+                    Verified ({verifiedCount})
+                  </TabsTrigger>
+                  <TabsTrigger value="rejected">
+                    Rejected ({rejectedCount})
+                  </TabsTrigger>
+                  <TabsTrigger value="all">
+                    All ({transactions.length})
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value={selectedTab} className="mt-6">
+                  <ScrollArea className="h-[600px]">
+                    <div className="space-y-4">
+                      {loading ? (
+                        <Card>
+                          <CardContent className="py-12 text-center">
+                            <p className="text-muted-foreground">Loading transactions...</p>
+                          </CardContent>
+                        </Card>
+                      ) : filteredTransactions.length === 0 ? (
+                        <Card>
+                          <CardContent className="py-12 text-center">
+                            <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                         <p className="text-muted-foreground">No transactions found</p>
                       </CardContent>
                     </Card>
@@ -470,6 +487,12 @@ const Admin = () => {
                   )}
                 </div>
               </ScrollArea>
+            </TabsContent>
+          </Tabs>
+            </TabsContent>
+
+            <TabsContent value="subscriptions">
+              <AdminSubscriptionManager />
             </TabsContent>
           </Tabs>
         </div>
