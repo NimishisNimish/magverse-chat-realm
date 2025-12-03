@@ -97,12 +97,8 @@ export const AIModelsShowcase = () => {
                       </p>
 
                       {/* Status badge */}
-                      <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        model.id === 'chatgpt' || model.id === 'perplexity' 
-                          ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' 
-                          : 'bg-green-500/20 text-green-600 dark:text-green-400'
-                      }`}>
-                        {model.id === 'chatgpt' || model.id === 'perplexity' ? 'Limited' : 'Available'}
+                      <div className="px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-600 dark:text-green-400">
+                        Available
                       </div>
                     </div>
                   </div>
