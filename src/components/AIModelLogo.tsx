@@ -45,11 +45,14 @@ export const AIModelLogo = ({ modelId, size = 'md', className = '' }: AIModelLog
     );
   }
 
+  // Add brightness filter for dark logos in dark mode
+  const needsBrightness = modelId === 'perplexity' || modelId === 'grok';
+
   return (
     <img 
       src={logoSrc} 
       alt={`${modelId} logo`} 
-      className={`${sizeClasses[size]} ${className} object-contain`}
+      className={`${sizeClasses[size]} ${className} object-contain ${needsBrightness ? 'dark:brightness-150 dark:contrast-125' : ''}`}
     />
   );
 };

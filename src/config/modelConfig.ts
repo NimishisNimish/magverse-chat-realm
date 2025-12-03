@@ -6,83 +6,103 @@ export interface ModelConfig {
   description: string;
   icon: any;
   color: string;
-  available?: boolean; // Indicates if model is currently working
+  category: 'fast' | 'reasoning' | 'research' | 'image';
+  available?: boolean;
+  isLovable?: boolean; // Whether it routes through Lovable AI Gateway
 }
 
 // These IDs MUST match the backend exactly (chat-with-ai edge function)
 export const MODEL_CONFIG: ModelConfig[] = [
-  // Lovable AI models (via gateway)
+  // Fast Models (Lovable AI Gateway - Recommended)
   { 
     id: 'lovable-gemini-flash', 
-    name: 'Gemini Flash (Lovable)', 
+    name: 'Gemini Flash', 
     description: 'Fast & efficient via Lovable AI', 
     icon: Zap, 
-    color: 'text-primary' 
-  },
-  { 
-    id: 'lovable-gemini-pro', 
-    name: 'Gemini Pro (Lovable)', 
-    description: 'Most capable Gemini via Lovable AI', 
-    icon: Brain, 
-    color: 'text-purple-400' 
-  },
-  { 
-    id: 'lovable-gpt5', 
-    name: 'GPT-5 (Lovable)', 
-    description: 'OpenAI\'s latest via Lovable AI', 
-    icon: Bot, 
-    color: 'text-blue-400' 
+    color: 'text-blue-400',
+    category: 'fast',
+    isLovable: true
   },
   { 
     id: 'lovable-gpt5-mini', 
-    name: 'GPT-5 Mini (Lovable)', 
+    name: 'GPT-5 Mini', 
     description: 'Lightweight GPT-5 via Lovable AI', 
     icon: Sparkles, 
-    color: 'text-cyan-400' 
+    color: 'text-emerald-400',
+    category: 'fast',
+    isLovable: true
   },
   
-  // Direct API models (existing)
+  // Reasoning Models (Lovable AI Gateway)
+  { 
+    id: 'lovable-gemini-pro', 
+    name: 'Gemini Pro', 
+    description: 'Most capable Gemini via Lovable AI', 
+    icon: Brain, 
+    color: 'text-purple-400',
+    category: 'reasoning',
+    isLovable: true
+  },
+  { 
+    id: 'lovable-gpt5', 
+    name: 'GPT-5', 
+    description: 'OpenAI\'s latest via Lovable AI', 
+    icon: Bot, 
+    color: 'text-green-400',
+    category: 'reasoning',
+    isLovable: true
+  },
+  
+  // Direct API models (use user's API keys)
   { 
     id: 'chatgpt', 
     name: 'ChatGPT (GPT-4o)', 
-    description: 'Most capable OpenAI model', 
+    description: 'OpenAI Direct API', 
     icon: Bot, 
-    color: 'text-accent'
+    color: 'text-green-500',
+    category: 'reasoning'
   },
   { 
     id: 'gemini', 
     name: 'Gemini Flash', 
-    description: 'Google\'s fastest AI model', 
+    description: 'Google Direct API', 
     icon: Zap, 
-    color: 'text-primary' 
+    color: 'text-blue-500',
+    category: 'fast'
   },
   { 
     id: 'claude', 
-    name: 'Claude 3.5 Sonnet', 
-    description: 'Anthropic\'s latest model', 
+    name: 'Claude Sonnet', 
+    description: 'Anthropic Direct API', 
     icon: Bot, 
-    color: 'text-orange-400' 
+    color: 'text-orange-400',
+    category: 'reasoning'
   },
   { 
     id: 'perplexity', 
     name: 'Perplexity', 
     description: 'Web-enhanced AI search', 
     icon: Globe, 
-    color: 'text-green-400'
+    color: 'text-cyan-400',
+    category: 'research'
   },
   { 
     id: 'grok', 
-    name: 'Grok 3.1', 
+    name: 'Grok', 
     description: 'Real-time knowledge model', 
     icon: Zap, 
-    color: 'text-cyan-400' 
+    color: 'text-white',
+    category: 'research'
   },
+  
+  // Image generation
   { 
     id: 'gemini-flash-image', 
     name: 'Gemini Image', 
-    description: 'Image generation model', 
+    description: 'Google image generation', 
     icon: Image, 
-    color: 'text-pink-400' 
+    color: 'text-pink-400',
+    category: 'image'
   },
 ];
 
@@ -90,7 +110,7 @@ export const MODEL_CONFIG: ModelConfig[] = [
 export const VALID_MODEL_IDS = MODEL_CONFIG.map(m => m.id);
 
 // Default model to use when none selected or invalid ID provided
-export const DEFAULT_MODEL_ID = 'gemini';
+export const DEFAULT_MODEL_ID = 'lovable-gemini-flash';
 
 // Helper to get model config by ID
 export const getModelConfig = (modelId: string): ModelConfig | undefined => {
@@ -106,4 +126,10 @@ export const isValidModelId = (modelId: string): boolean => {
 export const sanitizeModelIds = (modelIds: string[]): string[] => {
   const validIds = modelIds.filter(isValidModelId);
   return validIds.length > 0 ? validIds : [DEFAULT_MODEL_ID];
+};
+
+// Check if model uses Lovable AI Gateway
+export const isLovableModel = (modelId: string): boolean => {
+  const config = getModelConfig(modelId);
+  return config?.isLovable === true;
 };
