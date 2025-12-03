@@ -100,42 +100,66 @@ import { QuickActions, QuickActionType } from "@/components/QuickActions";
 import { playSound, getSoundPreference, setSoundPreference, isSoundSupported } from "@/utils/soundNotifications";
 import { classifyQuery, getOptimalModels, getQueryTypeInfo, QueryType } from "@/utils/queryClassifier";
 
+// AI Models with categories for Fast/Reasoning sections like Perplexity
 const aiModels = [
-  { id: "chatgpt", name: "ChatGPT", icon: Bot, color: "text-green-400", category: "reasoning" },
-  { id: "gemini", name: "Gemini", icon: Sparkles, color: "text-blue-400", category: "reasoning" },
-  { id: "claude", name: "Claude", icon: Brain, color: "text-purple-400", category: "reasoning" },
-  { id: "perplexity", name: "Perplexity", icon: Globe, color: "text-orange-400", category: "research" },
-  { id: "grok", name: "Grok", icon: Zap, color: "text-cyan-400", category: "reasoning" },
+  // Fast models (Lovable AI - Recommended)
+  { id: "lovable-gemini-flash", name: "Gemini Flash", icon: Zap, color: "text-blue-400", category: "fast", isLovable: true },
+  { id: "lovable-gpt5-mini", name: "GPT-5 Mini", icon: Sparkles, color: "text-emerald-400", category: "fast", isLovable: true },
+  // Reasoning models (Lovable AI)
+  { id: "lovable-gemini-pro", name: "Gemini Pro", icon: Brain, color: "text-purple-400", category: "reasoning", isLovable: true },
+  { id: "lovable-gpt5", name: "GPT-5", icon: Bot, color: "text-green-400", category: "reasoning", isLovable: true },
+  // Direct API models
+  { id: "chatgpt", name: "ChatGPT (GPT-4o)", icon: Bot, color: "text-green-500", category: "reasoning", isLovable: false },
+  { id: "gemini", name: "Gemini Direct", icon: Sparkles, color: "text-blue-500", category: "fast", isLovable: false },
+  { id: "claude", name: "Claude Sonnet", icon: Brain, color: "text-orange-400", category: "reasoning", isLovable: false },
+  { id: "perplexity", name: "Perplexity", icon: Globe, color: "text-cyan-400", category: "research", isLovable: false },
+  { id: "grok", name: "Grok", icon: Zap, color: "text-white", category: "research", isLovable: false },
 ];
 
 const tools = [
+  // Quick Actions - moved from QuickActions component
+  { 
+    id: 'fast-mode', 
+    name: '⚡ Fast', 
+    icon: Zap,
+    action: 'fast-mode',
+    description: 'Quick responses with lightweight models'
+  },
+  { 
+    id: 'reasoning-mode', 
+    name: '🧠 Reasoning', 
+    icon: Brain,
+    action: 'reasoning-mode',
+    description: 'Step-by-step logical thinking'
+  },
+  { 
+    id: 'research-mode', 
+    name: '🔍 Research', 
+    icon: Search,
+    action: 'research-mode',
+    description: 'Deep web search with sources'
+  },
+  { 
+    id: 'summarize', 
+    name: '📝 Summary', 
+    icon: FileText,
+    action: 'summarize',
+    description: 'Summarize conversation'
+  },
+  // Divider handled in UI
   { 
     id: 'create-image', 
     name: '✨ Create images', 
     icon: ImageIcon,
     action: 'image-generation',
-    description: 'Generate AI images from text descriptions'
+    description: 'Generate AI images from text'
   },
   { 
     id: 'document-analysis', 
     name: '📄 Document analysis', 
     icon: FileSearch,
     action: 'document-analysis',
-    description: 'Analyze and extract insights from documents'
-  },
-  { 
-    id: 'web-search', 
-    name: '🔍 Web search', 
-    icon: Search,
-    action: 'web-search',
-    description: 'Search the web for real-time information'
-  },
-  { 
-    id: 'code-generation', 
-    name: '💻 Code generation', 
-    icon: Code,
-    action: 'code-generation',
-    description: 'Generate and explain code snippets'
+    description: 'Analyze documents and PDFs'
   },
   { 
     id: 'model-selection', 
@@ -173,7 +197,7 @@ interface QueuedMessage {
 const Chat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [selectedModels, setSelectedModels] = useState<string[]>(["gemini"]);
+  const [selectedModels, setSelectedModels] = useState<string[]>(["lovable-gemini-flash"]);
   const [autoSelectModel, setAutoSelectModel] = useState(false);
   const [loading, setLoading] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -196,7 +220,7 @@ const Chat = () => {
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const [imagePrompt, setImagePrompt] = useState("");
   const [imageStyle, setImageStyle] = useState("realistic");
-  const [imageGenerationModel, setImageGenerationModel] = useState("gpt-image-1");
+  const [imageGenerationModel, setImageGenerationModel] = useState("lovable-gemini-flash-image");
   const [generating, setGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStage, setGenerationStage] = useState("");
@@ -803,19 +827,19 @@ const Chat = () => {
     // Apply quick action model selection - only if not using specificModels or auto-selection
     if (!specificModels && !autoSelectModel) {
       if (activeQuickAction === 'fast') {
-        modelsToUse = ['gemini']; // Use Gemini Flash for fast responses
+        modelsToUse = ['lovable-gemini-flash']; // Use Lovable Gemini Flash for fast responses
       } else if (activeQuickAction === 'reasoning') {
-        modelsToUse = ['claude', 'gemini'];
+        modelsToUse = ['lovable-gpt5', 'lovable-gemini-pro'];
       } else if (activeQuickAction === 'research') {
-        modelsToUse = ['grok'];
+        modelsToUse = ['lovable-gpt5'];
       }
     }
     
-    // Ensure at least one model is selected - default to Gemini if none selected
+    // Ensure at least one model is selected - default to Lovable Gemini Flash if none selected
     if (modelsToUse.length === 0) {
-      console.log('⚠️ No model selected, defaulting to Gemini');
-      modelsToUse = ['gemini'];
-      setSelectedModels(['gemini']);
+      console.log('⚠️ No model selected, defaulting to Lovable Gemini Flash');
+      modelsToUse = ['lovable-gemini-flash'];
+      setSelectedModels(['lovable-gemini-flash']);
     }
 
     // Validate model IDs match backend using centralized config
@@ -1339,10 +1363,22 @@ const Chat = () => {
       setModelSelectionOpen(true);
     } else if (toolId === 'document-analysis') {
       setDocumentDialogOpen(true);
-    } else if (toolId === 'web-search') {
-      setInput('🔍 Search the web for: ');
-    } else if (toolId === 'code-generation') {
-      setInput('💻 Generate code for: ');
+    } else if (toolId === 'fast-mode') {
+      setActiveQuickAction('fast');
+      setSelectedModels(['lovable-gemini-flash']);
+      sonnerToast.info('⚡ Fast mode enabled - using Gemini Flash');
+    } else if (toolId === 'reasoning-mode') {
+      setActiveQuickAction('reasoning');
+      setSelectedModels(['lovable-gpt5']);
+      sonnerToast.info('🧠 Reasoning mode enabled - using GPT-5');
+    } else if (toolId === 'research-mode') {
+      setActiveQuickAction('research');
+      setSelectedModels(['lovable-gpt5']);
+      sonnerToast.info('🔍 Research mode enabled - web search active');
+    } else if (toolId === 'summarize') {
+      setActiveQuickAction('summarize');
+      setInput('Please summarize our conversation so far');
+      setTimeout(() => handleSend(), 100);
     }
   };
 
@@ -1991,21 +2027,6 @@ const Chat = () => {
             </div>
           </ScrollArea>
 
-          {/* Quick Actions */}
-          <QuickActions 
-            activeAction={activeQuickAction}
-            onActionSelect={(action) => {
-              setActiveQuickAction(action);
-              if (action === 'summarize') {
-                setInput('Please summarize our conversation so far');
-                setTimeout(() => handleSend(), 100);
-              } else if (action === 'image') {
-                // Auto-select Gemini Flash Image for image generation
-                setSelectedModels(['gemini-flash-image']);
-              }
-            }}
-          />
-
           {/* Credit Balance Warning in Chat */}
           {messages.length > 0 && (
             <div className="px-6 pb-2">
@@ -2116,8 +2137,31 @@ const Chat = () => {
                       <span className="text-sm">Tools</span>
                     </Button>
                   </DropdownMenuTrigger>
-                   <DropdownMenuContent align="start" className="w-64">
-                    {tools.map(tool => {
+                   <DropdownMenuContent align="start" className="w-72">
+                    {/* Quick Actions Section */}
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Quick Actions</div>
+                    {tools.slice(0, 4).map(tool => {
+                      const Icon = tool.icon;
+                      const isActive = (tool.id === 'fast-mode' && activeQuickAction === 'fast') ||
+                                       (tool.id === 'reasoning-mode' && activeQuickAction === 'reasoning') ||
+                                       (tool.id === 'research-mode' && activeQuickAction === 'research');
+                      return (
+                        <DropdownMenuItem 
+                          key={tool.id}
+                          onClick={() => handleToolSelect(tool.id)}
+                          className={`gap-3 cursor-pointer py-3 ${isActive ? 'bg-primary/10' : ''}`}
+                        >
+                          <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-primary' : ''}`} />
+                          <div className="flex flex-col">
+                            <span className={`text-sm font-medium ${isActive ? 'text-primary' : ''}`}>{tool.name}</span>
+                            <span className="text-xs text-muted-foreground">{tool.description}</span>
+                          </div>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                    <div className="border-t border-border my-2" />
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Tools</div>
+                    {tools.slice(4).map(tool => {
                       const Icon = tool.icon;
                       return (
                         <DropdownMenuItem 
@@ -2137,7 +2181,7 @@ const Chat = () => {
                     <div className="px-3 py-3 flex items-center justify-between">
                       <div className="flex flex-col">
                         <span className="text-sm font-medium">🤖 Auto-select models</span>
-                        <span className="text-xs text-muted-foreground">AI picks best model for your query</span>
+                        <span className="text-xs text-muted-foreground">AI picks best model</span>
                       </div>
                       <Switch
                         checked={autoSelectModel}
@@ -2464,16 +2508,25 @@ const Chat = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="lovable-gemini-flash-image">
+                    <div className="flex items-center gap-2">
+                      <AIModelLogo modelId="lovable-gemini-flash-image" size="sm" />
+                      <span>Gemini Image</span>
+                      <Badge variant="default" className="text-xs">Lovable AI</Badge>
+                    </div>
+                  </SelectItem>
                   <SelectItem value="gpt-image-1">
                     <div className="flex items-center gap-2">
-                      <span>OpenAI DALL-E</span>
-                      <Badge variant="secondary" className="text-xs">Premium</Badge>
+                      <AIModelLogo modelId="chatgpt" size="sm" />
+                      <span>DALL-E 3</span>
+                      <Badge variant="secondary" className="text-xs">Direct API</Badge>
                     </div>
                   </SelectItem>
                   <SelectItem value="gemini-flash-image">
                     <div className="flex items-center gap-2">
-                      <span>Gemini Flash Image</span>
-                      <Badge variant="outline" className="text-xs">Fast</Badge>
+                      <AIModelLogo modelId="gemini" size="sm" />
+                      <span>Gemini Direct</span>
+                      <Badge variant="outline" className="text-xs">Direct API</Badge>
                     </div>
                   </SelectItem>
                 </SelectContent>

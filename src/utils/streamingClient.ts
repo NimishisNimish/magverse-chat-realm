@@ -11,6 +11,19 @@ export interface StreamEvent {
   };
 }
 
+// Model mapping for Lovable AI Gateway
+const getLovableModelName = (modelId: string): string => {
+  const mapping: Record<string, string> = {
+    'lovable-gemini-flash': 'google/gemini-2.5-flash',
+    'lovable-gemini-pro': 'google/gemini-2.5-pro',
+    'lovable-gpt5': 'openai/gpt-5',
+    'lovable-gpt5-mini': 'openai/gpt-5-mini',
+    'lovable-gemini-flash-image': 'google/gemini-2.5-flash-image-preview',
+    'lovable-gpt5-image': 'google/gemini-2.5-flash-image-preview',
+  };
+  return mapping[modelId] || 'google/gemini-2.5-flash';
+};
+
 export class StreamingClient {
   private abortController: AbortController | null = null;
 
@@ -22,7 +35,7 @@ export class StreamingClient {
     onDone: (model: string, messageId: string) => void,
     onError: (model: string, error: string) => void
   ): Promise<void> {
-    const MAX_TIMEOUT = 300000; // 300 seconds (5 minutes)
+    const MAX_TIMEOUT = 300000; // 5 minutes
     this.abortController = new AbortController();
     
     const timeoutId = setTimeout(() => {
@@ -38,27 +51,9 @@ export class StreamingClient {
         throw new Error('Not authenticated');
       }
 
-      // Only Lovable models support streaming
-      const isLovableModel = selectedModel.startsWith('lovable-');
-      
-      if (!isLovableModel) {
-        throw new Error('Streaming not supported for direct API models. Use non-streaming mode.');
-      }
-      
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/lovable-ai-chat`;
       console.log('🔌 Connecting to:', url);
       console.log('📤 Streaming request for model:', selectedModel);
-
-      // Map Lovable model IDs to actual API model names
-      const getLovableModelName = (modelId: string): string => {
-        const mapping: Record<string, string> = {
-          'lovable-gemini-flash': 'google/gemini-2.5-flash',
-          'lovable-gemini-pro': 'google/gemini-2.5-pro',
-          'lovable-gpt5': 'openai/gpt-5',
-          'lovable-gpt5-mini': 'openai/gpt-5-mini',
-        };
-        return mapping[modelId] || modelId;
-      };
 
       const requestBody = {
         messages,
