@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, LogOut, Zap, User, History, MessageSquare, Settings, LayoutDashboard, BarChart3, Shield, Crown, Users, Activity, DollarSign, TrendingUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { ThemeCustomizer } from "@/components/ThemeCustomizer";
 import AdminNotifications from "@/components/AdminNotifications";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -116,7 +115,6 @@ const Navbar = () => {
           </div>
         
         <ThemeToggle />
-        <ThemeCustomizer />
         
         {isAdmin && user && <AdminNotifications />}
         
@@ -174,23 +172,8 @@ const Navbar = () => {
                       )}
                     </div>
                   </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link to="/model-status" className="w-full cursor-pointer">
-                <Activity className="mr-2 h-4 w-4" />
-                Model Status
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link to="/model-metrics" className="w-full cursor-pointer">
-                <TrendingUp className="mr-2 h-4 w-4" />
-                Performance Metrics
-                {profile?.subscription_type !== 'free' && (
-                  <Crown className="ml-auto w-3 h-3 text-amber-500" />
-                )}
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
                     <Link to="/dashboard" className="cursor-pointer">
                       <LayoutDashboard className="w-4 h-4 mr-2" />
                       Dashboard
@@ -209,18 +192,18 @@ const Navbar = () => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                  <Link to="/history" className="cursor-pointer">
-                    <History className="w-4 h-4 mr-2" />
-                    History
-                  </Link>
-                </DropdownMenuItem>
-                {isAdmin && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link to="/admin" className="cursor-pointer">
-                        <Shield className="w-4 h-4 mr-2" />
-                        Admin Panel
+                    <Link to="/history" className="cursor-pointer">
+                      <History className="w-4 h-4 mr-2" />
+                      History
+                    </Link>
+                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin" className="cursor-pointer">
+                          <Shield className="w-4 h-4 mr-2" />
+                          Admin Panel
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
@@ -237,24 +220,24 @@ const Navbar = () => {
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
                         <Link to="/admin/activity" className="cursor-pointer">
-                          <BarChart3 className="w-4 h-4 mr-2" />
+                          <Activity className="w-4 h-4 mr-2" />
                           User Activity
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/model-status" className="cursor-pointer">
+                          <Activity className="w-4 h-4 mr-2" />
+                          Model Status
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/cost-tracking" className="cursor-pointer">
+                          <DollarSign className="w-4 h-4 mr-2" />
+                          Cost Tracking
                         </Link>
                       </DropdownMenuItem>
                     </>
                   )}
-                  <DropdownMenuItem asChild>
-                    <Link to="/model-status" className="cursor-pointer">
-                      <Activity className="w-4 h-4 mr-2" />
-                      Model Status
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/cost-tracking" className="cursor-pointer">
-                      <DollarSign className="w-4 h-4 mr-2" />
-                      Cost Tracking
-                    </Link>
-                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={signOut} className="cursor-pointer text-destructive focus:text-destructive">
                     <LogOut className="w-4 h-4 mr-2" />

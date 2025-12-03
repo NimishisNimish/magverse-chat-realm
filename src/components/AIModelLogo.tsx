@@ -22,6 +22,8 @@ const logoMap: Record<string, string> = {
   'lovable-gemini-pro': geminiLogo,
   'lovable-gpt5': chatgptLogo,
   'lovable-gpt5-mini': chatgptLogo,
+  'lovable-gemini-flash-image': geminiLogo,
+  'lovable-gpt5-image': chatgptLogo,
 };
 
 const sizeClasses = {
@@ -37,8 +39,8 @@ export const AIModelLogo = ({ modelId, size = 'md', className = '' }: AIModelLog
   if (!logoSrc) {
     // Fallback to generic AI icon if logo not found
     return (
-      <div className={`${sizeClasses[size]} ${className} rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center`}>
-        <span className="text-xs font-bold text-white">AI</span>
+      <div className={`${sizeClasses[size]} ${className} rounded-full bg-muted flex items-center justify-center`}>
+        <span className="text-xs font-bold text-foreground">AI</span>
       </div>
     );
   }
@@ -48,7 +50,6 @@ export const AIModelLogo = ({ modelId, size = 'md', className = '' }: AIModelLog
       src={logoSrc} 
       alt={`${modelId} logo`} 
       className={`${sizeClasses[size]} ${className} object-contain`}
-      style={{ imageRendering: 'crisp-edges' }}
     />
   );
 };

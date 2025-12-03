@@ -52,28 +52,36 @@ export const QuickActions = ({ activeAction, onActionSelect }: QuickActionsProps
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex flex-wrap items-center gap-2 px-4 py-3 border-t border-border/50"
+      className="flex flex-wrap items-start gap-3 px-4 py-4"
     >
-      <span className="text-xs text-muted-foreground font-medium mr-2">Quick Actions:</span>
       {actions.map((action) => {
         const Icon = action.icon;
         const isActive = activeAction === action.id;
         
         return (
-          <Button
+          <motion.button
             key={action.id}
-            variant={isActive ? 'default' : 'outline'}
-            size="sm"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => onActionSelect(isActive ? null : action.id)}
             className={`
-              text-xs gap-1.5 transition-all
-              ${isActive ? 'bg-accent text-accent-foreground shadow-lg' : 'hover:bg-accent/20'}
+              flex flex-col items-start gap-1 px-4 py-3 rounded-xl border transition-all text-left
+              ${isActive 
+                ? 'bg-primary/10 border-primary/50 shadow-lg' 
+                : 'bg-muted/30 border-border/50 hover:bg-muted/50 hover:border-border'
+              }
             `}
-            title={action.description}
           >
-            <Icon className={`w-3.5 h-3.5 ${!isActive && action.color}`} />
-            {action.label}
-          </Button>
+            <div className="flex items-center gap-2">
+              <Icon className={`w-4 h-4 ${isActive ? 'text-primary' : action.color}`} />
+              <span className={`text-sm font-medium ${isActive ? 'text-primary' : 'text-foreground'}`}>
+                {action.label}
+              </span>
+            </div>
+            <span className="text-xs text-muted-foreground leading-tight max-w-[140px]">
+              {action.description}
+            </span>
+          </motion.button>
         );
       })}
     </motion.div>

@@ -30,8 +30,8 @@ export const CreditBalanceIndicator = () => {
           <Zap className="h-4 w-4 text-yellow-500" />
           <span className="text-sm text-muted-foreground">
             {isLifetime ? (
-              <Badge variant="default" className="bg-gradient-to-r from-yellow-500 to-orange-500">
-                ∞ Unlimited Credits
+              <Badge variant="default" className="bg-green-500/20 text-green-600 dark:text-green-400 border-0">
+                Lifetime Pro
               </Badge>
             ) : (
               <>

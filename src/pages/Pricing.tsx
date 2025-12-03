@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Check, Crown, Zap } from "lucide-react";
+import { Check, Crown, Zap, CreditCard } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -26,7 +26,7 @@ const Pricing = () => {
           {/* Pricing Cards */}
           <div className="grid md:grid-cols-3 gap-8">
             {/* Free Plan */}
-            <div className="glass-card p-8 rounded-2xl space-y-6 border-border">
+            <div className="bg-card border border-border rounded-2xl p-8 space-y-6">
               <div className="space-y-2">
                 <h3 className="text-2xl font-bold">Free</h3>
                 <p className="text-muted-foreground">Try out MagverseAI with basic features</p>
@@ -74,7 +74,7 @@ const Pricing = () => {
             </div>
 
             {/* Pro Plan */}
-            <div className="glass-card p-8 rounded-2xl space-y-6 border-primary relative">
+            <div className="bg-card border-2 border-primary rounded-2xl p-8 space-y-6 relative">
               <div className="absolute top-4 right-4">
                 <div className="px-3 py-1 rounded-full bg-primary text-xs font-semibold text-primary-foreground">
                   MOST POPULAR
@@ -96,7 +96,7 @@ const Pricing = () => {
               </div>
               
               <Link to={user ? "/payment" : "/auth"}>
-                <Button size="lg" className="w-full bg-primary hover:bg-primary/90">
+                <Button size="lg" className="w-full">
                   <Zap className="w-4 h-4 mr-2" />
                   Get Pro Access
                 </Button>
@@ -131,7 +131,7 @@ const Pricing = () => {
             </div>
 
             {/* Lifetime Plan */}
-            <div className="glass-card p-8 rounded-2xl space-y-6 border-border">
+            <div className="bg-card border border-border rounded-2xl p-8 space-y-6">
               <div className="space-y-2">
                 <h3 className="text-2xl font-bold">Lifetime</h3>
                 <p className="text-muted-foreground">For individuals and professionals</p>
@@ -172,8 +172,65 @@ const Pricing = () => {
             </div>
           </div>
 
+          {/* Credit Top-Up Section */}
+          <div className="bg-card border border-border rounded-2xl p-8">
+            <div className="text-center space-y-4 mb-8">
+              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                <CreditCard className="w-7 h-7 text-primary" />
+              </div>
+              <h2 className="text-2xl font-bold">Need More Credits?</h2>
+              <p className="text-muted-foreground max-w-lg mx-auto">
+                Running low on credits? Top up your account instantly with UPI payment.
+              </p>
+            </div>
+            
+            <div className="grid sm:grid-cols-3 gap-6 max-w-3xl mx-auto">
+              <div className="bg-muted/30 border border-border rounded-xl p-6 text-center space-y-3">
+                <span className="text-3xl font-bold">50</span>
+                <p className="text-sm text-muted-foreground">Credits</p>
+                <p className="text-xl font-semibold text-primary">₹49</p>
+                <Link to={user ? "/payment" : "/auth"}>
+                  <Button variant="outline" size="sm" className="w-full mt-2">
+                    Buy Now
+                  </Button>
+                </Link>
+              </div>
+              
+              <div className="bg-primary/5 border-2 border-primary rounded-xl p-6 text-center space-y-3 relative">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="px-2 py-1 bg-primary text-primary-foreground text-xs font-semibold rounded-full">
+                    BEST VALUE
+                  </span>
+                </div>
+                <span className="text-3xl font-bold">200</span>
+                <p className="text-sm text-muted-foreground">Credits</p>
+                <p className="text-xl font-semibold text-primary">₹149</p>
+                <Link to={user ? "/payment" : "/auth"}>
+                  <Button size="sm" className="w-full mt-2">
+                    Buy Now
+                  </Button>
+                </Link>
+              </div>
+              
+              <div className="bg-muted/30 border border-border rounded-xl p-6 text-center space-y-3">
+                <span className="text-3xl font-bold">500</span>
+                <p className="text-sm text-muted-foreground">Credits</p>
+                <p className="text-xl font-semibold text-primary">₹299</p>
+                <Link to={user ? "/payment" : "/auth"}>
+                  <Button variant="outline" size="sm" className="w-full mt-2">
+                    Buy Now
+                  </Button>
+                </Link>
+              </div>
+            </div>
+            
+            <p className="text-center text-xs text-muted-foreground mt-6">
+              UPI payments accepted • Instant credit activation • No expiry
+            </p>
+          </div>
+
           {/* Feature Comparison */}
-          <div className="glass-card rounded-2xl overflow-hidden">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -188,7 +245,7 @@ const Pricing = () => {
                   <tr className="border-b border-border/50">
                     <td className="p-4 text-muted-foreground">Messages per day</td>
                     <td className="text-center p-4">5</td>
-                    <td className="text-center p-4 bg-primary/5 font-semibold text-primary">Unlimited</td>
+                    <td className="text-center p-4 bg-primary/5 font-semibold text-primary">500</td>
                     <td className="text-center p-4 font-semibold text-primary">Unlimited</td>
                   </tr>
                   <tr className="border-b border-border/50">
