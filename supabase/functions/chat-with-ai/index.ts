@@ -19,7 +19,8 @@ const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-const VALID_MODELS = ['chatgpt', 'gemini', 'claude', 'perplexity', 'grok', 'gemini-flash-image'] as const;
+// Removed 'gemini' (Gemini Direct) as it's deprecated - use lovable-gemini-flash instead
+const VALID_MODELS = ['chatgpt', 'claude', 'perplexity', 'grok', 'gemini-flash-image'] as const;
 
 const STORAGE_BUCKET_URL = 'https://pqdgpxetysqcdcjwormb.supabase.co/storage/';
 const MAX_FILE_SIZE = 10_000_000; // 10MB
@@ -27,17 +28,22 @@ const MAX_MESSAGE_LENGTH = 10000;
 const MAX_MODELS_PER_REQUEST = 5;
 
 // Model configuration - stable, working models
+// Model configuration - stable, working models
+// Gemini Direct removed - use Lovable AI models instead
 const MODEL_CONFIG: Record<string, { 
   provider: 'openai' | 'nvidia' | 'google' | 'openrouter' | 'perplexity' | 'groq', 
   model: string,
   supportsReasoning: boolean,
   maxTokens?: number,
-  supportsStreaming?: boolean
+  supportsStreaming?: boolean,
+  perplexityModel?: string // For user-selectable Perplexity models
 }> = {
   'chatgpt': { provider: 'openai', model: 'gpt-4o', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true },
-  'gemini': { provider: 'google', model: 'gemini-1.5-flash', supportsReasoning: true, supportsStreaming: true },
   'claude': { provider: 'openrouter', model: 'anthropic/claude-3.5-sonnet', supportsReasoning: true, supportsStreaming: true },
-  'perplexity': { provider: 'perplexity', model: 'llama-3.1-sonar-large-128k-online', supportsReasoning: true, supportsStreaming: true },
+  // Perplexity - uses sonar by default, but supports user-selectable models
+  'perplexity': { provider: 'perplexity', model: 'sonar', supportsReasoning: true, supportsStreaming: true },
+  'perplexity-pro': { provider: 'perplexity', model: 'sonar-pro', supportsReasoning: true, supportsStreaming: true },
+  'perplexity-reasoning': { provider: 'perplexity', model: 'sonar-reasoning', supportsReasoning: true, supportsStreaming: true },
   'grok': { provider: 'groq', model: 'llama-3.3-70b-versatile', supportsReasoning: true, supportsStreaming: true },
   'gemini-flash-image': { provider: 'google', model: 'gemini-2.5-flash-image', supportsReasoning: false, supportsStreaming: false },
 };
@@ -1147,15 +1153,15 @@ serve(async (req) => {
       }
       })();
 
-      // Wrap with timeout (60 seconds per model)
+      // Wrap with timeout (120 seconds per model - increased for better reliability)
       try {
-        return await timeoutPromise(modelRequestPromise, 60000, modelId);
+        return await timeoutPromise(modelRequestPromise, 120000, modelId);
       } catch (timeoutError: any) {
         console.error(`⏱️ ${modelId} timeout:`, timeoutError.message);
         return {
           success: false,
           model: modelId,
-          response: 'Request timeout - model took too long to respond',
+          response: 'Request timeout - please try again or use a faster model like Gemini Flash',
           error: true
         };
       }

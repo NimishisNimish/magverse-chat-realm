@@ -101,6 +101,7 @@ import { playSound, getSoundPreference, setSoundPreference, isSoundSupported } f
 import { classifyQuery, getOptimalModels, getQueryTypeInfo, QueryType } from "@/utils/queryClassifier";
 
 // AI Models with categories for Fast/Reasoning sections like Perplexity
+// NOTE: Gemini Direct has been REMOVED - use Lovable AI models instead
 const aiModels = [
   // Fast models (Lovable AI - Recommended)
   { id: "lovable-gemini-flash", name: "Gemini Flash", icon: Zap, color: "text-blue-400", category: "fast", isLovable: true },
@@ -110,9 +111,11 @@ const aiModels = [
   { id: "lovable-gpt5", name: "GPT-5", icon: Bot, color: "text-green-400", category: "reasoning", isLovable: true },
   // Direct API models
   { id: "chatgpt", name: "ChatGPT (GPT-4o)", icon: Bot, color: "text-green-500", category: "reasoning", isLovable: false },
-  { id: "gemini", name: "Gemini Direct", icon: Sparkles, color: "text-blue-500", category: "fast", isLovable: false },
   { id: "claude", name: "Claude Sonnet", icon: Brain, color: "text-orange-400", category: "reasoning", isLovable: false },
-  { id: "perplexity", name: "Perplexity", icon: Globe, color: "text-cyan-400", category: "research", isLovable: false },
+  // Perplexity variants (user-selectable)
+  { id: "perplexity", name: "Perplexity (Sonar)", icon: Globe, color: "text-cyan-400", category: "research", isLovable: false },
+  { id: "perplexity-pro", name: "Perplexity Pro", icon: Globe, color: "text-cyan-500", category: "research", isLovable: false },
+  { id: "perplexity-reasoning", name: "Perplexity Reasoning", icon: Brain, color: "text-cyan-600", category: "research", isLovable: false },
   { id: "grok", name: "Grok", icon: Zap, color: "text-white", category: "research", isLovable: false },
 ];
 
@@ -1288,16 +1291,17 @@ const Chat = () => {
     }, 15000);
 
     try {
-      setGenerationStage("Sending request to AI...");
+      setGenerationStage("Sending request to Lovable AI...");
       
-      const enhancedPrompt = `Create a ${imageStyle} style image: ${imagePrompt}`;
+      const enhancedPrompt = `Create a ${imageStyle} style image: ${imagePrompt}. Ultra high resolution.`;
       
-      const { data, error } = await supabase.functions.invoke('chat-with-ai', {
+      // Use Lovable AI for image generation
+      const { data, error } = await supabase.functions.invoke('lovable-ai-chat', {
         body: {
           messages: [
             { role: 'user', content: enhancedPrompt }
           ],
-          selectedModels: ['gemini-flash-image'],
+          model: 'google/gemini-2.5-flash-image-preview',
           generateImage: true,
         }
       });
@@ -1307,10 +1311,13 @@ const Chat = () => {
       setGenerationStage("Processing response...");
       setGenerationProgress(90);
 
-      const imageUrl = data.responses?.[0]?.imageUrl || data.imageUrl;
+      // Extract image from Lovable AI response
+      const imageUrl = data.images?.[0]?.image_url?.url || 
+                       data.choices?.[0]?.message?.images?.[0]?.image_url?.url ||
+                       data.image;
 
       if (!imageUrl) {
-        throw new Error('No image URL returned from the server');
+        throw new Error('No image generated. Please try a different prompt.');
       }
 
       setGenerationProgress(100);
@@ -1322,9 +1329,22 @@ const Chat = () => {
         timestamp: new Date(),
         attachmentUrl: imageUrl,
         attachmentType: 'image',
+        model: 'lovable-gemini-flash-image',
       };
 
       setMessages(prev => [...prev, newMessage]);
+      
+      // Save to chat history
+      if (chatId) {
+        await supabase.from('chat_messages').insert({
+          chat_id: chatId,
+          user_id: user.id,
+          role: 'assistant',
+          content: `✨ Generated image: ${imagePrompt}`,
+          model: 'lovable-gemini-flash-image',
+          attachment_url: imageUrl,
+        });
+      }
       
       sonnerToast.success("Image generated successfully!");
       setImageDialogOpen(false);
@@ -1333,7 +1353,7 @@ const Chat = () => {
       
     } catch (error: any) {
       console.error('Image generation error:', error);
-      sonnerToast.error(error.message || "Failed to generate image");
+      sonnerToast.error(error.message || "Failed to generate image. Try a different prompt.");
     } finally {
       clearInterval(progressInterval);
       clearTimeout(longerTimeout);

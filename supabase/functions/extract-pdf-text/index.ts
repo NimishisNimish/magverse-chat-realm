@@ -5,6 +5,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -60,12 +62,12 @@ serve(async (req) => {
       throw new Error('File is not a valid PDF document');
     }
 
-    // Simple text extraction - look for text objects in PDF
+    // First, try basic text extraction
     let text = '';
     const decoder = new TextDecoder('utf-8', { fatal: false });
     const pdfString = decoder.decode(pdfBytes);
     
-    console.log('🔍 Attempting text extraction...');
+    console.log('🔍 Attempting basic text extraction...');
     
     // Extract text between stream markers (basic approach)
     const textMatches = pdfString.match(/\(([^)]+)\)/g);
@@ -81,7 +83,6 @@ serve(async (req) => {
     // If no text found, try alternative extraction
     if (!text || text.length < 50) {
       console.log('⚠️ Primary extraction yielded minimal text, trying alternative method...');
-      // Look for text objects with different patterns
       const altMatches = pdfString.match(/BT\s+(.*?)\s+ET/gs);
       if (altMatches) {
         text = altMatches
@@ -96,12 +97,66 @@ serve(async (req) => {
       }
     }
 
+    // If still no meaningful text, use Lovable AI (Gemini) to analyze the PDF
+    if ((!text || text.length < 100) && LOVABLE_API_KEY) {
+      console.log('🤖 Using Lovable AI to analyze PDF content...');
+      
+      // Convert PDF to base64 for AI analysis
+      const base64Pdf = btoa(String.fromCharCode(...pdfBytes));
+      
+      try {
+        const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  {
+                    type: 'text',
+                    text: 'Extract and transcribe ALL text content from this PDF document. Include headings, paragraphs, lists, tables, and any other textual content. Preserve the document structure as much as possible. If the PDF contains images with text, describe what you can see. Output only the extracted text without any additional commentary.'
+                  },
+                  {
+                    type: 'file',
+                    file: {
+                      data: base64Pdf,
+                      mime_type: 'application/pdf'
+                    }
+                  }
+                ]
+              }
+            ],
+          }),
+        });
+
+        if (aiResponse.ok) {
+          const aiData = await aiResponse.json();
+          const aiExtractedText = aiData.choices?.[0]?.message?.content;
+          
+          if (aiExtractedText && aiExtractedText.length > 50) {
+            console.log('✅ AI successfully extracted text from PDF');
+            text = aiExtractedText;
+          }
+        } else {
+          console.warn('⚠️ AI extraction failed:', await aiResponse.text());
+        }
+      } catch (aiError) {
+        console.warn('⚠️ AI extraction error:', aiError);
+      }
+    }
+
+    // If still no text, return error with helpful message
     if (!text || text.length < 100) {
       console.warn('⚠️ Could not extract meaningful text from PDF - likely scanned/image-based');
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'This PDF appears to be scanned or image-based. I cannot read image-based PDFs yet. Please either:\n1. Convert the PDF to a text-based format\n2. Describe the contents of the PDF in your message\n3. Use a different file format (Word, plain text)',
+          error: 'This PDF appears to be scanned or image-based. Please either:\n1. Use a text-based PDF\n2. Describe the contents in your message\n3. Try uploading as an image instead',
           text: '',
           isEmpty: true,
           isScanned: true

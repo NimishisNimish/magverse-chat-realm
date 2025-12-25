@@ -1,6 +1,6 @@
-import chatgptLogo from "@/assets/ai-logos/chatgpt-logo-clean.png";
+import openaiLogo from "@/assets/ai-logos/openai-logo.svg";
 import geminiLogo from "@/assets/ai-logos/gemini-logo.svg";
-import claudeLogo from "@/assets/ai-logos/claude-logo-clean.png";
+import claudeLogo from "@/assets/ai-logos/claude-logo.svg";
 import perplexityLogo from "@/assets/ai-logos/perplexity-logo.svg";
 import grokLogo from "@/assets/ai-logos/grok-logo.svg";
 
@@ -11,19 +11,29 @@ interface AIModelLogoProps {
 }
 
 const logoMap: Record<string, string> = {
-  'chatgpt': chatgptLogo,
+  // OpenAI / ChatGPT models
+  'chatgpt': openaiLogo,
+  'lovable-gpt5': openaiLogo,
+  'lovable-gpt5-mini': openaiLogo,
+  'lovable-gpt5-image': openaiLogo,
+  
+  // Google Gemini models
   'gemini': geminiLogo,
   'gemini-flash-image': geminiLogo,
-  'claude': claudeLogo,
-  'perplexity': perplexityLogo,
-  'grok': grokLogo,
-  // Lovable AI models use real brand logos
   'lovable-gemini-flash': geminiLogo,
   'lovable-gemini-pro': geminiLogo,
-  'lovable-gpt5': chatgptLogo,
-  'lovable-gpt5-mini': chatgptLogo,
   'lovable-gemini-flash-image': geminiLogo,
-  'lovable-gpt5-image': chatgptLogo,
+  
+  // Anthropic Claude
+  'claude': claudeLogo,
+  
+  // Perplexity models (including variants)
+  'perplexity': perplexityLogo,
+  'perplexity-pro': perplexityLogo,
+  'perplexity-reasoning': perplexityLogo,
+  
+  // Grok
+  'grok': grokLogo,
 };
 
 const sizeClasses = {
@@ -46,7 +56,7 @@ export const AIModelLogo = ({ modelId, size = 'md', className = '' }: AIModelLog
   }
 
   // Add brightness filter for dark logos in dark mode
-  const needsBrightness = modelId === 'perplexity' || modelId === 'grok';
+  const needsBrightness = modelId === 'perplexity' || modelId === 'perplexity-pro' || modelId === 'perplexity-reasoning' || modelId === 'grok';
 
   return (
     <img 
