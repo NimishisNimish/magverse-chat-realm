@@ -44,7 +44,7 @@ const MODEL_CONFIG: Record<string, {
   // Perplexity - uses sonar by default, but supports user-selectable models
   'perplexity': { provider: 'perplexity', model: 'sonar', supportsReasoning: true, supportsStreaming: true },
   'perplexity-pro': { provider: 'perplexity', model: 'sonar-pro', supportsReasoning: true, supportsStreaming: true },
-  'perplexity-reasoning': { provider: 'perplexity', model: 'sonar-reasoning', supportsReasoning: true, supportsStreaming: true },
+  'perplexity-reasoning': { provider: 'perplexity', model: 'sonar-deep-research', supportsReasoning: true, supportsStreaming: false },
   'grok': { provider: 'groq', model: 'llama-3.3-70b-versatile', supportsReasoning: true, supportsStreaming: true },
   'gemini-flash-image': { provider: 'google', model: 'gemini-2.5-flash-image', supportsReasoning: false, supportsStreaming: false },
 };
