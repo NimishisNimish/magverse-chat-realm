@@ -20,7 +20,8 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
 // Removed 'gemini' (Gemini Direct) as it's deprecated - use lovable-gemini-flash instead
-const VALID_MODELS = ['chatgpt', 'claude', 'perplexity', 'grok', 'gemini-flash-image'] as const;
+// Added perplexity-pro and perplexity-reasoning for user-selectable Perplexity models
+const VALID_MODELS = ['chatgpt', 'claude', 'perplexity', 'perplexity-pro', 'perplexity-reasoning', 'grok', 'gemini-flash-image'] as const;
 
 const STORAGE_BUCKET_URL = 'https://pqdgpxetysqcdcjwormb.supabase.co/storage/';
 const MAX_FILE_SIZE = 10_000_000; // 10MB
