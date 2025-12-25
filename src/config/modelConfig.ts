@@ -1,4 +1,4 @@
-import { Bot, Zap, Brain, Globe, Sparkles, Cpu, Image } from "lucide-react";
+import { Bot, Zap, Brain, Globe, Sparkles, Image } from "lucide-react";
 
 export interface ModelConfig {
   id: string;
@@ -12,8 +12,9 @@ export interface ModelConfig {
 }
 
 // These IDs MUST match the backend exactly (chat-with-ai edge function)
+// Gemini Direct has been REMOVED - use Lovable AI models instead
 export const MODEL_CONFIG: ModelConfig[] = [
-  // Fast Models
+  // Fast Models (Lovable AI - Recommended)
   { 
     id: 'lovable-gemini-flash', 
     name: 'Gemini Flash', 
@@ -33,7 +34,7 @@ export const MODEL_CONFIG: ModelConfig[] = [
     isLovable: true
   },
   
-  // Reasoning Models
+  // Reasoning Models (Lovable AI)
   { 
     id: 'lovable-gemini-pro', 
     name: 'Gemini Pro', 
@@ -63,14 +64,6 @@ export const MODEL_CONFIG: ModelConfig[] = [
     category: 'reasoning'
   },
   { 
-    id: 'gemini', 
-    name: 'Gemini Direct', 
-    description: 'Google AI multimodal', 
-    icon: Zap, 
-    color: 'text-blue-500',
-    category: 'fast'
-  },
-  { 
     id: 'claude', 
     name: 'Claude Sonnet', 
     description: 'Anthropic thoughtful AI', 
@@ -78,12 +71,30 @@ export const MODEL_CONFIG: ModelConfig[] = [
     color: 'text-orange-400',
     category: 'reasoning'
   },
+  
+  // Perplexity models (user-selectable)
   { 
     id: 'perplexity', 
-    name: 'Perplexity', 
-    description: 'Web-enabled search AI', 
+    name: 'Perplexity (Sonar)', 
+    description: 'Fast web search AI', 
     icon: Globe, 
     color: 'text-cyan-400',
+    category: 'research'
+  },
+  { 
+    id: 'perplexity-pro', 
+    name: 'Perplexity Pro', 
+    description: 'Multi-step reasoning with sources', 
+    icon: Globe, 
+    color: 'text-cyan-500',
+    category: 'research'
+  },
+  { 
+    id: 'perplexity-reasoning', 
+    name: 'Perplexity Reasoning', 
+    description: 'Chain-of-thought research', 
+    icon: Brain, 
+    color: 'text-cyan-600',
     category: 'research'
   },
   { 
@@ -103,6 +114,15 @@ export const MODEL_CONFIG: ModelConfig[] = [
     icon: Image, 
     color: 'text-pink-400',
     category: 'image'
+  },
+  { 
+    id: 'lovable-gemini-flash-image', 
+    name: 'Lovable Image', 
+    description: 'AI image generation via Lovable', 
+    icon: Image, 
+    color: 'text-pink-500',
+    category: 'image',
+    isLovable: true
   },
 ];
 
@@ -132,4 +152,9 @@ export const sanitizeModelIds = (modelIds: string[]): string[] => {
 export const isLovableModel = (modelId: string): boolean => {
   const config = getModelConfig(modelId);
   return config?.isLovable === true;
+};
+
+// Get all Perplexity model variants
+export const getPerplexityModels = (): ModelConfig[] => {
+  return MODEL_CONFIG.filter(m => m.id.startsWith('perplexity'));
 };
