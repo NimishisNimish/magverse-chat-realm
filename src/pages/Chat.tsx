@@ -296,7 +296,7 @@ const Chat = () => {
   };
 
   useEffect(() => {
-    const chatIdFromUrl = searchParams.get('chatId');
+    const chatIdFromUrl = searchParams.get('chatId') || searchParams.get('id');
     if (chatIdFromUrl) {
       loadChatHistory(chatIdFromUrl);
     }
@@ -411,6 +411,12 @@ const Chat = () => {
   };
 
   const handleModelToggle = (modelId: string) => {
+    // Prevent deselecting model while AI is responding
+    if (loading && selectedModels.includes(modelId)) {
+      sonnerToast.warning("Can't unselect AI model while it's responding");
+      return;
+    }
+    
     setSelectedModels(prev => {
       if (prev.includes(modelId)) {
         return prev.filter(id => id !== modelId);
@@ -2519,26 +2525,13 @@ const Chat = () => {
                   <SelectItem value="lovable-gemini-flash-image">
                     <div className="flex items-center gap-2">
                       <AIModelLogo modelId="lovable-gemini-flash-image" size="sm" />
-                      <span>Gemini Image</span>
-                      <Badge variant="default" className="text-xs">Lovable AI</Badge>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="gpt-image-1">
-                    <div className="flex items-center gap-2">
-                      <AIModelLogo modelId="chatgpt" size="sm" />
-                      <span>DALL-E 3</span>
-                      <Badge variant="secondary" className="text-xs">Direct API</Badge>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="gemini-flash-image">
-                    <div className="flex items-center gap-2">
-                      <AIModelLogo modelId="gemini" size="sm" />
-                      <span>Gemini Direct</span>
-                      <Badge variant="outline" className="text-xs">Direct API</Badge>
+                      <span>Gemini Image (Lovable AI)</span>
+                      <Badge variant="default" className="text-xs">Recommended</Badge>
                     </div>
                   </SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">Powered by Lovable AI Gateway</p>
             </div>
 
             {generating && (

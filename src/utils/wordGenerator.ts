@@ -33,7 +33,7 @@ export const generateChatWord = async (messages: ChatMessage[], chatTitle: strin
           new Paragraph({
             children: [
               new TextRun({
-                text: message.role === 'user' ? 'You' : message.model || 'AI',
+                text: message.role === 'user' ? 'You' : 'AI Assistant',
                 bold: true,
                 color: message.role === 'user' ? '3B82F6' : 'A855F7',
                 size: 24,
