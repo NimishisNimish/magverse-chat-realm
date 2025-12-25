@@ -91,8 +91,8 @@ export const MODEL_CONFIG: ModelConfig[] = [
   },
   { 
     id: 'perplexity-reasoning', 
-    name: 'Perplexity Reasoning', 
-    description: 'Chain-of-thought research', 
+    name: 'Perplexity Deep Research', 
+    description: 'Expert multi-query analysis', 
     icon: Brain, 
     color: 'text-cyan-600',
     category: 'research'
