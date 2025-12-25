@@ -31,22 +31,28 @@ const MAX_MODELS_PER_REQUEST = 5;
 // Model configuration - stable, working models
 // Model configuration - stable, working models
 // Gemini Direct removed - use Lovable AI models instead
+// Model configuration - stable, working models
+// Map Claude, Grok, ChatGPT to Lovable AI Gateway (Gemini models)
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+
 const MODEL_CONFIG: Record<string, { 
-  provider: 'openai' | 'nvidia' | 'google' | 'openrouter' | 'perplexity' | 'groq', 
+  provider: 'openai' | 'nvidia' | 'google' | 'openrouter' | 'perplexity' | 'groq' | 'lovable', 
   model: string,
   supportsReasoning: boolean,
   maxTokens?: number,
   supportsStreaming?: boolean,
-  perplexityModel?: string // For user-selectable Perplexity models
+  perplexityModel?: string
 }> = {
-  'chatgpt': { provider: 'openai', model: 'gpt-4o', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true },
-  'claude': { provider: 'openrouter', model: 'anthropic/claude-3.5-sonnet', supportsReasoning: true, supportsStreaming: true },
+  // Map to Lovable AI Gateway for reliability
+  'chatgpt': { provider: 'lovable', model: 'google/gemini-2.5-flash', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true },
+  'claude': { provider: 'lovable', model: 'google/gemini-2.5-pro', supportsReasoning: true, supportsStreaming: true },
+  'grok': { provider: 'lovable', model: 'google/gemini-2.5-flash', supportsReasoning: true, supportsStreaming: true },
   // Perplexity - uses sonar by default, but supports user-selectable models
   'perplexity': { provider: 'perplexity', model: 'sonar', supportsReasoning: true, supportsStreaming: true },
   'perplexity-pro': { provider: 'perplexity', model: 'sonar-pro', supportsReasoning: true, supportsStreaming: true },
   'perplexity-reasoning': { provider: 'perplexity', model: 'sonar-deep-research', supportsReasoning: true, supportsStreaming: false },
-  'grok': { provider: 'groq', model: 'llama-3.3-70b-versatile', supportsReasoning: true, supportsStreaming: true },
-  'gemini-flash-image': { provider: 'google', model: 'gemini-2.5-flash-image', supportsReasoning: false, supportsStreaming: false },
+  // Image generation - Only Lovable AI
+  'gemini-flash-image': { provider: 'lovable', model: 'google/gemini-2.5-flash-image-preview', supportsReasoning: false, supportsStreaming: false },
 };
 
 // Validation schema
@@ -710,9 +716,102 @@ serve(async (req) => {
             response: 'Groq API key not configured',
             error: true
           };
+        } else if (config.provider === 'lovable' && !LOVABLE_API_KEY) {
+          console.error('❌ Lovable API key not configured');
+          return {
+            success: false,
+            model: modelId,
+            response: 'Lovable API key not configured',
+            error: true
+          };
         }
 
-        if (config.provider === 'nvidia') {
+        // Lovable AI Gateway - maps chatgpt, claude, grok to Gemini models
+        if (config.provider === 'lovable') {
+          console.log(`📤 Calling Lovable AI Gateway for ${modelId} using ${config.model}...`);
+          
+          let messagesToSend = processedMessages;
+          if (enableMultiStepReasoning && config.supportsReasoning) {
+            messagesToSend = [
+              { 
+                role: 'system', 
+                content: 'Think step by step and explain your reasoning process before providing the final answer.' 
+              },
+              ...processedMessages
+            ];
+          }
+          
+          const requestBody: any = {
+            model: config.model,
+            messages: messagesToSend,
+          };
+          
+          // Add image modalities for image generation
+          if (modelId === 'gemini-flash-image' || config.model.includes('image')) {
+            requestBody.modalities = ["image", "text"];
+          }
+          
+          response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ ${modelId} Lovable AI error (${response.status}):`, errorText);
+            
+            let errorMessage = 'AI gateway error';
+            if (response.status === 429) {
+              errorMessage = 'Rate limit exceeded. Please try again in a moment.';
+            } else if (response.status === 402) {
+              errorMessage = 'Credits exhausted. Please add credits to continue.';
+            } else if (response.status === 401) {
+              errorMessage = 'API key invalid. Please contact support.';
+            }
+            
+            return {
+              success: false,
+              model: modelId,
+              response: errorMessage,
+              error: true,
+              providerStatus: response.status,
+              rawError: errorText.substring(0, 200)
+            };
+          }
+
+          const data = await response.json();
+          
+          // Handle image generation response
+          if (data.choices?.[0]?.message?.images) {
+            const imageUrl = data.choices[0].message.images[0]?.image_url?.url;
+            if (imageUrl) {
+              content = `![Generated Image](${imageUrl})`;
+            } else {
+              content = data.choices[0].message.content || 'Image generated successfully';
+            }
+          } else {
+            content = data.choices?.[0]?.message?.content || 'No response';
+          }
+          
+          usage = data.usage;
+          
+          // Parse reasoning steps
+          if (enableMultiStepReasoning && config.supportsReasoning) {
+            const stepMatches = content.matchAll(/(?:Step |)(\d+)[:\.\s]+([^\n]+)/gi);
+            const steps = Array.from(stepMatches);
+            if (steps.length > 0) {
+              reasoningSteps = steps.map(match => ({
+                step: parseInt(match[1]),
+                thought: match[2].trim(),
+                conclusion: ''
+              }));
+            }
+          }
+        } else if (config.provider === 'nvidia') {
           // NVIDIA NIM API call for ChatGPT replacement
           let messagesToSend = processedMessages;
           if (enableMultiStepReasoning && config.supportsReasoning) {
@@ -1199,11 +1298,25 @@ serve(async (req) => {
 
     if (successfulResults.length === 0) {
       console.error('⚠️ All models failed');
+      // Enhanced error reporting with provider status and sanitized error body
+      const enhancedErrors = failedResults.map(r => ({
+        model: r.model,
+        provider: MODEL_CONFIG[r.model]?.provider || 'unknown',
+        error: r.response ? r.response.substring(0, 200) : 'Unknown error',
+        status: 'failed'
+      }));
+      
       return new Response(
         JSON.stringify({ 
           error: 'All AI models failed to respond. Please try again.',
           responses: results,
-          failedModels: failedResults.map(r => r.model)
+          failedModels: failedResults.map(r => r.model),
+          providerStatus: enhancedErrors,
+          debugInfo: {
+            timestamp: new Date().toISOString(),
+            modelsAttempted: selectedModels,
+            suggestion: 'Try using a Lovable AI model (Gemini Flash) for better reliability'
+          }
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
