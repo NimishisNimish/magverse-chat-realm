@@ -1029,17 +1029,42 @@ serve(async (req) => {
           }
         } else if (config.provider === 'perplexity') {
           // Perplexity API call with web search
-          let messagesToSend = processedMessages;
+          // Perplexity enforces strict role alternation (user/assistant) after optional system messages.
+          // Our UI can sometimes send consecutive user messages; normalize by merging consecutive roles.
+          let messagesToSend: Array<{ role: string; content: string }> = processedMessages.map((m) => ({
+            role: m.role,
+            content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+          }));
+
           if (enableMultiStepReasoning && config.supportsReasoning) {
             messagesToSend = [
-              { 
-                role: 'system', 
-                content: 'You have access to real-time web search. Break down your research process step by step, cite sources, and provide up-to-date information.' 
+              {
+                role: 'system',
+                content:
+                  'You have access to real-time web search. Break down your research process step by step, cite sources, and provide up-to-date information.',
               },
-              ...processedMessages
+              ...messagesToSend,
             ];
           }
-          
+
+          const systemMessages = messagesToSend.filter((m) => m.role === 'system');
+          const convoMessages = messagesToSend.filter((m) => m.role !== 'system');
+
+          const normalizedMessages: Array<{ role: string; content: string }> = [...systemMessages];
+          for (const msg of convoMessages) {
+            const content = msg.content?.trim();
+            if (!content) continue;
+
+            const last = normalizedMessages[normalizedMessages.length - 1];
+            if (last && last.role === msg.role) {
+              last.content = `${last.content}\n\n${content}`;
+            } else {
+              normalizedMessages.push({ role: msg.role, content });
+            }
+          }
+
+          messagesToSend = normalizedMessages;
+
           response = await fetch('https://api.perplexity.ai/chat/completions', {
             method: 'POST',
             headers: {
