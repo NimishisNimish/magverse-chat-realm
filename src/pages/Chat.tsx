@@ -1752,19 +1752,23 @@ const Chat = () => {
                                 </div>
                               </div>
                             ) : (
-                              <div className="group relative">
+                              <div className="space-y-2">
                                 <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
                                   {softCleanMarkdown(renderWithCitations(message.content))}
                                 </div>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm"
-                                  onClick={() => handleEditMessage(message.id, message.content)}
-                                  disabled={loading}
-                                >
-                                  <Edit2 className="h-3 w-3" />
-                                </Button>
+                                <div className="flex items-center gap-1 pt-1">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                                    onClick={() => handleEditMessage(message.id, message.content)}
+                                    disabled={loading}
+                                    title="Edit message"
+                                  >
+                                    <Edit2 className="h-3 w-3 mr-1" />
+                                    <span className="text-xs">Edit</span>
+                                  </Button>
+                                </div>
                               </div>
                             )
                           ) : (

@@ -53,10 +53,13 @@ export const AIModelsShowcase = () => {
           className="text-center mb-12"
         >
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
-            Powered by <span className="gradient-text">Leading AI Models</span>
+            Powered by <span className="gradient-text">Google Gemini</span>
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Access the world's most advanced AI models, all in one platform
+            Access the world's most advanced AI models via Lovable AI Gateway
+          </p>
+          <p className="text-sm text-muted-foreground/70 mt-2">
+            ⚡ Fast, reliable, and intelligent responses powered by Google's latest AI
           </p>
         </motion.div>
 
