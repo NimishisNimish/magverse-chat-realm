@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { AdminSubscriptionManager } from "@/components/AdminSubscriptionManager";
+import { AdminCreditPurchases } from "@/components/AdminCreditPurchases";
+import { AdminTestUncensoredAI } from "@/components/AdminTestUncensoredAI";
 import { 
   CheckCircle, 
   XCircle, 
@@ -23,7 +25,9 @@ import {
   Shield,
   AlertTriangle,
   CreditCard,
-  Users
+  Users,
+  Coins,
+  Zap
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -337,10 +341,14 @@ const Admin = () => {
 
           {/* Main Admin Tabs */}
           <Tabs defaultValue="payments" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="payments" className="flex items-center gap-2">
                 <CreditCard className="w-4 h-4" />
                 Payment Verification
+              </TabsTrigger>
+              <TabsTrigger value="credits" className="flex items-center gap-2">
+                <Coins className="w-4 h-4" />
+                Credit Purchases
               </TabsTrigger>
               <TabsTrigger value="subscriptions" className="flex items-center gap-2">
                 <Users className="w-4 h-4" />
@@ -491,8 +499,15 @@ const Admin = () => {
           </Tabs>
             </TabsContent>
 
+            <TabsContent value="credits">
+              <AdminCreditPurchases />
+            </TabsContent>
+
             <TabsContent value="subscriptions">
               <AdminSubscriptionManager />
+              <div className="mt-6">
+                <AdminTestUncensoredAI />
+              </div>
             </TabsContent>
           </Tabs>
         </div>

@@ -994,6 +994,8 @@ const Chat = () => {
               if (!hasReceivedToken) {
                 console.log('✅ First token received from', model);
                 hasReceivedToken = true;
+                // CRITICAL: Disable loading state on first token so skeleton hides & streaming text shows
+                setLoading(false);
               }
               setMessages(prev => 
                 prev.map(msg => 
@@ -1012,10 +1014,20 @@ const Chat = () => {
                     : msg
                 )
               );
+              // Ensure loading is off on completion (even if no tokens were received)
+              setLoading(false);
             },
             (model, error) => {
               console.error('❌ Stream error:', model, error);
-              throw new Error(error);
+              // Turn off loading and show error in the message
+              setLoading(false);
+              setMessages(prev =>
+                prev.map(msg =>
+                  msg.id === streamingMessage.id
+                    ? { ...msg, content: `❌ ${error}`, isError: true }
+                    : msg
+                )
+              );
             }
           );
 
@@ -1032,6 +1044,7 @@ const Chat = () => {
           setLoading(false);
           return; // Exit function on successful streaming
         } catch (streamError: any) {
+          // This catch handles unexpected errors (network abort, unexpected exceptions)
           console.error('❌ Streaming failed after', Date.now() - startTime, 'ms:', streamError.message);
           
           if (typeof window !== 'undefined' && (window as any).__trackApiError) {
@@ -1041,16 +1054,10 @@ const Chat = () => {
             (window as any).__trackApiError(status, modelsToUse[0], streamError.message);
           }
           
-          if (attempt < maxRetries) {
-            console.log(`🔄 Retrying... (${attempt + 1}/${maxRetries})`);
-            setMessages(prev => prev.filter(msg => msg.id !== streamingMessage.id));
-            continue;
-          }
-          
-          console.log('❌ All retries exhausted, showing error');
+          // Show error in the streaming message
           const errorMsg = streamError.message.includes('timeout') 
             ? '⏱️ Response timed out. The AI model is taking too long. Try again or use a different model.'
-            : `❌ ${streamError.message}`;
+            : `❌ ${streamError.message || 'Stream failed'}`;
           
           setMessages(prev => 
             prev.map(msg => 
@@ -1720,8 +1727,8 @@ const Chat = () => {
                 </div>
               ) : (
                 <AnimatePresence>
-                  {/* Show loading skeleton while AI is processing */}
-                  {loading && (
+                  {/* Show loading skeleton ONLY when loading and the last message is NOT a streaming assistant message */}
+                  {loading && messages.length > 0 && messages[messages.length - 1]?.role === 'user' && (
                     <motion.div
                       key="loading-skeleton"
                       initial={{ opacity: 0, y: 20 }}
