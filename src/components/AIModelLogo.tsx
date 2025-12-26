@@ -3,6 +3,7 @@ import geminiLogo from "@/assets/ai-logos/gemini-logo.svg";
 import claudeLogo from "@/assets/ai-logos/claude-logo.svg";
 import perplexityLogo from "@/assets/ai-logos/perplexity-logo.svg";
 import grokLogo from "@/assets/ai-logos/grok-logo.svg";
+import uncensoredLogo from "@/assets/ai-logos/uncensored-logo.png";
 
 interface AIModelLogoProps {
   modelId: string;
@@ -16,24 +17,27 @@ const logoMap: Record<string, string> = {
   'lovable-gpt5': openaiLogo,
   'lovable-gpt5-mini': openaiLogo,
   'lovable-gpt5-image': openaiLogo,
-  
+
   // Google Gemini models
   'gemini': geminiLogo,
   'gemini-flash-image': geminiLogo,
   'lovable-gemini-flash': geminiLogo,
   'lovable-gemini-pro': geminiLogo,
   'lovable-gemini-flash-image': geminiLogo,
-  
+
   // Anthropic Claude
   'claude': claudeLogo,
-  
+
   // Perplexity models (including variants)
   'perplexity': perplexityLogo,
   'perplexity-pro': perplexityLogo,
   'perplexity-reasoning': perplexityLogo,
-  
+
   // Grok
   'grok': grokLogo,
+
+  // Uncensored.chat
+  'uncensored-chat': uncensoredLogo,
 };
 
 const sizeClasses = {

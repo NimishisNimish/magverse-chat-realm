@@ -86,36 +86,44 @@ export default function AdminDashboard() {
 
   const loadAllUsersData = async () => {
     try {
-      // Fetch all profiles
+      // Limit profiles to keep the dashboard responsive
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(200);
 
       if (profilesError) throw profilesError;
 
-      // Fetch all messages grouped by user
-      const { data: messageCounts, error: messagesError } = await supabase
+      // Fetch a recent window of messages once (instead of O(users * messages))
+      const { data: recentMessages, error: messagesError } = await supabase
         .from('chat_messages')
-        .select('user_id, created_at, model');
+        .select('user_id, created_at, model')
+        .order('created_at', { ascending: false })
+        .limit(8000);
 
       if (messagesError) throw messagesError;
 
-      // Process user data
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+
+      // Build indexes
+      const messagesByUser = new Map<string, { created_at: string; model: string | null }[]>();
+      (recentMessages || []).forEach((m) => {
+        const arr = messagesByUser.get(m.user_id) || [];
+        arr.push(m);
+        messagesByUser.set(m.user_id, arr);
+      });
 
       const userData: UserData[] = [];
       let activeToday = 0;
       const modelUsage: { [key: string]: number } = {};
 
       for (const profile of profiles || []) {
-        const userMessages = messageCounts?.filter(m => m.user_id === profile.id) || [];
+        const userMessages = messagesByUser.get(profile.id) || [];
         const messagesToday = userMessages.filter(m => new Date(m.created_at) >= today).length;
-        
         if (messagesToday > 0) activeToday++;
 
-        // Find favorite model
         const modelCounts: { [key: string]: number } = {};
         userMessages.forEach(msg => {
           if (msg.model) {
@@ -125,12 +133,10 @@ export default function AdminDashboard() {
         });
 
         const favoriteModel = Object.keys(modelCounts).length > 0
-          ? Object.entries(modelCounts).sort(([,a], [,b]) => b - a)[0][0]
+          ? Object.entries(modelCounts).sort(([, a], [, b]) => b - a)[0][0]
           : 'None';
 
-        const lastMessage = userMessages.length > 0
-          ? userMessages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
-          : null;
+        const lastMessage = userMessages.length > 0 ? userMessages[0] : null;
 
         userData.push({
           id: profile.id,
@@ -148,15 +154,13 @@ export default function AdminDashboard() {
         });
       }
 
-      // Calculate stats
       const mostPopularModel = Object.keys(modelUsage).length > 0
-        ? Object.entries(modelUsage).sort(([,a], [,b]) => b - a)[0][0]
+        ? Object.entries(modelUsage).sort(([, a], [, b]) => b - a)[0][0]
         : 'None';
 
-      const totalMessages = messageCounts?.length || 0;
+      const totalMessages = (recentMessages || []).length;
       const averageMessages = profiles?.length ? Math.round(totalMessages / profiles.length) : 0;
 
-      // Calculate revenue (assuming ₹699 for lifetime, ₹199 for yearly)
       const lifetimeCount = profiles?.filter(p => p.subscription_type === 'lifetime').length || 0;
       const yearlyCount = profiles?.filter(p => p.subscription_type === 'monthly').length || 0;
       const totalRevenue = (lifetimeCount * 699) + (yearlyCount * 199);

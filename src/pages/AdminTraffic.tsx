@@ -79,80 +79,71 @@ const AdminTraffic = () => {
   const loadTrafficData = async () => {
     try {
       setLoading(true);
-      
-      // Get all profiles - NO FILTER to get ALL users
+
+      // Limit profiles to keep the page responsive
       const { data: profiles, error: profileError } = await supabase
         .from('profiles')
         .select('id, username, display_name, subscription_type, created_at')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(200);
 
-      if (profileError) {
-        console.error('Error loading profiles:', profileError);
-        toast({
-          title: "Error",
-          description: "Failed to load user profiles",
-          variant: "destructive",
-        });
-      }
+      if (profileError) throw profileError;
 
-      if (!profiles) {
+      if (!profiles || profiles.length === 0) {
         setTrafficData([]);
+        setStats({ activeNow: 0, totalMessages: 0, messagesToday: 0, totalUsers: 0 });
         return;
       }
 
       const now = new Date();
       const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
-      const todayStart = new Date(now.setHours(0, 0, 0, 0));
+      const todayStart = new Date(now);
+      todayStart.setHours(0, 0, 0, 0);
 
-      // Get traffic data for each user
-      const traffic = await Promise.all(
-        profiles.map(async (profile) => {
-          // Get total messages
-          const { count: totalMessages } = await supabase
-            .from('chat_messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', profile.id);
+      // Fetch a recent window of messages once (instead of per-user queries)
+      const { data: recentMessages, error: msgErr } = await supabase
+        .from('chat_messages')
+        .select('user_id, created_at')
+        .order('created_at', { ascending: false })
+        .limit(5000);
 
-          // Get total chats
-          const { count: totalChats } = await supabase
-            .from('chat_history')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', profile.id);
+      if (msgErr) throw msgErr;
 
-          // Get last activity
-          const { data: lastMessage } = await supabase
-            .from('chat_messages')
-            .select('created_at')
-            .eq('user_id', profile.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
+      const lastActiveByUser = new Map<string, string>();
+      const messagesTodayByUser = new Map<string, number>();
+      const totalMessagesByUser = new Map<string, number>();
 
-          // Get messages today
-          const { count: messagesToday } = await supabase
-            .from('chat_messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', profile.id)
-            .gte('created_at', todayStart.toISOString());
+      (recentMessages || []).forEach((m) => {
+        const userId = m.user_id;
+        totalMessagesByUser.set(userId, (totalMessagesByUser.get(userId) || 0) + 1);
 
-          // Check if active now (within last 5 minutes)
-          const activeNow = lastMessage && new Date(lastMessage.created_at) >= fiveMinutesAgo;
+        // last active (messages are sorted desc, so first seen is latest)
+        if (!lastActiveByUser.has(userId)) lastActiveByUser.set(userId, m.created_at);
 
-          return {
-            user_id: profile.id,
-            display_name: profile.display_name || profile.username || 'Unknown',
-            username: profile.username || 'user',
-            subscription_type: profile.subscription_type || 'free',
-            total_messages: totalMessages || 0,
-            total_chats: totalChats || 0,
-            last_active: lastMessage?.created_at || profile.created_at,
-            messages_today: messagesToday || 0,
-            active_now: !!activeNow,
-          };
-        })
-      );
+        if (new Date(m.created_at) >= todayStart) {
+          messagesTodayByUser.set(userId, (messagesTodayByUser.get(userId) || 0) + 1);
+        }
+      });
 
-      // Sort by active status and last active time
+      const traffic: TrafficData[] = profiles.map((profile) => {
+        const lastActive = lastActiveByUser.get(profile.id) || profile.created_at;
+        const messagesToday = messagesTodayByUser.get(profile.id) || 0;
+        const activeNow = new Date(lastActive) >= fiveMinutesAgo;
+
+        return {
+          user_id: profile.id,
+          display_name: profile.display_name || profile.username || 'Unknown',
+          username: profile.username || 'user',
+          subscription_type: profile.subscription_type || 'free',
+          // These are based on the recent message window (keeps UI fast)
+          total_messages: totalMessagesByUser.get(profile.id) || 0,
+          total_chats: 0,
+          last_active: lastActive,
+          messages_today: messagesToday,
+          active_now: activeNow,
+        };
+      });
+
       traffic.sort((a, b) => {
         if (a.active_now && !b.active_now) return -1;
         if (!a.active_now && b.active_now) return 1;
@@ -161,13 +152,12 @@ const AdminTraffic = () => {
 
       setTrafficData(traffic);
 
-      // Calculate stats
-      const activeNow = traffic.filter(t => t.active_now).length;
+      const activeNowCount = traffic.filter(t => t.active_now).length;
       const totalMessages = traffic.reduce((sum, t) => sum + t.total_messages, 0);
       const messagesToday = traffic.reduce((sum, t) => sum + t.messages_today, 0);
 
       setStats({
-        activeNow,
+        activeNow: activeNowCount,
         totalMessages,
         messagesToday,
         totalUsers: traffic.length,

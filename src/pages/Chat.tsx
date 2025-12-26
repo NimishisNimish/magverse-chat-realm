@@ -117,6 +117,8 @@ const aiModels = [
   { id: "perplexity-pro", name: "Perplexity Pro", icon: Globe, color: "text-cyan-500", category: "research", isLovable: false },
   { id: "perplexity-reasoning", name: "Perplexity Reasoning", icon: Brain, color: "text-cyan-600", category: "research", isLovable: false },
   { id: "grok", name: "Grok", icon: Zap, color: "text-white", category: "research", isLovable: false },
+  // Uncensored.chat
+  { id: "uncensored-chat", name: "Uncensored AI", icon: Bot, color: "text-red-500", category: "reasoning", isLovable: false },
 ];
 
 const tools = [
