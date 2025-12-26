@@ -15,28 +15,25 @@ const GOOGLE_AI_API_KEY = Deno.env.get('GOOGLE_AI_API_KEY');
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
 const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
 const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-
-// Removed 'gemini' (Gemini Direct) as it's deprecated - use lovable-gemini-flash instead
-// Added perplexity-pro and perplexity-reasoning for user-selectable Perplexity models
-const VALID_MODELS = ['chatgpt', 'claude', 'perplexity', 'perplexity-pro', 'perplexity-reasoning', 'grok', 'gemini-flash-image'] as const;
 
 const STORAGE_BUCKET_URL = 'https://pqdgpxetysqcdcjwormb.supabase.co/storage/';
 const MAX_FILE_SIZE = 10_000_000; // 10MB
 const MAX_MESSAGE_LENGTH = 10000;
 const MAX_MODELS_PER_REQUEST = 5;
 
-// Model configuration - stable, working models
-// Model configuration - stable, working models
-// Gemini Direct removed - use Lovable AI models instead
-// Model configuration - stable, working models
-// Map Claude, Grok, ChatGPT to Lovable AI Gateway (Gemini models)
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+// Removed 'gemini' (Gemini Direct) as it's deprecated - use lovable-gemini-flash instead
+// Added perplexity-pro and perplexity-reasoning for user-selectable Perplexity models
+// Added uncensored-chat for uncensored.chat API
+const VALID_MODELS = ['chatgpt', 'claude', 'perplexity', 'perplexity-pro', 'perplexity-reasoning', 'grok', 'gemini-flash-image', 'uncensored-chat'] as const;
+
+const UNCENSORED_CHAT_API_KEY = Deno.env.get('UNCENSORED_CHAT_API_KEY');
 
 const MODEL_CONFIG: Record<string, { 
-  provider: 'openai' | 'nvidia' | 'google' | 'openrouter' | 'perplexity' | 'groq' | 'lovable', 
+  provider: 'openai' | 'nvidia' | 'google' | 'openrouter' | 'perplexity' | 'groq' | 'lovable' | 'uncensored', 
   model: string,
   supportsReasoning: boolean,
   maxTokens?: number,
@@ -53,6 +50,8 @@ const MODEL_CONFIG: Record<string, {
   'perplexity-reasoning': { provider: 'perplexity', model: 'sonar-deep-research', supportsReasoning: true, supportsStreaming: false },
   // Image generation - Only Lovable AI
   'gemini-flash-image': { provider: 'lovable', model: 'google/gemini-2.5-flash-image-preview', supportsReasoning: false, supportsStreaming: false },
+  // Uncensored.chat - unfiltered AI
+  'uncensored-chat': { provider: 'uncensored', model: 'dolphin-mixtral-8x22b', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true },
 };
 
 // Validation schema
@@ -291,6 +290,14 @@ serve(async (req) => {
         }
       }
     }
+
+    // Add optimized system prompt to reduce "thinking out loud" behavior
+    const directAnswerPrompt = `You are a helpful AI assistant. IMPORTANT: Provide direct, concise answers immediately. Do not start with phrases like "Let me think...", "I'll help you...", "Sure!", or similar preambles. Get straight to the point with the answer or solution. If context is needed, provide it briefly after the main answer.`;
+    
+    processedMessages.unshift({
+      role: 'system',
+      content: directAnswerPrompt
+    });
 
     // Add custom instructions if present
     if (customInstructions) {
@@ -722,6 +729,14 @@ serve(async (req) => {
             success: false,
             model: modelId,
             response: 'Lovable API key not configured',
+            error: true
+          };
+        } else if (config.provider === 'uncensored' && !UNCENSORED_CHAT_API_KEY) {
+          console.error('❌ UNCENSORED_CHAT_API_KEY not configured');
+          return {
+            success: false,
+            model: modelId,
+            response: 'Uncensored.chat API key not configured',
             error: true
           };
         }
@@ -1225,6 +1240,61 @@ serve(async (req) => {
               }));
             }
           }
+        } else if (config.provider === 'uncensored') {
+          // Uncensored.chat API call
+          console.log(`📤 Calling uncensored.chat for ${modelId}...`);
+          
+          if (!UNCENSORED_CHAT_API_KEY) {
+            console.error('❌ UNCENSORED_CHAT_API_KEY not configured');
+            return {
+              success: false,
+              model: modelId,
+              response: 'Uncensored.chat API key not configured',
+              error: true
+            };
+          }
+          
+          let messagesToSend = processedMessages.map((m) => ({
+            role: m.role,
+            content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+          }));
+          
+          response = await fetch('https://api.uncensored.chat/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${UNCENSORED_CHAT_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: config.model,
+              messages: messagesToSend,
+              max_tokens: config.maxTokens || 4096,
+              temperature: 0.7,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ ${modelId} uncensored.chat API error (${response.status}):`, errorText);
+            
+            let errorMessage = 'API error occurred';
+            if (response.status === 429) {
+              errorMessage = 'Rate limit exceeded. Try again in a moment.';
+            } else if (response.status === 401) {
+              errorMessage = 'Uncensored.chat API key invalid.';
+            }
+            
+            return {
+              success: false,
+              model: modelId,
+              response: errorMessage,
+              error: true
+            };
+          }
+
+          const data = await response.json();
+          content = data.choices?.[0]?.message?.content || 'No response';
+          usage = data.usage;
         }
 
         const responseTime = Date.now() - modelStartTime;

@@ -106,6 +106,16 @@ export const MODEL_CONFIG: ModelConfig[] = [
     category: 'research'
   },
   
+  // Uncensored.chat
+  { 
+    id: 'uncensored-chat', 
+    name: 'Uncensored AI', 
+    description: 'Unfiltered AI responses', 
+    icon: Bot, 
+    color: 'text-red-500',
+    category: 'reasoning'
+  },
+  
   // Image generation
   { 
     id: 'gemini-flash-image', 

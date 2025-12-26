@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Copy, CreditCard, Smartphone, Shield, CheckCircle, X } from "lucide-react";
+import { Copy, CreditCard, Smartphone, Shield, CheckCircle, X, Zap } from "lucide-react";
 import upiQrCode from "@/assets/phonepe-qr-code.png";
 import { triggerUpgradeConfetti } from "@/utils/confetti";
 declare global {
@@ -58,6 +58,14 @@ const Payment = () => {
       description: "Unlimited access forever"
     }
   };
+
+  const creditPackages = [
+    { id: 'credits_50', credits: 50, amount: 49, description: '50 Credits' },
+    { id: 'credits_200', credits: 200, amount: 149, description: '200 Credits', popular: true },
+    { id: 'credits_500', credits: 500, amount: 299, description: '500 Credits', bestValue: true },
+  ];
+
+  const [selectedCreditPackage, setSelectedCreditPackage] = useState<string | null>(null);
   const handleRazorpayPayment = async () => {
     if (!user) {
       navigate("/auth");
@@ -186,18 +194,25 @@ const Payment = () => {
         if (urlData) proofUrl = urlData.signedUrl;
         setUploadingProof(false);
       }
+      const paymentAmount = selectedCreditPackage 
+        ? creditPackages.find(p => p.id === selectedCreditPackage)?.amount || 0
+        : plans[selectedPlan].amount;
+      
+      const planType = selectedCreditPackage || selectedPlan;
+      
       const {
         data: txData,
         error
       } = await supabase.from("transactions").insert({
         user_id: user.id,
-        amount: plans[selectedPlan].amount,
+        amount: paymentAmount,
         status: "pending",
-        plan_type: selectedPlan,
+        plan_type: planType,
         payment_method: "upi",
         payment_reference: `UPI ID: ${upiId}${paymentNote ? ` - Note: ${paymentNote}` : ""}${proofUrl ? ` - Proof: ${proofUrl}` : ""}`,
         verification_status: "pending_verification"
       }).select();
+      if (error) throw error;
       if (error) throw error;
 
       // Notify admin about new payment
@@ -268,13 +283,60 @@ const Payment = () => {
             </p>
           </div>
 
+          {/* Credit Top-Up Section */}
+          <Card className="glass-card border-accent/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-accent" />
+                Credit Top-Up
+              </CardTitle>
+              <CardDescription>
+                Need more credits? Buy a credit package
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-3 gap-4 mb-6">
+                {creditPackages.map((pkg) => (
+                  <button
+                    key={pkg.id}
+                    onClick={() => setSelectedCreditPackage(pkg.id)}
+                    className={`p-4 rounded-lg border-2 transition-all text-left relative ${
+                      selectedCreditPackage === pkg.id
+                        ? "border-accent bg-accent/10"
+                        : "border-border hover:border-accent/50"
+                    }`}
+                  >
+                    {pkg.popular && (
+                      <span className="absolute -top-2 -right-2 text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">
+                        Popular
+                      </span>
+                    )}
+                    {pkg.bestValue && (
+                      <span className="absolute -top-2 -right-2 text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
+                        Best Value
+                      </span>
+                    )}
+                    <div className="text-2xl font-bold">{pkg.credits}</div>
+                    <div className="text-sm text-muted-foreground">Credits</div>
+                    <div className="text-lg font-semibold text-accent mt-2">₹{pkg.amount}</div>
+                  </button>
+                ))}
+              </div>
+              {selectedCreditPackage && (
+                <div className="text-sm text-muted-foreground text-center">
+                  Selected: {creditPackages.find(p => p.id === selectedCreditPackage)?.description} for ₹{creditPackages.find(p => p.id === selectedCreditPackage)?.amount}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Plan Selection */}
           <Card className="glass-card">
             <CardHeader>
               <CardTitle>Select Your Plan</CardTitle>
             </CardHeader>
             <CardContent className="grid md:grid-cols-2 gap-4">
-              <button onClick={() => setSelectedPlan("monthly")} className={`p-6 rounded-lg border-2 transition-all text-left ${selectedPlan === "monthly" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}>
+              <button onClick={() => { setSelectedPlan("monthly"); setSelectedCreditPackage(null); }} className={`p-6 rounded-lg border-2 transition-all text-left ${selectedPlan === "monthly" && !selectedCreditPackage ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <h3 className="text-xl font-bold">Pro Yearly</h3>
@@ -287,7 +349,7 @@ const Payment = () => {
                 </div>
               </button>
 
-              <button onClick={() => setSelectedPlan("lifetime")} className={`p-6 rounded-lg border-2 transition-all text-left ${selectedPlan === "lifetime" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}>
+              <button onClick={() => { setSelectedPlan("lifetime"); setSelectedCreditPackage(null); }} className={`p-6 rounded-lg border-2 transition-all text-left ${selectedPlan === "lifetime" && !selectedCreditPackage ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}>
                 <div className="space-y-2">
                   <h3 className="text-xl font-bold flex items-center gap-2">
                     Lifetime Pro
@@ -335,7 +397,14 @@ const Payment = () => {
 
                   <div className="space-y-2">
                     <Label>Amount to Pay</Label>
-                    <Input value={`₹${plans[selectedPlan].amount}`} readOnly className="text-xl font-bold" />
+                    <Input 
+                      value={selectedCreditPackage 
+                        ? `₹${creditPackages.find(p => p.id === selectedCreditPackage)?.amount}` 
+                        : `₹${plans[selectedPlan].amount}`
+                      } 
+                      readOnly 
+                      className="text-xl font-bold" 
+                    />
                   </div>
 
                   <div className="space-y-2">

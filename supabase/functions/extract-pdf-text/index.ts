@@ -16,14 +16,15 @@ serve(async (req) => {
   }
 
   try {
-    const { url } = await req.json();
+    const { url, fileType } = await req.json();
     
     if (!url) {
       console.error('❌ No URL provided');
-      throw new Error('PDF URL is required');
+      throw new Error('Document URL is required');
     }
 
-    console.log('📄 Starting PDF extraction from:', url);
+    const detectedType = fileType || (url.toLowerCase().endsWith('.docx') ? 'docx' : 'pdf');
+    console.log(`📄 Starting ${detectedType.toUpperCase()} extraction from:`, url);
     
     let pdfResponse: Response;
 
@@ -100,50 +101,189 @@ serve(async (req) => {
       }
     }
 
-    const pdfBuffer = await pdfResponse.arrayBuffer();
-    const pdfBytes = new Uint8Array(pdfBuffer);
+    const fileBuffer = await pdfResponse.arrayBuffer();
+    const fileBytes = new Uint8Array(fileBuffer);
     
-    console.log('📦 PDF size:', pdfBytes.length, 'bytes', `(${(pdfBytes.length / 1024 / 1024).toFixed(2)} MB)`);
+    console.log('📦 File size:', fileBytes.length, 'bytes', `(${(fileBytes.length / 1024 / 1024).toFixed(2)} MB)`);
 
-    // Validate it's actually a PDF
-    const pdfHeader = String.fromCharCode(...pdfBytes.slice(0, 4));
-    if (pdfHeader !== '%PDF') {
-      console.error('❌ Invalid PDF format, header:', pdfHeader);
-      throw new Error('File is not a valid PDF document');
-    }
-
-    // First, try basic text extraction
     let text = '';
-    const decoder = new TextDecoder('utf-8', { fatal: false });
-    const pdfString = decoder.decode(pdfBytes);
-    
-    console.log('🔍 Attempting basic text extraction...');
-    
-    // Extract text between stream markers (basic approach)
-    const textMatches = pdfString.match(/\(([^)]+)\)/g);
-    if (textMatches) {
-      text = textMatches
-        .map(match => match.slice(1, -1))
-        .join(' ')
-        .replace(/\\n/g, '\n')
-        .replace(/\\/g, '')
-        .trim();
-    }
 
-    // If no text found, try alternative extraction
-    if (!text || text.length < 50) {
-      console.log('⚠️ Primary extraction yielded minimal text, trying alternative method...');
-      const altMatches = pdfString.match(/BT\s+(.*?)\s+ET/gs);
-      if (altMatches) {
-        text = altMatches
-          .map(match => {
-            const content = match.match(/\(([^)]+)\)/g);
-            return content ? content.map(c => c.slice(1, -1)).join(' ') : '';
-          })
-          .join('\n')
+    // Handle DOCX files
+    if (detectedType === 'docx') {
+      console.log('📝 Processing DOCX file...');
+      
+      // Use Lovable AI to extract text from DOCX
+      if (LOVABLE_API_KEY) {
+        try {
+          const base64Doc = btoa(String.fromCharCode(...fileBytes));
+          
+          const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'google/gemini-2.5-flash',
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    {
+                      type: 'text',
+                      text: 'Extract and transcribe ALL text content from this Word document. Include headings, paragraphs, lists, tables, and any other textual content. Preserve the document structure as much as possible. Output only the extracted text without any additional commentary.'
+                    },
+                    {
+                      type: 'file',
+                      file: {
+                        data: base64Doc,
+                        mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                      }
+                    }
+                  ]
+                }
+              ],
+            }),
+          });
+
+          if (aiResponse.ok) {
+            const aiData = await aiResponse.json();
+            text = aiData.choices?.[0]?.message?.content || '';
+            console.log('✅ AI successfully extracted text from DOCX');
+          } else {
+            console.warn('⚠️ AI extraction failed for DOCX:', await aiResponse.text());
+          }
+        } catch (aiError) {
+          console.warn('⚠️ AI extraction error for DOCX:', aiError);
+        }
+      }
+      
+      if (!text || text.length < 50) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Could not extract text from this Word document. Please try copying the text manually.',
+            text: '',
+            isEmpty: true
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200
+          }
+        );
+      }
+    } else {
+      // Handle PDF files
+      // Validate it's actually a PDF
+      const pdfHeader = String.fromCharCode(...fileBytes.slice(0, 4));
+      if (pdfHeader !== '%PDF') {
+        console.error('❌ Invalid PDF format, header:', pdfHeader);
+        throw new Error('File is not a valid PDF document');
+      }
+
+      // First, try basic text extraction
+      const decoder = new TextDecoder('utf-8', { fatal: false });
+      const pdfString = decoder.decode(fileBytes);
+      
+      console.log('🔍 Attempting basic text extraction...');
+      
+      // Extract text between stream markers (basic approach)
+      const textMatches = pdfString.match(/\(([^)]+)\)/g);
+      if (textMatches) {
+        text = textMatches
+          .map(match => match.slice(1, -1))
+          .join(' ')
           .replace(/\\n/g, '\n')
           .replace(/\\/g, '')
           .trim();
+      }
+
+      // If no text found, try alternative extraction
+      if (!text || text.length < 50) {
+        console.log('⚠️ Primary extraction yielded minimal text, trying alternative method...');
+        const altMatches = pdfString.match(/BT\s+(.*?)\s+ET/gs);
+        if (altMatches) {
+          text = altMatches
+            .map(match => {
+              const content = match.match(/\(([^)]+)\)/g);
+              return content ? content.map(c => c.slice(1, -1)).join(' ') : '';
+            })
+            .join('\n')
+            .replace(/\\n/g, '\n')
+            .replace(/\\/g, '')
+            .trim();
+        }
+      }
+
+      // If still no meaningful text, use Lovable AI (Gemini) to analyze the PDF
+      if ((!text || text.length < 100) && LOVABLE_API_KEY) {
+        console.log('🤖 Using Lovable AI to analyze PDF content...');
+        
+        // Convert PDF to base64 for AI analysis
+        const base64Pdf = btoa(String.fromCharCode(...fileBytes));
+        
+        try {
+          const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'google/gemini-2.5-flash',
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    {
+                      type: 'text',
+                      text: 'Extract and transcribe ALL text content from this PDF document. Include headings, paragraphs, lists, tables, and any other textual content. Preserve the document structure as much as possible. If the PDF contains images with text, describe what you can see. Output only the extracted text without any additional commentary.'
+                    },
+                    {
+                      type: 'file',
+                      file: {
+                        data: base64Pdf,
+                        mime_type: 'application/pdf'
+                      }
+                    }
+                  ]
+                }
+              ],
+            }),
+          });
+
+          if (aiResponse.ok) {
+            const aiData = await aiResponse.json();
+            const aiExtractedText = aiData.choices?.[0]?.message?.content;
+            
+            if (aiExtractedText && aiExtractedText.length > 50) {
+              console.log('✅ AI successfully extracted text from PDF');
+              text = aiExtractedText;
+            }
+          } else {
+            console.warn('⚠️ AI extraction failed:', await aiResponse.text());
+          }
+        } catch (aiError) {
+          console.warn('⚠️ AI extraction error:', aiError);
+        }
+      }
+
+      // If still no text, return error with helpful message
+      if (!text || text.length < 100) {
+        console.warn('⚠️ Could not extract meaningful text from PDF - likely scanned/image-based');
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'This PDF appears to be scanned or image-based. Please either:\n1. Use a text-based PDF\n2. Describe the contents in your message\n3. Try uploading as an image instead',
+            text: '',
+            isEmpty: true,
+            isScanned: true
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200
+          }
+        );
       }
     }
 
@@ -152,7 +292,7 @@ serve(async (req) => {
       console.log('🤖 Using Lovable AI to analyze PDF content...');
       
       // Convert PDF to base64 for AI analysis
-      const base64Pdf = btoa(String.fromCharCode(...pdfBytes));
+      const base64Pdf = btoa(String.fromCharCode(...fileBytes));
       
       try {
         const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -244,15 +384,15 @@ serve(async (req) => {
     );
 
   } catch (error: any) {
-    console.error('❌ Error extracting PDF text:', error);
+    console.error('❌ Error extracting document text:', error);
     
     // Provide specific error messages
     let errorMessage = error.message || 'Unknown error occurred';
     
     if (error.message?.includes('timeout')) {
-      errorMessage = 'PDF extraction timeout - the file took too long to process. Try a smaller PDF.';
+      errorMessage = 'Document extraction timeout - the file took too long to process. Try a smaller file.';
     } else if (error.message?.includes('fetch')) {
-      errorMessage = 'Failed to download PDF - please check if the file link is valid and accessible.';
+      errorMessage = 'Failed to download document - please check if the file link is valid and accessible.';
     }
     
     return new Response(
