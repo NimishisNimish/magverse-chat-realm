@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,6 +7,8 @@ const corsHeaders = {
 };
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -22,32 +25,79 @@ serve(async (req) => {
 
     console.log('📄 Starting PDF extraction from:', url);
     
-    // Add timeout for fetch
-    const fetchTimeout = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('PDF fetch timeout - URL took too long to respond')), 30000);
-    });
+    let pdfResponse: Response;
 
-    // Fetch the PDF file with timeout
-    const pdfResponse = await Promise.race([
-      fetch(url, {
-        headers: {
-          'User-Agent': 'Supabase-Function-PDF-Extractor/1.0'
+    // Check if this is a Supabase storage URL (private bucket)
+    const isSupabaseStorage = url.includes('supabase.co/storage/v1/object');
+    
+    if (isSupabaseStorage) {
+      console.log('🔐 Detected Supabase storage URL, using service role to access private bucket...');
+      
+      // Extract bucket and path from URL
+      // URL format: https://xxx.supabase.co/storage/v1/object/public/bucket/path or .../object/bucket/path
+      const urlObj = new URL(url);
+      const pathParts = urlObj.pathname.split('/storage/v1/object/')[1];
+      
+      if (!pathParts) {
+        throw new Error('Invalid Supabase storage URL format');
+      }
+      
+      // Remove 'public/' prefix if present, then extract bucket and path
+      const cleanPath = pathParts.replace(/^public\//, '');
+      const [bucket, ...pathSegments] = cleanPath.split('/');
+      const filePath = pathSegments.join('/');
+      
+      console.log(`📁 Bucket: ${bucket}, Path: ${filePath}`);
+      
+      // Use service role client to download from private bucket
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .download(filePath);
+      
+      if (error) {
+        console.error('❌ Failed to download from Supabase storage:', error.message);
+        throw new Error(`Failed to access file: ${error.message}`);
+      }
+      
+      if (!data) {
+        throw new Error('No data returned from storage');
+      }
+      
+      // Convert Blob to Response for consistent handling
+      pdfResponse = new Response(data, { status: 200 });
+      console.log('✅ Successfully downloaded from private bucket');
+      
+    } else {
+      // External URL - fetch directly with timeout
+      console.log('🌐 Fetching from external URL...');
+      
+      const fetchTimeout = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('PDF fetch timeout - URL took too long to respond')), 30000);
+      });
+
+      pdfResponse = await Promise.race([
+        fetch(url, {
+          headers: {
+            'User-Agent': 'Supabase-Function-PDF-Extractor/1.0'
+          }
+        }),
+        fetchTimeout
+      ]);
+
+      if (!pdfResponse.ok) {
+        console.error(`❌ Failed to fetch PDF: ${pdfResponse.status} ${pdfResponse.statusText}`);
+        
+        if (pdfResponse.status === 403) {
+          throw new Error('PDF access denied - the link may have expired or is not accessible');
         }
-      }),
-      fetchTimeout
-    ]) as Response;
-
-    if (!pdfResponse.ok) {
-      console.error(`❌ Failed to fetch PDF: ${pdfResponse.status} ${pdfResponse.statusText}`);
-      
-      if (pdfResponse.status === 403) {
-        throw new Error('PDF access denied - the link may have expired or is not accessible');
+        if (pdfResponse.status === 404) {
+          throw new Error('PDF not found - the file may have been deleted');
+        }
+        
+        throw new Error(`Failed to fetch PDF: ${pdfResponse.statusText}`);
       }
-      if (pdfResponse.status === 404) {
-        throw new Error('PDF not found - the file may have been deleted');
-      }
-      
-      throw new Error(`Failed to fetch PDF: ${pdfResponse.statusText}`);
     }
 
     const pdfBuffer = await pdfResponse.arrayBuffer();
