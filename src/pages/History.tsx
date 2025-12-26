@@ -45,19 +45,42 @@ const History = () => {
     queryKey: ['chat-history', user?.id],
     queryFn: async ({ pageParam = 0 }) => {
       if (!user) return { data: [], nextPage: null };
-      
+
       const start = pageParam * CHATS_PER_PAGE;
       const end = start + CHATS_PER_PAGE - 1;
-      
-      const { data, error } = await supabase
-        .rpc('get_chat_history_with_counts', { p_user_id: user.id })
+
+      // Avoid heavy RPC join/counts (can stall on large histories).
+      // Load chats, then fetch per-chat message counts for just this page.
+      const { data: chats, error: chatsError } = await supabase
+        .from('chat_history')
+        .select('id,title,created_at,updated_at')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
         .range(start, end);
 
-      if (error) throw error;
-      
+      if (chatsError) throw chatsError;
+
+      const items = chats || [];
+      const counts = await Promise.all(
+        items.map(async (chat) => {
+          const { count } = await supabase
+            .from('chat_messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('chat_id', chat.id);
+          return { chat_id: chat.id, count: count || 0 };
+        })
+      );
+
+      const countMap = new Map(counts.map((c) => [c.chat_id, c.count]));
+
+      const withCounts = items.map((c) => ({
+        ...c,
+        message_count: countMap.get(c.id) ?? 0,
+      }));
+
       return {
-        data: data || [],
-        nextPage: data && data.length === CHATS_PER_PAGE ? pageParam + 1 : null,
+        data: withCounts,
+        nextPage: items.length === CHATS_PER_PAGE ? pageParam + 1 : null,
       };
     },
     getNextPageParam: (lastPage) => lastPage.nextPage,

@@ -136,21 +136,37 @@ const AdminAnalytics = () => {
   const loadAnalytics = async () => {
     setLoading(true);
     try {
+      // Counts (fast, avoids downloading full tables)
+      const [
+        totalUsersRes,
+        freeUsersRes,
+        proUsersRes,
+        lifetimeUsersRes,
+        totalMessagesRes,
+        totalChatsRes,
+      ] = await Promise.all([
+        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('subscription_type', 'free'),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('subscription_type', 'monthly'),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('subscription_type', 'lifetime'),
+        supabase.from('chat_messages').select('*', { count: 'exact', head: true }),
+        supabase.from('chat_history').select('*', { count: 'exact', head: true }),
+      ]);
 
-      // Fetch user statistics
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('subscription_type, created_at');
+      const totalUsers = totalUsersRes.count || 0;
+      const freeUsers = freeUsersRes.count || 0;
+      const proUsers = proUsersRes.count || 0;
+      const lifetimeUsers = lifetimeUsersRes.count || 0;
+      const totalMessages = totalMessagesRes.count || 0;
+      const totalChats = totalChatsRes.count || 0;
 
-      const totalUsers = profiles?.length || 0;
-      const freeUsers = profiles?.filter(p => p.subscription_type === 'free').length || 0;
-      const proUsers = profiles?.filter(p => p.subscription_type === 'monthly').length || 0;
-      const lifetimeUsers = profiles?.filter(p => p.subscription_type === 'lifetime').length || 0;
-
-      // Fetch payment statistics - all transactions
-      const { data: allTransactions } = await supabase
+      // Transactions (lightweight fields only)
+      const { data: allTransactions, error: txErr } = await supabase
         .from('transactions')
-        .select('*');
+        .select('amount,status,verification_status,created_at')
+        .order('created_at', { ascending: false })
+        .limit(2000);
+      if (txErr) throw txErr;
 
       const completedPayments = allTransactions?.filter(t => t.status === 'completed' || t.status === 'verified').length || 0;
       const pendingPayments = allTransactions?.filter(t => t.status === 'pending' && t.verification_status === 'pending_verification').length || 0;
@@ -159,36 +175,30 @@ const AdminAnalytics = () => {
         ?.filter(t => t.status === 'completed' || t.status === 'verified')
         .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
 
-      // Fetch message statistics
-      const { data: messages } = await supabase
+      // Model usage from a recent window (keeps the page snappy)
+      const { data: recentMessages } = await supabase
         .from('chat_messages')
-        .select('model, created_at');
+        .select('model, created_at')
+        .order('created_at', { ascending: false })
+        .limit(3000);
 
-      const totalMessages = messages?.length || 0;
-
-      // Calculate model usage
       const modelCounts: { [key: string]: number } = {};
-      messages?.forEach(msg => {
-        if (msg.model) {
-          modelCounts[msg.model] = (modelCounts[msg.model] || 0) + 1;
-        }
+      recentMessages?.forEach(msg => {
+        if (msg.model) modelCounts[msg.model] = (modelCounts[msg.model] || 0) + 1;
       });
+
       const modelUsage = Object.entries(modelCounts)
         .map(([name, value]) => ({ name, value }))
         .sort((a, b) => b.value - a.value);
 
-      // Fetch chat statistics
-      const { data: chats } = await supabase
-        .from('chat_history')
-        .select('id');
-
-      const totalChats = chats?.length || 0;
-
-      // Calculate payment trends (last 7 days)
+      // Trends
       const paymentTrends = calculatePaymentTrends(allTransactions || []);
-      
-      // Calculate user growth (last 7 days)
-      const userGrowth = calculateUserGrowth(profiles || []);
+      const { data: recentProfiles } = await supabase
+        .from('profiles')
+        .select('created_at')
+        .order('created_at', { ascending: false })
+        .limit(5000);
+      const userGrowth = calculateUserGrowth(recentProfiles || []);
 
       setAnalytics({
         totalUsers,
