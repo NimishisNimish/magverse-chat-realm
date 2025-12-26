@@ -9,51 +9,45 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { StatCardSkeleton } from "@/components/ui/skeleton";
-import { useScrollAnimation } from "@/hooks/useScrollAnimation";
-import { useCountUp } from "@/hooks/useCountUp";
 import ScrollProgressIndicator from "@/components/ScrollProgressIndicator";
-import { downloadDashboardPDF } from "@/utils/dashboardExport";
-import { LazyResponseTimeChart } from "@/components/LazyCharts";
-import { ChartErrorBoundary } from "@/components/ChartErrorBoundary";
-import { useInViewport } from "@/hooks/useInViewport";
-import { ModelHealthWidget } from "@/components/ModelHealthWidget";
-import { useAutomatedFailoverTesting } from "@/hooks/useAutomatedFailoverTesting";
 import { 
   Zap, 
   MessageSquare, 
   History, 
   TrendingUp,
   Crown,
-  Calendar,
-  BarChart3,
-  AlertTriangle,
   RefreshCw,
-  FileText,
-  Loader2
+  Coins,
+  Activity,
+  BarChart3,
+  PieChart as PieChartIcon
 } from "lucide-react";
-import { format, differenceInDays } from "date-fns";
-import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { format, differenceInDays, startOfMonth, startOfWeek, startOfDay } from "date-fns";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-interface UsageStats {
-  totalMessages: number;
-  totalChats: number;
-  messagesThisMonth: number;
-  chatsThisMonth: number;
-  favoriteModel: string | null;
-  accountAgeDays: number;
-  dailyUsage: Array<{ date: string; messages: number }>;
-  modelUsage: Array<{ model: string; count: number }>;
-  creditsUsedToday: number;
-  creditsUsedThisWeek: number;
-  creditsUsedThisMonth: number;
-  avgModelUse: number;
-  avgResponseTime: string;
-  responseTimeData?: Array<{ date: string; [key: string]: string | number }>;
+interface CreditStats {
+  creditsRemaining: number;
+  totalCreditsSpent: number;
+  creditsByModel: Array<{ model: string; credits: number; count: number }>;
+  mostUsedModels: Array<{ model: string; count: number }>;
+  creditsToday: number;
+  creditsThisWeek: number;
+  creditsThisMonth: number;
 }
 
+const CHART_COLORS = [
+  'hsl(262, 83%, 58%)', // Primary purple
+  'hsl(217, 91%, 60%)', // Blue
+  'hsl(172, 66%, 50%)', // Teal
+  'hsl(43, 96%, 56%)',  // Yellow
+  'hsl(339, 90%, 51%)', // Pink
+  'hsl(142, 71%, 45%)', // Green
+  'hsl(25, 95%, 53%)',  // Orange
+];
+
 const Dashboard = () => {
-  const [stats, setStats] = useState<UsageStats | null>(null);
+  const [stats, setStats] = useState<CreditStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,19 +55,6 @@ const Dashboard = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { ref: statsRef, isVisible: statsVisible } = useScrollAnimation();
-  const { ref: chartsRef, isVisible: chartsVisible } = useScrollAnimation();
-  const { ref: chartContainerRef, isInViewport: chartsInView } = useInViewport();
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  // Enable automated failover testing for admin users
-  useAutomatedFailoverTesting(isAdmin);
-
-  // Count-up animations for key stats
-  const totalMessagesCount = useCountUp({ end: stats?.totalMessages || 0, duration: 2000 });
-  const totalChatsCount = useCountUp({ end: stats?.totalChats || 0, duration: 2000 });
-  const messagesThisMonthCount = useCountUp({ end: stats?.messagesThisMonth || 0, duration: 1500 });
-  const accountAgeDaysCount = useCountUp({ end: stats?.accountAgeDays || 0, duration: 1500 });
 
   useEffect(() => {
     if (!user) {
@@ -81,24 +62,7 @@ const Dashboard = () => {
       return;
     }
     loadStats();
-    checkAdminStatus();
-
-    // Manual refresh only - removed auto-refresh to prevent constant reloading
-    // Users can manually refresh using browser refresh or a refresh button
   }, [user]);
-
-  const checkAdminStatus = async () => {
-    if (!user) return;
-    
-    const { data } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'admin')
-      .single();
-
-    setIsAdmin(!!data);
-  };
 
   const handleManualRefresh = async () => {
     setRefreshing(true);
@@ -106,26 +70,7 @@ const Dashboard = () => {
     setRefreshing(false);
     toast({
       title: "Refreshed",
-      description: "Dashboard data updated successfully",
-    });
-  };
-
-  const handleExportPDF = () => {
-    if (!stats) return;
-
-    const dashboardStats = {
-      totalMessages: stats.totalMessages,
-      totalChats: stats.totalChats,
-      accountAge: stats.accountAgeDays,
-      creditsRemaining: profile?.credits_remaining || 0,
-      subscriptionType: profile?.subscription_type || 'free',
-    };
-
-    downloadDashboardPDF(dashboardStats, profile?.display_name || user?.email || 'User');
-    
-    toast({
-      title: "PDF Exported",
-      description: "Your dashboard report has been downloaded",
+      description: "Dashboard data updated",
     });
   };
 
@@ -136,149 +81,68 @@ const Dashboard = () => {
     setError(null);
 
     try {
-      console.log('📊 Starting dashboard data load for user:', user.id);
-      
-      const { data: statsData, error: statsError } = await supabase
-        .rpc('get_user_dashboard_stats', { p_user_id: user.id });
+      const now = new Date();
+      const todayStart = startOfDay(now).toISOString();
+      const weekStart = startOfWeek(now).toISOString();
+      const monthStart = startOfMonth(now).toISOString();
 
-      if (statsError) {
-        console.error('❌ Stats error:', statsError);
-        throw statsError;
-      }
+      // Fetch credit usage logs for analytics
+      const { data: creditLogs, error: creditError } = await supabase
+        .from('credit_usage_logs')
+        .select('model, credits_used, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1000);
 
-      // Get limited data for charts - only last 30 days
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      if (creditError) throw creditError;
 
-      const [messagesRes, profileRes] = await Promise.allSettled([
-        supabase
-          .from('chat_messages')
-          .select('created_at, model, role')
-          .eq('user_id', user.id)
-          .gte('created_at', thirtyDaysAgo.toISOString())
-          .order('created_at', { ascending: false })
-          .limit(500),
-        supabase
-          .from('profiles')
-          .select('created_at')
-          .eq('id', user.id)
-          .single()
-      ]);
+      // Aggregate stats
+      const creditsByModel: Record<string, { credits: number; count: number }> = {};
+      let totalSpent = 0;
+      let creditsToday = 0;
+      let creditsThisWeek = 0;
+      let creditsThisMonth = 0;
 
-      const recentMessages = messagesRes.status === 'fulfilled' ? messagesRes.value.data || [] : [];
-      const profileData = profileRes.status === 'fulfilled' ? profileRes.value.data : null;
-
-      // Process daily usage
-      const last7Days = Array.from({ length: 7 }, (_, i) => {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        return date.toISOString().split('T')[0];
-      }).reverse();
-
-      const dailyUsage = last7Days.map(date => ({
-        date: format(new Date(date), 'MMM dd'),
-        messages: recentMessages.filter(m => 
-          m.created_at?.split('T')[0] === date
-        ).length
-      }));
-
-      // Process model usage
-      const modelCount: Record<string, number> = {};
-      recentMessages.forEach(msg => {
-        if (msg.role === 'assistant' && msg.model) {
-          modelCount[msg.model] = (modelCount[msg.model] || 0) + 1;
-        }
-      });
-
-      const modelUsage = Object.entries(modelCount).map(([model, count]) => ({
-        model: model.split('/').pop() || model,
-        count
-      }));
-
-      // Calculate response times per model per day
-      const responseTimesByModelAndDay: Record<string, Record<string, number[]>> = {};
-      recentMessages.forEach((msg, idx) => {
-        if (msg.role === 'assistant' && idx > 0 && msg.model) {
-          const prevMsg = recentMessages[idx - 1];
-          if (prevMsg.role === 'user') {
-            const timeDiff = new Date(msg.created_at!).getTime() - new Date(prevMsg.created_at!).getTime();
-            const responseTime = timeDiff / 1000;
-            const dateKey = msg.created_at!.split('T')[0];
-            const modelKey = msg.model.split('/').pop() || msg.model;
-            
-            if (!responseTimesByModelAndDay[dateKey]) {
-              responseTimesByModelAndDay[dateKey] = {};
-            }
-            if (!responseTimesByModelAndDay[dateKey][modelKey]) {
-              responseTimesByModelAndDay[dateKey][modelKey] = [];
-            }
-            responseTimesByModelAndDay[dateKey][modelKey].push(responseTime);
-          }
-        }
-      });
-
-      // Create response time chart data
-      const responseTimeData = last7Days.map(date => {
-        const dateFormatted = format(new Date(date), 'MMM dd');
-        const dayData: any = { date: dateFormatted };
+      (creditLogs || []).forEach(log => {
+        const model = log.model?.split('/').pop() || log.model || 'unknown';
+        const credits = log.credits_used || 1;
         
-        Object.keys(modelCount).forEach(fullModel => {
-          const model = fullModel.split('/').pop() || fullModel;
-          const times = responseTimesByModelAndDay[date]?.[model] || [];
-          if (times.length > 0) {
-            dayData[model] = parseFloat((times.reduce((a, b) => a + b, 0) / times.length).toFixed(2));
-          }
-        });
-        
-        return dayData;
-      });
-
-      // Calculate overall average response times
-      const responseTimes: number[] = [];
-      recentMessages.forEach((msg, idx) => {
-        if (msg.role === 'assistant' && idx > 0) {
-          const prevMsg = recentMessages[idx - 1];
-          if (prevMsg.role === 'user') {
-            const timeDiff = new Date(msg.created_at!).getTime() - new Date(prevMsg.created_at!).getTime();
-            responseTimes.push(timeDiff / 1000);
-          }
+        if (!creditsByModel[model]) {
+          creditsByModel[model] = { credits: 0, count: 0 };
         }
+        creditsByModel[model].credits += credits;
+        creditsByModel[model].count += 1;
+        totalSpent += credits;
+
+        // Time-based aggregation
+        const logDate = new Date(log.created_at);
+        if (logDate >= new Date(todayStart)) creditsToday += credits;
+        if (logDate >= new Date(weekStart)) creditsThisWeek += credits;
+        if (logDate >= new Date(monthStart)) creditsThisMonth += credits;
       });
 
-      const avgResponseTime = responseTimes.length > 0 
-        ? (responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length).toFixed(2) 
-        : '0';
+      const creditsByModelArray = Object.entries(creditsByModel)
+        .map(([model, data]) => ({ model, ...data }))
+        .sort((a, b) => b.credits - a.credits);
 
-      const accountAgeDays = profileData?.created_at 
-        ? differenceInDays(new Date(), new Date(profileData.created_at))
-        : 0;
+      const mostUsedModels = Object.entries(creditsByModel)
+        .map(([model, data]) => ({ model, count: data.count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
 
       setStats({
-        totalMessages: (statsData as any)?.total_messages || 0,
-        totalChats: (statsData as any)?.total_chats || 0,
-        messagesThisMonth: (statsData as any)?.messages_this_month || 0,
-        chatsThisMonth: 0,
-        favoriteModel: (statsData as any)?.favorite_model || null,
-        accountAgeDays,
-        dailyUsage,
-        modelUsage,
-        creditsUsedToday: 0,
-        creditsUsedThisWeek: 0,
-        creditsUsedThisMonth: (statsData as any)?.messages_this_month || 0,
-        avgModelUse: 0,
-        avgResponseTime: `${avgResponseTime}s`,
-        responseTimeData
+        creditsRemaining: profile?.credits_remaining || 0,
+        totalCreditsSpent: totalSpent,
+        creditsByModel: creditsByModelArray,
+        mostUsedModels,
+        creditsToday,
+        creditsThisWeek,
+        creditsThisMonth,
       });
 
     } catch (error: any) {
-      console.error('❌ Dashboard error:', error);
-      setError(error.message || 'Failed to load dashboard data');
-      
-      toast({
-        title: "Loading Error",
-        description: error.message || "Please try refreshing the page",
-        variant: "destructive",
-      });
+      console.error('Dashboard error:', error);
+      setError(error.message || 'Failed to load dashboard');
     } finally {
       setLoading(false);
     }
@@ -289,44 +153,34 @@ const Dashboard = () => {
       return <Badge className="bg-gradient-to-r from-amber-500 to-amber-600"><Crown className="w-3 h-3 mr-1" />Lifetime Pro</Badge>;
     } else if (profile?.subscription_type === 'monthly') {
       return <Badge className="bg-purple-600 text-white"><Zap className="w-3 h-3 mr-1" />Yearly Pro</Badge>;
-    } else {
-      return <Badge variant="outline">Free Plan</Badge>;
     }
+    return <Badge variant="outline">Free Plan</Badge>;
   };
 
   const getCreditsDisplay = () => {
-    if (profile?.subscription_type === 'lifetime') {
-      return "Unlimited";
-    } else if (profile?.subscription_type === 'monthly') {
+    if (profile?.subscription_type === 'lifetime') return "Unlimited";
+    if (profile?.subscription_type === 'monthly') {
       const used = profile?.monthly_credits_used || 0;
-      const total = 500;
-      return `${total - used}/${total} daily messages`;
-    } else {
-      return `${profile?.credits_remaining || 0} / 5 daily`;
+      return `${500 - used} / 500 daily`;
     }
+    return `${profile?.credits_remaining || 0} / 5 daily`;
   };
 
   const getCreditsProgress = () => {
-    if (profile?.subscription_type === 'lifetime') {
-      return 100;
-    } else if (profile?.subscription_type === 'monthly') {
+    if (profile?.subscription_type === 'lifetime') return 100;
+    if (profile?.subscription_type === 'monthly') {
       const used = profile?.monthly_credits_used || 0;
-      const total = 500;
-      return ((total - used) / total) * 100;
-    } else {
-      return ((profile?.credits_remaining || 0) / 10) * 100;
+      return ((500 - used) / 500) * 100;
     }
+    return ((profile?.credits_remaining || 0) / 5) * 100;
   };
 
   const isFreeUser = profile?.subscription_type === 'free';
   const isYearlyUser = profile?.subscription_type === 'monthly';
   
-  // Calculate days until renewal for yearly users
   const daysUntilRenewal = isYearlyUser && profile?.subscription_expires_at
     ? differenceInDays(new Date(profile.subscription_expires_at), new Date())
     : null;
-
-  const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--muted))'];
 
   if (loading) {
     return (
@@ -335,9 +189,7 @@ const Dashboard = () => {
         <ScrollProgressIndicator />
         <div className="container mx-auto px-4 pt-24">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {[...Array(4)].map((_, i) => (
-              <StatCardSkeleton key={i} />
-            ))}
+            {[...Array(4)].map((_, i) => <StatCardSkeleton key={i} />)}
           </div>
         </div>
       </div>
@@ -350,7 +202,6 @@ const Dashboard = () => {
         <Navbar />
         <div className="container mx-auto px-4 pt-24">
           <Alert variant="destructive" className="mb-6">
-            <AlertTriangle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
           <Button onClick={handleManualRefresh} disabled={refreshing}>
@@ -367,364 +218,279 @@ const Dashboard = () => {
       <Navbar />
       <ScrollProgressIndicator />
       <div className="container mx-auto px-4 pt-24 pb-12">
+        {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold gradient-text mb-2">Dashboard</h1>
-            <p className="text-muted-foreground">Welcome back, {profile?.display_name || profile?.username || 'User'}!</p>
+            <p className="text-muted-foreground">Welcome back, {profile?.display_name || 'User'}!</p>
           </div>
-          <Button 
-            onClick={handleManualRefresh} 
-            disabled={refreshing}
-            variant="outline"
-            size="sm"
-            className="gap-2"
-          >
+          <Button onClick={handleManualRefresh} disabled={refreshing} variant="outline" size="sm" className="gap-2">
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
 
-        {/* Renewal Reminder for Yearly Users */}
+        {/* Subscription Renewal Alert */}
         {isYearlyUser && daysUntilRenewal !== null && daysUntilRenewal <= 7 && (
           <Alert className={`mb-6 ${daysUntilRenewal <= 3 ? 'border-destructive' : 'border-yellow-500'}`}>
-            <AlertTriangle className={`h-4 w-4 ${daysUntilRenewal <= 3 ? 'text-destructive' : 'text-yellow-500'}`} />
             <AlertDescription>
-              {daysUntilRenewal <= 0 ? (
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Your subscription has expired!</span>
-                  <Link to="/payment">
-                    <Button size="sm" variant="destructive">Renew Now</Button>
-                  </Link>
-                </div>
-              ) : daysUntilRenewal <= 3 ? (
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Urgent: Your subscription expires in {daysUntilRenewal} {daysUntilRenewal === 1 ? 'day' : 'days'}!</span>
-                  <Link to="/payment">
-                    <Button size="sm" variant="destructive">Renew Now</Button>
-                  </Link>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <span>Your subscription renews in {daysUntilRenewal} days</span>
-                  <Link to="/payment">
-                    <Button size="sm" variant="outline">Renew Early</Button>
-                  </Link>
-                </div>
-              )}
+              <div className="flex items-center justify-between">
+                <span className="font-medium">
+                  {daysUntilRenewal <= 0 
+                    ? 'Your subscription has expired!' 
+                    : `Subscription expires in ${daysUntilRenewal} days`}
+                </span>
+                <Link to="/payment">
+                  <Button size="sm" variant={daysUntilRenewal <= 3 ? "destructive" : "outline"}>
+                    Renew Now
+                  </Button>
+                </Link>
+              </div>
             </AlertDescription>
           </Alert>
         )}
 
-        {/* Current Plan */}
-        <Card className="glass-card mb-6">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  Current Plan
-                  {getPlanBadge()}
-                </CardTitle>
-                <CardDescription className="mt-2">
-                  {profile?.subscription_type === 'lifetime' && 'You have unlimited access to all features forever!'}
-                  {profile?.subscription_type === 'monthly' && `Your subscription renews on ${profile?.subscription_expires_at ? format(new Date(profile.subscription_expires_at), 'MMM dd, yyyy') : 'N/A'}`}
-                  {profile?.subscription_type === 'free' && 'Upgrade to Pro for unlimited access to all AI models and features'}
-                </CardDescription>
-              </div>
-              {isFreeUser && (
-                <Link to="/payment">
-                  <Button className="neon-glow">
-                    <Zap className="w-4 h-4 mr-2" />
-                    Upgrade to Pro
-                  </Button>
-                </Link>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Credits Remaining</span>
-                  <span className="text-sm text-muted-foreground">{getCreditsDisplay()}</span>
-                </div>
-                <Progress value={getCreditsProgress()} className="h-2" />
-              </div>
-              {profile?.subscription_type === 'free' && (
-                <p className="text-xs text-muted-foreground">
-                  Free users get 5 messages per day. Credits reset daily at midnight.
-                </p>
-              )}
-              {profile?.subscription_type === 'monthly' && (
-                <p className="text-xs text-muted-foreground">
-                  Yearly Pro users get 500 messages per day. Credits reset daily at midnight.
-                </p>
-              )}
-              {profile?.subscription_type === 'lifetime' && (
-                <p className="text-xs text-muted-foreground">
-                  Lifetime Pro members enjoy unlimited messages forever!
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Usage Statistics */}
-        <div 
-          ref={statsRef} 
-          className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6 animate-on-scroll fade-in-up ${statsVisible ? 'is-visible' : ''}`}
-        >
-          <Card className="glass-card stagger-item card-hover-effect" style={{ animationDelay: '0.0s' }}>
+        {/* Credits Overview Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Credits Remaining */}
+          <Card className="glass-card border-primary/20">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Messages</CardTitle>
-              <MessageSquare className="h-4 w-4 text-primary" />
+              <CardTitle className="text-sm font-medium">Credits Remaining</CardTitle>
+              <Coins className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
-              <div ref={totalMessagesCount.ref} className="text-2xl font-bold glow-effect">
-                {statsVisible ? totalMessagesCount.count : 0}
+              <div className="text-3xl font-bold text-primary">{getCreditsDisplay()}</div>
+              <Progress value={getCreditsProgress()} className="mt-3 h-2" />
+              <div className="flex items-center justify-between mt-2">
+                {getPlanBadge()}
+                {isFreeUser && (
+                  <Link to="/payment">
+                    <Button size="sm" variant="ghost" className="text-xs">Upgrade</Button>
+                  </Link>
+                )}
               </div>
-              <p className="text-xs text-muted-foreground">
-                {stats?.messagesThisMonth} this month
+            </CardContent>
+          </Card>
+
+          {/* Total Credits Spent */}
+          <Card className="glass-card">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Credits Used</CardTitle>
+              <Activity className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{stats?.totalCreditsSpent || 0}</div>
+              <p className="text-xs text-muted-foreground mt-1">All time usage</p>
+            </CardContent>
+          </Card>
+
+          {/* Credits This Month */}
+          <Card className="glass-card">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">This Month</CardTitle>
+              <TrendingUp className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{stats?.creditsThisMonth || 0}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Today: {stats?.creditsToday || 0} • Week: {stats?.creditsThisWeek || 0}
               </p>
             </CardContent>
           </Card>
 
-          <Card className="glass-card stagger-item card-hover-effect" style={{ animationDelay: '0.1s' }}>
+          {/* Models Used */}
+          <Card className="glass-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Chat Sessions</CardTitle>
-              <History className="h-4 w-4 text-primary" />
+              <CardTitle className="text-sm font-medium">Models Used</CardTitle>
+              <BarChart3 className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div ref={totalChatsCount.ref} className="text-2xl font-bold glow-effect">
-                {statsVisible ? totalChatsCount.count : 0}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {stats?.chatsThisMonth} this month
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card stagger-item card-hover-effect" style={{ animationDelay: '0.2s' }}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Favorite Model</CardTitle>
-              <TrendingUp className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold glow-effect">{stats?.favoriteModel || 'N/A'}</div>
-              <p className="text-xs text-muted-foreground">Most used AI model</p>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card stagger-item card-hover-effect" style={{ animationDelay: '0.3s' }}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Account Age</CardTitle>
-              <Calendar className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div ref={accountAgeDaysCount.ref} className="text-2xl font-bold glow-effect">
-                {statsVisible ? accountAgeDaysCount.count : 0}
-              </div>
-              <p className="text-xs text-muted-foreground">Days since signup</p>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card stagger-item card-hover-effect" style={{ animationDelay: '0.4s' }}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Avg Model Use</CardTitle>
-              <BarChart3 className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold glow-effect">
-                {stats?.avgModelUse?.toFixed(2) || '0.00'}
-              </div>
-              <p className="text-xs text-muted-foreground">Models per day</p>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card stagger-item card-hover-effect" style={{ animationDelay: '0.5s' }}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Avg Response Time</CardTitle>
-              <Zap className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold glow-effect">
-                {stats?.avgResponseTime || '0s'}
-              </div>
-              <p className="text-xs text-muted-foreground">AI response speed</p>
+              <div className="text-3xl font-bold">{stats?.creditsByModel?.length || 0}</div>
+              <p className="text-xs text-muted-foreground mt-1">Different AI models</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Credit Usage Analytics & Model Usage Charts */}
-        <div 
-          ref={chartsRef}
-          className={`grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 animate-on-scroll scale-in ${chartsVisible ? 'is-visible' : ''}`}
-        >
-          <Card className="glass-card stagger-item" style={{ animationDelay: '0.4s' }}>
-            <CardHeader>
-              <CardTitle>Daily Message Activity (Last 30 Days)</CardTitle>
-              <CardDescription>Track your messaging patterns</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={stats?.dailyUsage || []}>
-                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
-                  <YAxis stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--background))', 
-                      border: '1px solid hsl(var(--border))' 
-                    }} 
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="messages" 
-                    stroke="hsl(var(--primary))" 
-                    strokeWidth={2}
-                    dot={{ fill: 'hsl(var(--primary))' }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card stagger-item" style={{ animationDelay: '0.5s' }}>
-            <CardHeader>
-              <CardTitle>Model Usage Distribution</CardTitle>
-              <CardDescription>Your favorite AI models</CardDescription>
-            </CardHeader>
-            <CardContent className="flex justify-center">
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={stats?.modelUsage || []}
-                    dataKey="count"
-                    nameKey="model"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    label
-                  >
-                    {(stats?.modelUsage || []).map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--background))', 
-                      border: '1px solid hsl(var(--border))' 
-                    }} 
-                  />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Response Time Analytics */}
-        {stats && stats.responseTimeData && stats.responseTimeData.length > 0 && stats.modelUsage.length > 0 && (
-          <div className="mb-6">
-            <ChartErrorBoundary>
-              <LazyResponseTimeChart
-                data={stats.responseTimeData} 
-                models={stats.modelUsage.map(m => m.model)}
-              />
-            </ChartErrorBoundary>
-          </div>
-        )}
-
-        {/* Credit Usage Stats */}
-        {profile?.subscription_type !== 'lifetime' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <Card className="glass-card">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Credits Used Today</CardTitle>
-                <Zap className="h-4 w-4 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats?.creditsUsedToday || 0}</div>
-                <p className="text-xs text-muted-foreground">
-                  {isYearlyUser ? 'Out of 500 daily' : 'Out of 5 daily'}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="glass-card">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Credits This Week</CardTitle>
-                <TrendingUp className="h-4 w-4 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats?.creditsUsedThisWeek || 0}</div>
-                <p className="text-xs text-muted-foreground">Last 7 days</p>
-              </CardContent>
-            </Card>
-
-            <Card className="glass-card">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Credits This Month</CardTitle>
-                <Calendar className="h-4 w-4 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats?.creditsUsedThisMonth || 0}</div>
-                <p className="text-xs text-muted-foreground">Current month</p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Features Access */}
-        {isFreeUser && (
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Credits by Model - Donut Chart */}
           <Card className="glass-card">
             <CardHeader>
-              <CardTitle>Upgrade to Unlock All Features</CardTitle>
-              <CardDescription>See what you're missing with a Pro subscription</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <PieChartIcon className="h-5 w-5" />
+                Credits by Model
+              </CardTitle>
+              <CardDescription>Distribution of credit usage across AI models</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-muted-foreground" />
-                    <span>Access to all AI models (Gemini Flash, Perplexity, Claude)</span>
-                  </div>
-                  <Badge variant="outline" className="text-muted-foreground">Pro Only</Badge>
+              {stats?.creditsByModel && stats.creditsByModel.length > 0 ? (
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie
+                      data={stats.creditsByModel.slice(0, 7)}
+                      dataKey="credits"
+                      nameKey="model"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={2}
+                      label={({ model, percent }) => 
+                        percent > 0.05 ? `${model} (${(percent * 100).toFixed(0)}%)` : ''
+                      }
+                      labelLine={false}
+                    >
+                      {stats.creditsByModel.slice(0, 7).map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--background))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                      formatter={(value: number) => [`${value} credits`, 'Usage']}
+                    />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[280px] text-muted-foreground">
+                  <p>No usage data yet. Start chatting to see analytics!</p>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="w-5 h-5 text-muted-foreground" />
-                    <span>Unlimited messages per day</span>
-                  </div>
-                  <Badge variant="outline" className="text-muted-foreground">Pro Only</Badge>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Most Used Models - Bar Chart */}
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Most Used Models
+              </CardTitle>
+              <CardDescription>Number of requests per AI model</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {stats?.mostUsedModels && stats.mostUsedModels.length > 0 ? (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={stats.mostUsedModels} layout="vertical" margin={{ left: 80 }}>
+                    <XAxis type="number" stroke="hsl(var(--muted-foreground))" />
+                    <YAxis 
+                      type="category" 
+                      dataKey="model" 
+                      stroke="hsl(var(--muted-foreground))"
+                      tick={{ fontSize: 12 }}
+                      width={80}
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--background))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                      formatter={(value: number) => [`${value} requests`, 'Count']}
+                    />
+                    <Bar 
+                      dataKey="count" 
+                      fill="hsl(var(--primary))" 
+                      radius={[0, 4, 4, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[280px] text-muted-foreground">
+                  <p>No usage data yet. Start chatting to see analytics!</p>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-muted-foreground" />
-                    <span>Unlimited deep research queries</span>
-                  </div>
-                  <Badge variant="outline" className="text-muted-foreground">Pro Only</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Crown className="w-5 h-5 text-muted-foreground" />
-                    <span>Priority support</span>
-                  </div>
-                  <Badge variant="outline" className="text-muted-foreground">Pro Only</Badge>
-                </div>
-                <Link to="/payment" className="block">
-                  <Button className="w-full neon-glow mt-4">
-                    <Zap className="w-4 h-4 mr-2" />
-                    Upgrade Now
-                  </Button>
-                </Link>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Detailed Usage Table */}
+        {stats?.creditsByModel && stats.creditsByModel.length > 0 && (
+          <Card className="glass-card mb-8">
+            <CardHeader>
+              <CardTitle>Detailed Usage Breakdown</CardTitle>
+              <CardDescription>Credits and requests per model</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-4 font-medium">Model</th>
+                      <th className="text-right py-3 px-4 font-medium">Credits Used</th>
+                      <th className="text-right py-3 px-4 font-medium">Requests</th>
+                      <th className="text-right py-3 px-4 font-medium">Avg Credits/Request</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.creditsByModel.map((item, idx) => (
+                      <tr key={item.model} className="border-b border-border/50 hover:bg-muted/20">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}
+                            />
+                            {item.model}
+                          </div>
+                        </td>
+                        <td className="text-right py-3 px-4 font-medium">{item.credits}</td>
+                        <td className="text-right py-3 px-4 text-muted-foreground">{item.count}</td>
+                        <td className="text-right py-3 px-4 text-muted-foreground">
+                          {(item.credits / item.count).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Upgrade CTA for Free Users */}
+        {isFreeUser && (
+          <Card className="glass-card mb-8 border-primary/30">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Crown className="h-5 w-5 text-primary" />
+                Upgrade to Pro
+              </CardTitle>
+              <CardDescription>Unlock unlimited access to all AI models</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="flex items-center gap-2 text-sm">
+                  <Zap className="h-4 w-4 text-primary" />
+                  <span>Unlimited messages</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <MessageSquare className="h-4 w-4 text-primary" />
+                  <span>All AI models access</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Activity className="h-4 w-4 text-primary" />
+                  <span>Priority support</span>
+                </div>
+              </div>
+              <Link to="/payment">
+                <Button className="w-full neon-glow">
+                  <Zap className="w-4 h-4 mr-2" />
+                  Upgrade Now
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         )}
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Link to="/chat">
-            <Card className="glass-card hover:border-primary/50 transition-all cursor-pointer">
+            <Card className="glass-card hover:border-primary/50 transition-all cursor-pointer h-full">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MessageSquare className="w-5 h-5" />
@@ -736,7 +502,7 @@ const Dashboard = () => {
           </Link>
 
           <Link to="/history">
-            <Card className="glass-card hover:border-primary/50 transition-all cursor-pointer">
+            <Card className="glass-card hover:border-primary/50 transition-all cursor-pointer h-full">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <History className="w-5 h-5" />
@@ -748,7 +514,7 @@ const Dashboard = () => {
           </Link>
 
           <Link to="/profile">
-            <Card className="glass-card hover:border-primary/50 transition-all cursor-pointer">
+            <Card className="glass-card hover:border-primary/50 transition-all cursor-pointer h-full">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Crown className="w-5 h-5" />
