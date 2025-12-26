@@ -51,7 +51,7 @@ export class StreamingClient {
         throw new Error('Not authenticated');
       }
 
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/lovable-ai-chat`;
+      const url = `https://pqdgpxetysqcdcjwormb.supabase.co/functions/v1/lovable-ai-chat`;
       console.log('🔌 Connecting to:', url);
       console.log('📤 Streaming request for model:', selectedModel);
 
@@ -100,63 +100,50 @@ export class StreamingClient {
       let buffer = '';
       let fullContent = '';
 
+      const processLine = (line: string) => {
+        const trimmedLine = line.trim();
+        if (!trimmedLine || trimmedLine.startsWith(':')) return;
+        if (!trimmedLine.startsWith('data:')) return;
+
+        const dataStr = trimmedLine.substring(5).trim();
+        if (!dataStr || dataStr === '[DONE]') return;
+
+        try {
+          const data = JSON.parse(dataStr);
+          const content = data.choices?.[0]?.delta?.content;
+          if (content) {
+            fullContent += content;
+            onToken(selectedModel, content, fullContent);
+          }
+        } catch {
+          // JSON may be split across chunks; re-buffer and wait for more data
+          buffer = `${line}\n${buffer}`;
+        }
+      };
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
 
-        for (const line of lines) {
-          const trimmedLine = line.trim();
-          
-          // Skip empty lines and SSE comments
-          if (!trimmedLine || trimmedLine.startsWith(':')) continue;
+        let newlineIndex: number;
+        while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+          let line = buffer.slice(0, newlineIndex);
+          buffer = buffer.slice(newlineIndex + 1);
+          if (line.endsWith('\r')) line = line.slice(0, -1);
+          processLine(line);
 
-          if (trimmedLine.startsWith('data:')) {
-            const dataStr = trimmedLine.substring(5).trim();
-            
-            if (dataStr === '[DONE]') {
-              console.log('✅ Stream complete');
-              continue;
-            }
-
-            try {
-              const data = JSON.parse(dataStr);
-              
-              // Handle OpenAI-compatible SSE format from Lovable AI Gateway
-              const content = data.choices?.[0]?.delta?.content;
-              
-              if (content) {
-                fullContent += content;
-                onToken(selectedModel, content, fullContent);
-              }
-            } catch (e) {
-              // Incomplete JSON - put back in buffer
-              if (dataStr && !dataStr.startsWith('{')) continue;
-              console.warn('⚠️ SSE parse issue, continuing...');
-            }
-          }
+          // If processLine re-buffered due to partial JSON, break to await more bytes
+          if (buffer.startsWith('data:') && buffer.includes('{') && !buffer.includes('\n')) break;
         }
       }
 
-      // Process any remaining buffer
+      // Final flush
       if (buffer.trim()) {
-        const lines = buffer.split('\n');
-        for (const line of lines) {
-          if (!line.startsWith('data:')) continue;
-          const dataStr = line.substring(5).trim();
-          if (dataStr === '[DONE]' || !dataStr) continue;
-          
-          try {
-            const data = JSON.parse(dataStr);
-            const content = data.choices?.[0]?.delta?.content;
-            if (content) {
-              fullContent += content;
-              onToken(selectedModel, content, fullContent);
-            }
-          } catch { /* ignore final parse errors */ }
+        for (const raw of buffer.split('\n')) {
+          if (!raw) continue;
+          processLine(raw);
         }
       }
       

@@ -493,20 +493,73 @@ const Chat = () => {
 
   const handleSaveEdit = async (messageId: string) => {
     if (!editText.trim()) return;
-    
-    const messageIndex = messages.findIndex(m => m.id === messageId);
+
+    const messageIndex = messages.findIndex((m) => m.id === messageId);
     if (messageIndex === -1) return;
-    
-    // Remove all messages after and including this one
-    const updatedMessages = messages.slice(0, messageIndex);
-    setMessages(updatedMessages);
-    
+
+    const edited = messages[messageIndex];
+    if (edited.role !== 'user') return;
+
+    // Keep chat history up to (and including) the edited message, and replace its content.
+    const updatedHistory: Message[] = [
+      ...messages.slice(0, messageIndex),
+      { ...edited, content: editText, timestamp: new Date() },
+    ];
+
+    setMessages(updatedHistory);
     setEditingMessageId(null);
-    setEditText("");
-    
-    // Send the edited message
-    setInput(editText);
-    setTimeout(() => handleSend(), 100);
+    setEditText('');
+
+    // Regenerate the assistant reply using the updated history (ChatGPT-like behavior)
+    setLoading(true);
+
+    try {
+      const modelsToUse = sanitizeModelIds(selectedModels);
+      const modelToUse = modelsToUse[0] || 'lovable-gemini-flash';
+
+      const messagesForApi = updatedHistory.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const { data, error } = await supabase.functions.invoke('chat-with-ai', {
+        body: {
+          messages: messagesForApi,
+          selectedModels: [modelToUse],
+          chatId,
+          attachmentUrl: edited.attachmentUrl,
+        },
+      });
+
+      if (error) throw error;
+
+      const responseText = data?.responses?.[0]?.response;
+      if (typeof responseText !== 'string') {
+        throw new Error('No response received');
+      }
+
+      const newResponse: Message = {
+        id: `${Date.now()}-${modelToUse}`,
+        role: 'assistant',
+        content: responseText,
+        model: modelToUse,
+        timestamp: new Date(),
+        userMessageId: edited.id,
+      };
+
+      setMessages((prev) => [...prev, newResponse]);
+      sonnerToast.success('Regenerated');
+      await refreshProfile();
+    } catch (e: any) {
+      console.error('Save & regenerate error:', e);
+      toast({
+        title: 'Error',
+        description: e?.message || 'Failed to regenerate',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -1172,9 +1225,10 @@ const Chat = () => {
 
       try {
       // Build messages up to the user message that triggered this response
+      const userIndex = messages.findIndex((m) => m.id === userMsg.id);
       const messagesUpToUser = messages
-        .filter(m => m.timestamp <= userMsg.timestamp)
-        .map(m => ({
+        .slice(0, userIndex + 1)
+        .map((m) => ({
           role: m.role,
           content: m.content,
         }));

@@ -649,11 +649,11 @@ serve(async (req) => {
       }
     }
 
-    // Add timeout wrapper for each model request (60 seconds per model)
+    // Add timeout wrapper for each model request (120 seconds per model)
     const timeoutPromise = (promise: Promise<any>, timeout: number, modelId: string) => {
       return Promise.race([
         promise,
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error(`${modelId} request timeout after ${timeout}ms`)), timeout)
         )
       ]);
