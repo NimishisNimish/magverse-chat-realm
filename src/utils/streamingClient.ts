@@ -11,17 +11,31 @@ export interface StreamEvent {
   };
 }
 
+// Endpoint routing by model type
+const getEndpoint = (modelId: string): { endpoint: string; timeout: number } => {
+  // Fast models -> fast-chat endpoint (5s first token deadline)
+  if (modelId.includes('flash') || modelId.includes('mini') || modelId.includes('nano')) {
+    return { endpoint: 'ai-fast-chat', timeout: 30000 };
+  }
+  // Reasoning/Pro models -> reasoning endpoint (30s first token deadline)
+  if (modelId.includes('pro') || modelId.includes('reasoning') || modelId.includes('gpt5')) {
+    return { endpoint: 'ai-reasoning', timeout: 120000 };
+  }
+  // Default to fast-chat
+  return { endpoint: 'ai-fast-chat', timeout: 30000 };
+};
+
 // Model mapping for Lovable AI Gateway
 const getLovableModelName = (modelId: string): string => {
   const mapping: Record<string, string> = {
-    'lovable-gemini-flash': 'google/gemini-2.5-flash',
-    'lovable-gemini-pro': 'google/gemini-2.5-pro',
-    'lovable-gpt5': 'openai/gpt-5',
-    'lovable-gpt5-mini': 'openai/gpt-5-mini',
-    'lovable-gemini-flash-image': 'google/gemini-2.5-flash-image-preview',
-    'lovable-gpt5-image': 'google/gemini-2.5-flash-image-preview',
+    'lovable-gemini-flash': 'gemini-flash',
+    'lovable-gemini-pro': 'gemini-pro',
+    'lovable-gpt5': 'gpt5',
+    'lovable-gpt5-mini': 'gpt5-mini',
+    'lovable-gemini-flash-image': 'gemini-flash',
+    'lovable-gpt5-image': 'gemini-flash',
   };
-  return mapping[modelId] || 'google/gemini-2.5-flash';
+  return mapping[modelId] || 'gemini-flash';
 };
 
 // Fallback models for when primary model times out
@@ -31,24 +45,38 @@ const FALLBACK_MODELS: Record<string, string> = {
   'lovable-gpt5-mini': 'lovable-gemini-flash',
 };
 
+export interface StreamMetrics {
+  requestStart: number;
+  ttft: number | null;
+  totalTime: number | null;
+}
+
 export class StreamingClient {
   private abortController: AbortController | null = null;
   private firstTokenReceived = false;
+  private metrics: StreamMetrics = { requestStart: 0, ttft: null, totalTime: null };
+
+  getMetrics(): StreamMetrics {
+    return { ...this.metrics };
+  }
 
   async startStream(
     messages: any[],
     selectedModel: string,
     chatId: string | undefined,
-    onToken: (model: string, token: string, fullContent: string) => void,
-    onDone: (model: string, messageId: string) => void,
+    onToken: (model: string, token: string, fullContent: string, ttft: number | null) => void,
+    onDone: (model: string, messageId: string, metrics: StreamMetrics) => void,
     onError: (model: string, error: string) => void,
     retryWithFallback = true
   ): Promise<void> {
-    const MAX_TIMEOUT = 120000; // 2 minutes max
-    const FIRST_TOKEN_TIMEOUT = 30000; // 30 seconds to first token
+    const { endpoint, timeout } = getEndpoint(selectedModel);
+    const FIRST_TOKEN_TIMEOUT = Math.min(timeout, 30000); // Max 30s for first token
     
     this.abortController = new AbortController();
     this.firstTokenReceived = false;
+    this.metrics = { requestStart: Date.now(), ttft: null, totalTime: null };
+    
+    console.log(`🚀 [StreamingClient] Starting stream via ${endpoint} for ${selectedModel}`);
     
     // First token timeout - critical for detecting stuck requests
     const firstTokenTimeoutId = setTimeout(() => {
@@ -60,7 +88,6 @@ export class StreamingClient {
         const fallbackModel = FALLBACK_MODELS[selectedModel];
         if (fallbackModel && retryWithFallback) {
           console.log(`🔄 Retrying with fallback model: ${fallbackModel}`);
-          // Don't call onError yet - try the fallback
           this.startStream(messages, fallbackModel, chatId, onToken, onDone, onError, false);
           return;
         }
@@ -71,10 +98,10 @@ export class StreamingClient {
     
     // Overall timeout
     const overallTimeoutId = setTimeout(() => {
-      console.warn(`⏰ [StreamingClient] Request timeout after ${MAX_TIMEOUT}ms`);
+      console.warn(`⏰ [StreamingClient] Request timeout after ${timeout}ms`);
       this.abortController?.abort();
       onError(selectedModel, '⏱️ Response timed out. Try again or use a different model.');
-    }, MAX_TIMEOUT);
+    }, timeout);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -84,14 +111,12 @@ export class StreamingClient {
         throw new Error('Not authenticated');
       }
 
-      const url = `https://pqdgpxetysqcdcjwormb.supabase.co/functions/v1/lovable-ai-chat`;
+      const url = `https://pqdgpxetysqcdcjwormb.supabase.co/functions/v1/${endpoint}`;
       console.log('🔌 Connecting to:', url);
-      console.log('📤 Streaming request for model:', selectedModel);
 
       const requestBody = {
         messages,
         model: getLovableModelName(selectedModel),
-        stream: true,
       };
 
       const response = await fetch(url, {
@@ -113,30 +138,38 @@ export class StreamingClient {
         const errorText = await response.text();
         console.error('❌ Stream failed:', response.status, errorText);
         
-        // Track API errors
-        if (typeof window !== 'undefined' && (window as any).__trackApiError) {
-          (window as any).__trackApiError(response.status, selectedModel, errorText);
+        // Try to parse error message
+        let errorMessage = 'Request failed';
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.error || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
         }
         
         if (response.status === 429) {
-          throw new Error('⚠️ Rate limit exceeded. Please wait a moment and try again.');
+          throw new Error('⚠️ Rate limit exceeded. Please wait and try again.');
         } else if (response.status === 402) {
-          throw new Error('💳 Payment required. Please add credits to continue.');
-        } else if (response.status === 503) {
-          throw new Error('⏳ Service temporarily unavailable. Please try again.');
+          throw new Error('💳 Credits exhausted. Please add credits to continue.');
+        } else if (response.status === 504) {
+          // Gateway timeout - try fallback
+          const fallbackModel = FALLBACK_MODELS[selectedModel];
+          if (fallbackModel && retryWithFallback) {
+            console.log(`🔄 Timeout, retrying with fallback: ${fallbackModel}`);
+            return this.startStream(messages, fallbackModel, chatId, onToken, onDone, onError, false);
+          }
+          throw new Error('⏱️ Request timed out. Try a faster model.');
         } else if (response.status === 500) {
-          // Try fallback on server error
+          // Server error - try fallback
           const fallbackModel = FALLBACK_MODELS[selectedModel];
           if (fallbackModel && retryWithFallback) {
             console.log(`🔄 Server error, retrying with fallback: ${fallbackModel}`);
             return this.startStream(messages, fallbackModel, chatId, onToken, onDone, onError, false);
           }
           throw new Error('⚠️ Server error. Please try a different model.');
-        } else if (response.status === 401 || response.status === 403) {
-          throw new Error('🔒 Authentication error. Please refresh the page.');
         }
         
-        throw new Error(`❌ Stream failed: ${response.status}`);
+        throw new Error(errorMessage);
       }
 
       const reader = response.body?.getReader();
@@ -166,12 +199,13 @@ export class StreamingClient {
             // Mark first token received - clear the first token timeout
             if (!this.firstTokenReceived) {
               this.firstTokenReceived = true;
+              this.metrics.ttft = Date.now() - this.metrics.requestStart;
               clearTimeout(firstTokenTimeoutId);
-              console.log(`⚡ First token received for ${selectedModel}`);
+              console.log(`⚡ First token received for ${selectedModel} in ${this.metrics.ttft}ms`);
             }
             
             fullContent += content;
-            onToken(selectedModel, content, fullContent);
+            onToken(selectedModel, content, fullContent, this.metrics.ttft);
           }
         } catch {
           // JSON may be split across chunks; re-buffer and wait for more data
@@ -208,6 +242,8 @@ export class StreamingClient {
       clearTimeout(firstTokenTimeoutId);
       clearTimeout(overallTimeoutId);
       
+      this.metrics.totalTime = Date.now() - this.metrics.requestStart;
+      
       // Check if we actually got content
       if (!fullContent.trim()) {
         console.warn('⚠️ Stream completed but no content received');
@@ -223,21 +259,14 @@ export class StreamingClient {
         return;
       }
       
-      // Signal completion
-      onDone(selectedModel, '');
+      console.log(`✅ Stream complete. TTFT: ${this.metrics.ttft}ms, Total: ${this.metrics.totalTime}ms`);
+      
+      // Signal completion with metrics
+      onDone(selectedModel, '', this.metrics);
       
     } catch (error: any) {
       clearTimeout(firstTokenTimeoutId);
       clearTimeout(overallTimeoutId);
-      
-      // Track API error for quota notifications
-      if (typeof window !== 'undefined' && (window as any).__trackApiError) {
-        const status = error.message.includes('429') ? 429 :
-                     error.message.includes('402') ? 402 :
-                     error.message.includes('503') ? 503 :
-                     error.message.includes('401') || error.message.includes('403') ? 401 : 500;
-        (window as any).__trackApiError(status, selectedModel, error.message);
-      }
       
       if (error.name === 'AbortError') {
         // Only show error if it wasn't a fallback retry

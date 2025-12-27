@@ -1,5 +1,17 @@
 project_id = "pqdgpxetysqcdcjwormb"
 
+[functions.ai-fast-chat]
+verify_jwt = true
+request_timeout = 30
+
+[functions.ai-reasoning]
+verify_jwt = true
+request_timeout = 120
+
+[functions.ai-docs]
+verify_jwt = true
+request_timeout = 120
+
 [functions.lovable-ai-chat]
 verify_jwt = true
 request_timeout = 300
