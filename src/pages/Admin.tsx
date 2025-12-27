@@ -341,7 +341,7 @@ const Admin = () => {
 
           {/* Main Admin Tabs */}
           <Tabs defaultValue="payments" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="payments" className="flex items-center gap-2">
                 <CreditCard className="w-4 h-4" />
                 Payment Verification
@@ -353,6 +353,10 @@ const Admin = () => {
               <TabsTrigger value="subscriptions" className="flex items-center gap-2">
                 <Users className="w-4 h-4" />
                 Users & Subscriptions
+              </TabsTrigger>
+              <TabsTrigger value="uncensored" className="flex items-center gap-2">
+                <Zap className="w-4 h-4" />
+                Test AI
               </TabsTrigger>
             </TabsList>
 
@@ -505,9 +509,10 @@ const Admin = () => {
 
             <TabsContent value="subscriptions">
               <AdminSubscriptionManager />
-              <div className="mt-6">
-                <AdminTestUncensoredAI />
-              </div>
+            </TabsContent>
+
+            <TabsContent value="uncensored">
+              <AdminTestUncensoredAI />
             </TabsContent>
           </Tabs>
         </div>

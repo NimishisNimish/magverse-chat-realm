@@ -577,6 +577,8 @@ const Chat = () => {
     setUploadStatus('uploading');
     
     const MAX_FILE_SIZE = 25 * 1024 * 1024;
+    const PDF_WARNING_SIZE = 10 * 1024 * 1024; // 10MB warning for PDFs
+    
     if (file.size > MAX_FILE_SIZE) {
       toast({
         title: "File too large",
@@ -586,6 +588,12 @@ const Chat = () => {
       setUploading(false);
       setUploadStatus('error');
       return;
+    }
+    
+    // Warn for large PDFs (over 10MB)
+    const isPdf = file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf';
+    if (isPdf && file.size > PDF_WARNING_SIZE) {
+      sonnerToast.warning(`⚠️ Large PDF (${(file.size / 1024 / 1024).toFixed(1)}MB). Processing may take longer.`);
     }
 
     try {
@@ -1462,15 +1470,29 @@ const Chat = () => {
 
   const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && file.type === 'application/pdf') {
-      setDocumentFile(file);
-    } else {
+    if (!file) return;
+    
+    if (file.type !== 'application/pdf') {
       toast({
         title: "Invalid file type",
         description: "Please upload a PDF file",
         variant: "destructive",
       });
+      return;
     }
+    
+    // PDF size limit warning (10MB)
+    const PDF_SIZE_LIMIT = 10 * 1024 * 1024; // 10MB
+    if (file.size > PDF_SIZE_LIMIT) {
+      toast({
+        title: "Large file warning",
+        description: `This PDF is ${(file.size / 1024 / 1024).toFixed(1)}MB. Files over 10MB may take longer to process or fail. Consider using a smaller file.`,
+        variant: "destructive",
+      });
+      // Still allow the upload, just warn the user
+    }
+    
+    setDocumentFile(file);
   };
 
   const handleAnalyzeDocument = async () => {
@@ -2116,9 +2138,9 @@ const Chat = () => {
             </div>
           )}
 
-          {/* Fixed Input Area at Bottom */}
-          <div className="border-t border-border/40 bg-background">
-            <div className="px-6 py-3">
+          {/* Fixed Input Area at Bottom - Mobile Optimized */}
+          <div className="border-t border-border/40 bg-background sticky bottom-0 z-10 safe-area-inset-bottom">
+            <div className="px-3 sm:px-6 py-2 sm:py-3">
               {/* Enhanced File Preview */}
               {(attachmentUrl || pendingFile) && (
                 <div className="mb-3">
@@ -2181,8 +2203,8 @@ const Chat = () => {
                 </div>
               )}
 
-              {/* Main Input Row */}
-              <div className="flex items-center gap-2">
+              {/* Main Input Row - Mobile Optimized */}
+              <div className="flex items-center gap-1 sm:gap-2">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -2197,29 +2219,29 @@ const Chat = () => {
                   size="icon"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading || loading}
-                  className="shrink-0 rounded-full h-10 w-10"
+                  className="shrink-0 rounded-full h-9 w-9 sm:h-10 sm:w-10"
                   title="Add files"
                 >
                 {uploading ? (
-                  <Plus className="h-5 w-5" />
+                  <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
                 ) : (
-                  <Plus className="h-5 w-5" />
+                  <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
                 )}
                 </Button>
 
-                {/* Tools Dropdown */}
+                {/* Tools Dropdown - Mobile Optimized */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button 
                       variant="ghost" 
                       size="sm"
-                      className="gap-2 h-10 px-3 rounded-full"
+                      className="gap-1 sm:gap-2 h-9 sm:h-10 px-2 sm:px-3 rounded-full"
                     >
                       <Wrench className="h-4 w-4" />
-                      <span className="text-sm">Tools</span>
+                      <span className="text-xs sm:text-sm hidden sm:inline">Tools</span>
                     </Button>
                   </DropdownMenuTrigger>
-                   <DropdownMenuContent align="start" className="w-72">
+                   <DropdownMenuContent align="start" className="w-64 sm:w-72">
                     {/* Quick Actions Section */}
                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Quick Actions</div>
                     {tools.slice(0, 4).map(tool => {
@@ -2273,45 +2295,45 @@ const Chat = () => {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Input Field */}
-                <div className="flex-1">
+                {/* Input Field - Mobile Optimized */}
+                <div className="flex-1 min-w-0">
                   <Textarea
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyPress}
                     placeholder="Ask AI..."
-                    className="min-h-[44px] max-h-[200px] resize-none rounded-full px-4 border-border/40"
+                    className="min-h-[40px] sm:min-h-[44px] max-h-[120px] sm:max-h-[200px] resize-none rounded-2xl sm:rounded-full px-3 sm:px-4 py-2 border-border/40 text-sm sm:text-base"
                     disabled={loading}
                   />
                 </div>
 
-                {/* Send/Stop Button */}
+                {/* Send/Stop Button - Mobile Optimized */}
                 {loading ? (
                   <Button
                     onClick={handleStop}
                     size="icon"
                     variant="destructive"
-                    className="shrink-0 rounded-full h-10 w-10"
+                    className="shrink-0 rounded-full h-9 w-9 sm:h-10 sm:w-10"
                     title="Stop generation"
                   >
-                    <Square className="h-5 w-5" />
+                    <Square className="h-4 w-4 sm:h-5 sm:w-5" />
                   </Button>
                 ) : (
                   <Button
                     onClick={() => handleSend()}
                     disabled={!input.trim() && !attachmentUrl}
                     size="icon"
-                    className="shrink-0 rounded-full h-10 w-10 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all shadow-lg"
+                    className="shrink-0 rounded-full h-9 w-9 sm:h-10 sm:w-10 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all shadow-lg"
                     title="Send message (Enter)"
                   >
-                    <Send className="h-5 w-5 fill-current" />
+                    <Send className="h-4 w-4 sm:h-5 sm:w-5 fill-current" />
                   </Button>
                 )}
               </div>
 
-              {/* Selected Models Display */}
+              {/* Selected Models Display - Mobile Optimized */}
               {selectedModels.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
+                <div className="mt-2 flex flex-wrap gap-1 sm:gap-1.5 overflow-x-auto pb-1">
                   {aiModels.map(model => {
                     const isSelected = selectedModels.includes(model.id);
                     if (!isSelected) return null;
@@ -2319,12 +2341,13 @@ const Chat = () => {
                       <Badge
                         key={model.id}
                         variant="secondary"
-                        className="h-7 px-2 gap-1.5 text-xs cursor-pointer hover:bg-secondary/80 transition-colors"
+                        className="h-6 sm:h-7 px-1.5 sm:px-2 gap-1 sm:gap-1.5 text-[10px] sm:text-xs cursor-pointer hover:bg-secondary/80 transition-colors shrink-0"
                         onClick={() => handleModelToggle(model.id)}
                       >
                         <AIModelLogo modelId={model.id} size="sm" />
-                        {model.name}
-                        <X className="h-3 w-3 ml-1" />
+                        <span className="hidden sm:inline">{model.name}</span>
+                        <span className="sm:hidden">{model.name.split(' ')[0]}</span>
+                        <X className="h-2.5 w-2.5 sm:h-3 sm:w-3 ml-0.5" />
                       </Badge>
                     );
                   })}
