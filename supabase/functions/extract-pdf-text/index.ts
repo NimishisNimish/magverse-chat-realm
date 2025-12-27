@@ -10,6 +10,17 @@ const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+// Convert Uint8Array to base64 without stack overflow
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  const CHUNK_SIZE = 0x8000; // 32KB chunks to avoid call stack issues
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+    const chunk = bytes.subarray(i, Math.min(i + CHUNK_SIZE, bytes.length));
+    binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
+  }
+  return btoa(binary);
+}
+
 // Detect garbage/corrupted text
 function isGarbageText(text: string): boolean {
   if (!text || text.length < 20) return true;
@@ -120,7 +131,7 @@ serve(async (req) => {
       console.log('📝 Processing DOCX with AI...');
       
       if (LOVABLE_API_KEY) {
-        const base64Doc = btoa(String.fromCharCode(...fileBytes));
+        const base64Doc = uint8ArrayToBase64(fileBytes);
         
         const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
@@ -207,7 +218,7 @@ serve(async (req) => {
       if (needsAIFallback && LOVABLE_API_KEY) {
         console.log('🤖 Basic extraction failed/garbage, using AI...');
         
-        const base64Pdf = btoa(String.fromCharCode(...fileBytes));
+        const base64Pdf = uint8ArrayToBase64(fileBytes);
         
         const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
