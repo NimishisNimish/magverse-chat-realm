@@ -43,7 +43,7 @@ import {
 import Navbar from "@/components/Navbar";
 import FilePreview from "@/components/FilePreview";
 import { DocumentPreviewPane } from "@/components/DocumentPreviewPane";
-import { PDFPreviewDialog } from "@/components/PDFPreviewDialog";
+import { PDFViewerDialog } from "@/components/PDFViewerDialog";
 import { PDFAttachmentCard } from "@/components/PDFAttachmentCard";
 import { CreditTopUpDialog } from "@/components/CreditTopUpDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -2712,18 +2712,15 @@ const Chat = () => {
         onOpenChange={setShowCreditTopUpDialog}
       />
 
-      {/* PDF Preview Dialog */}
-      <PDFPreviewDialog
+      {/* PDF Viewer Dialog - Google Drive style */}
+      <PDFViewerDialog
         open={pdfPreviewOpen}
         onOpenChange={setPdfPreviewOpen}
-        pdfUrl={pdfPreviewUrl || undefined}
+        pdfUrl={pdfPreviewUrl || ''}
         fileName={pdfPreviewFileName}
-        extractedText={pdfPreviewText}
-        onExtractText={async (url) => {
-          const { data } = await supabase.functions.invoke('extract-pdf-text', {
-            body: { url }
-          });
-          return data?.text || '';
+        onTextExtracted={(text) => {
+          // Store extracted text for message if needed
+          setPdfPreviewText(text);
         }}
       />
     </div>
