@@ -25,7 +25,8 @@ const MAX_FILE_SIZE = 10_000_000;
 const MAX_MESSAGE_LENGTH = 10000;
 const MAX_MODELS_PER_REQUEST = 5;
 const MAX_CONTEXT_MESSAGES = 10; // Limit context for faster responses
-const STREAM_TIMEOUT_MS = 90000; // 90 second timeout for streams
+const STREAM_TIMEOUT_MS = 120000; // 2 minute timeout for streams
+const FIRST_TOKEN_TIMEOUT_MS = 30000; // 30 seconds to first token
 
 const VALID_MODELS = ['chatgpt', 'claude', 'perplexity', 'perplexity-pro', 'perplexity-reasoning', 'grok', 'gemini-flash-image', 'uncensored-chat'] as const;
 
@@ -330,11 +331,21 @@ serve(async (req) => {
                 metrics.ttft = Date.now() - requestStartTime;
                 console.log(`⚡ TTFT: ${metrics.ttft}ms`);
                 firstTokenSent = true;
+                clearTimeout(firstTokenTimeoutId); // Clear first token timeout on success
               }
               controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
             };
 
-            // Timeout handler
+            // First token timeout - abort if no tokens received
+            const firstTokenTimeoutId = setTimeout(() => {
+              if (!firstTokenSent) {
+                console.error('⏰ First token timeout - no response from model');
+                sendEvent('error', { model: modelId, error: 'Model not responding. Try a different model.' });
+                controller.close();
+              }
+            }, FIRST_TOKEN_TIMEOUT_MS);
+
+            // Overall timeout handler
             const timeoutId = setTimeout(() => {
               console.error('⏰ Stream timeout');
               sendEvent('error', { model: modelId, error: 'Request timeout - please try again' });
@@ -447,6 +458,7 @@ serve(async (req) => {
               }
 
               clearTimeout(timeoutId);
+              clearTimeout(firstTokenTimeoutId);
               metrics.streamEnd = Date.now() - requestStartTime;
               console.log(`✅ Stream complete. TTFT: ${metrics.ttft}ms, Total: ${metrics.streamEnd}ms`);
 
@@ -472,6 +484,7 @@ serve(async (req) => {
 
             } catch (error: any) {
               clearTimeout(timeoutId);
+              clearTimeout(firstTokenTimeoutId);
               console.error('SSE error:', error.message);
               sendEvent('error', { model: modelId, error: error.message });
               controller.close();

@@ -57,7 +57,12 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!user) {
+    // Wait for auth to be ready before redirecting
+    if (user === null) {
+      // Still loading auth state - don't redirect yet
+      return;
+    }
+    if (user === undefined) {
       navigate("/auth");
       return;
     }
