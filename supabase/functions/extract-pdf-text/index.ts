@@ -77,30 +77,39 @@ serve(async (req) => {
     
     let fileResponse: Response;
 
-    // Handle Supabase storage URLs
-    const isSupabaseStorage = url.includes('supabase.co/storage/v1/object');
+    // Check if it's a signed URL (can be fetched directly) or needs storage client
+    const isSignedUrl = url.includes('/storage/v1/object/sign/');
+    const isPublicUrl = url.includes('/storage/v1/object/public/');
+    const isPrivateStorageUrl = url.includes('supabase.co/storage/v1/object') && !isSignedUrl && !isPublicUrl;
     
-    if (isSupabaseStorage) {
-      console.log('🔐 Accessing Supabase storage...');
+    if (isPrivateStorageUrl) {
+      // Private storage URL - need to use service role to download
+      console.log('🔐 Accessing private Supabase storage...');
       
       const urlObj = new URL(url);
       const pathParts = urlObj.pathname.split('/storage/v1/object/')[1];
       
       if (!pathParts) throw new Error('Invalid Supabase storage URL');
       
-      const cleanPath = pathParts.replace(/^public\//, '');
-      const [bucket, ...pathSegments] = cleanPath.split('/');
+      const [bucket, ...pathSegments] = pathParts.split('/');
       const filePath = pathSegments.join('/');
+      
+      console.log(`📂 Bucket: ${bucket}, Path: ${filePath}`);
       
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
       const { data, error } = await supabase.storage.from(bucket).download(filePath);
       
-      if (error || !data) throw new Error(`Storage access failed: ${error?.message}`);
+      if (error || !data) {
+        console.error('Storage error:', JSON.stringify(error));
+        throw new Error(`Storage access failed: ${error?.message || 'Unknown error'}`);
+      }
       
       fileResponse = new Response(data, { status: 200 });
       
     } else {
-      // External URL
+      // Signed URL, public URL, or external URL - fetch directly
+      console.log('🌐 Fetching URL directly...');
+      
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
       
@@ -112,9 +121,10 @@ serve(async (req) => {
       clearTimeout(timeoutId);
       
       if (!fileResponse.ok) {
+        console.error(`Fetch failed: ${fileResponse.status} ${fileResponse.statusText}`);
         if (fileResponse.status === 403) throw new Error('Access denied - link may have expired');
         if (fileResponse.status === 404) throw new Error('File not found');
-        throw new Error(`Failed to fetch: ${fileResponse.statusText}`);
+        throw new Error(`Failed to fetch document: ${fileResponse.statusText}`);
       }
     }
 
