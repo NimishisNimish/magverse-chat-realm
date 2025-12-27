@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import FilePreview from "@/components/FilePreview";
+import { DocumentPreviewPane } from "@/components/DocumentPreviewPane";
 import { useToast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -2465,9 +2466,9 @@ const Chat = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Document Analysis Dialog */}
+      {/* Document Analysis Dialog - with Preview Pane */}
       <Dialog open={documentDialogOpen} onOpenChange={setDocumentDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>📄 Analyze Document</DialogTitle>
             <DialogDescription>
@@ -2475,7 +2476,7 @@ const Chat = () => {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
+          <div className="flex-1 overflow-auto space-y-4">
             <div className="space-y-2">
               <Label htmlFor="document-upload">PDF Document</Label>
               <div className="flex items-center gap-2">
@@ -2511,35 +2512,58 @@ const Chat = () => {
                 <Progress value={50} />
               </div>
             )}
+
+            {/* Document Preview Pane with Light/Dark toggle */}
+            {extractedText && (
+              <DocumentPreviewPane 
+                text={extractedText}
+                title={documentFile?.name || 'Extracted Content'}
+                height="350px"
+              />
+            )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="pt-4 border-t">
             <Button
               variant="outline"
               onClick={() => {
                 setDocumentDialogOpen(false);
                 setDocumentFile(null);
+                setExtractedText('');
               }}
               disabled={analyzingDocument}
             >
               Cancel
             </Button>
-            <Button
-              onClick={handleAnalyzeDocument}
-              disabled={!documentFile || analyzingDocument}
-            >
-              {analyzingDocument ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <FileSearch className="h-4 w-4 mr-2" />
-                  Analyze
-                </>
-              )}
-            </Button>
+            {extractedText ? (
+              <Button
+                onClick={() => {
+                  setInput(`📄 Analyze this document:\n\n${extractedText.substring(0, 1000)}${extractedText.length > 1000 ? '...' : ''}`);
+                  setDocumentDialogOpen(false);
+                  setDocumentFile(null);
+                }}
+              >
+                <MessageSquare className="h-4 w-4 mr-2" />
+                Ask About Document
+              </Button>
+            ) : (
+              <Button
+                onClick={handleAnalyzeDocument}
+                disabled={!documentFile || analyzingDocument}
+              >
+                {analyzingDocument ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <FileSearch className="h-4 w-4 mr-2" />
+                    Analyze
+                  </>
+                )}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2598,7 +2622,6 @@ const Chat = () => {
                   </SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">Powered by Lovable AI Gateway</p>
             </div>
 
             {generating && (

@@ -34,13 +34,15 @@ const History = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // React Query with infinite scroll
+  // React Query with infinite scroll - optimized to avoid blocking
   const {
     data,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
     isLoading: loading,
+    isError,
+    refetch,
   } = useInfiniteQuery({
     queryKey: ['chat-history', user?.id],
     queryFn: async ({ pageParam = 0 }) => {
@@ -49,8 +51,7 @@ const History = () => {
       const start = pageParam * CHATS_PER_PAGE;
       const end = start + CHATS_PER_PAGE - 1;
 
-      // Avoid heavy RPC join/counts (can stall on large histories).
-      // Load chats, then fetch per-chat message counts for just this page.
+      // Fast query: just get chats without counts first
       const { data: chats, error: chatsError } = await supabase
         .from('chat_history')
         .select('id,title,created_at,updated_at')
@@ -61,17 +62,23 @@ const History = () => {
       if (chatsError) throw chatsError;
 
       const items = chats || [];
-      const counts = await Promise.all(
-        items.map(async (chat) => {
-          const { count } = await supabase
-            .from('chat_messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('chat_id', chat.id);
-          return { chat_id: chat.id, count: count || 0 };
-        })
-      );
-
-      const countMap = new Map(counts.map((c) => [c.chat_id, c.count]));
+      
+      // Get message counts in a single optimized query
+      if (items.length === 0) {
+        return { data: [], nextPage: null };
+      }
+      
+      const chatIds = items.map(c => c.id);
+      const { data: countData } = await supabase
+        .from('chat_messages')
+        .select('chat_id')
+        .in('chat_id', chatIds);
+      
+      // Count messages per chat
+      const countMap = new Map<string, number>();
+      (countData || []).forEach(msg => {
+        countMap.set(msg.chat_id, (countMap.get(msg.chat_id) || 0) + 1);
+      });
 
       const withCounts = items.map((c) => ({
         ...c,
@@ -85,10 +92,10 @@ const History = () => {
     },
     getNextPageParam: (lastPage) => lastPage.nextPage,
     enabled: !!user,
-    staleTime: 30 * 1000,
+    staleTime: 60 * 1000, // Cache for 1 minute
     gcTime: 5 * 60 * 1000,
     retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     initialPageParam: 0,
   });
 
