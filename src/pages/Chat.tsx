@@ -38,10 +38,14 @@ import {
   Edit2,
   Check,
   RotateCw,
+  Clock,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import FilePreview from "@/components/FilePreview";
 import { DocumentPreviewPane } from "@/components/DocumentPreviewPane";
+import { PDFPreviewDialog } from "@/components/PDFPreviewDialog";
+import { PDFAttachmentCard } from "@/components/PDFAttachmentCard";
+import { CreditTopUpDialog } from "@/components/CreditTopUpDialog";
 import { useToast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -60,7 +64,6 @@ import { AIModelLogo } from "@/components/AIModelLogo";
 import { AITypingIndicator } from "@/components/AITypingIndicator";
 import { AIModelBadge } from "@/components/AIModelBadge";
 import { CreditBalanceIndicator } from "@/components/CreditBalanceIndicator";
-import { CreditTopUpDialog } from "@/components/CreditTopUpDialog";
 import { softCleanMarkdown } from "@/utils/markdownCleaner";
 import {
   DropdownMenu,
@@ -189,6 +192,9 @@ interface Message {
   thinkingProcess?: string; // Reasoning steps from thinking models
   reasoningSteps?: Array<{ step: number; thought: string; conclusion: string }>; // Multi-step reasoning
   isError?: boolean; // Flag for error messages
+  ttft?: number; // Time to first token in ms
+  responseTime?: number; // Total response time in ms
+  extractedPdfText?: string; // Extracted text from PDF attachment
 }
 
 interface QueuedMessage {
@@ -261,6 +267,12 @@ const Chat = () => {
     return saved ? JSON.parse(saved) : false;
   });
   const abortControllerRef = useRef<AbortController | null>(null);
+  
+  // PDF Preview state
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfPreviewFileName, setPdfPreviewFileName] = useState<string>('');
+  const [pdfPreviewText, setPdfPreviewText] = useState<string>('');
   
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
@@ -1752,26 +1764,11 @@ const Chat = () => {
                     })}
                   </div>
                   
-                  {/* Credit Balance Indicator */}
-                  <div className="mt-8 max-w-md w-full">
-                    <CreditBalanceIndicator />
-                  </div>
+                  {/* Credits moved to Profile Settings - cleaner main UI */}
                 </div>
               ) : (
                 <AnimatePresence>
-                  {/* Show loading skeleton ONLY when loading and the last message is NOT a streaming assistant message */}
-                  {loading && messages.length > 0 && messages[messages.length - 1]?.role === 'user' && (
-                    <motion.div
-                      key="loading-skeleton"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      transition={{ duration: 0.3 }}
-                      className="mb-6"
-                    >
-                      <MessageSkeleton />
-                    </motion.div>
-                  )}
+                  {/* Messages - no duplicate skeleton, typing indicator handles loading state */}
                   
                   {messages.map((message) => (
                      <motion.div
@@ -1805,17 +1802,26 @@ const Chat = () => {
                               animate={{ opacity: 1, scale: 1 }}
                               transition={{ duration: 0.5, ease: "easeOut" }}
                             />
-                            {message.model === 'gemini-flash-image' && (
-                              <div className="px-3 py-2 bg-muted/50 border-t border-border/40 flex items-center gap-2">
-                                <AIModelLogo modelId="gemini-flash-image" size="sm" />
-                                <span className="text-xs text-muted-foreground">Made by Gemini Flash Images</span>
-                              </div>
-                            )}
+                          </div>
+                        ) : message.attachmentUrl && message.attachmentType === 'pdf' ? (
+                          /* Clickable PDF preview card */
+                          <div className="mb-3">
+                            <PDFAttachmentCard
+                              fileName={message.attachmentFileName || 'Document.pdf'}
+                              fileUrl={message.attachmentUrl}
+                              onPreview={() => {
+                                setPdfPreviewUrl(message.attachmentUrl || null);
+                                setPdfPreviewFileName(message.attachmentFileName || 'Document.pdf');
+                                setPdfPreviewText(message.extractedPdfText || '');
+                                setPdfPreviewOpen(true);
+                              }}
+                              variant="message"
+                            />
                           </div>
                         ) : message.attachmentUrl ? (
-                          <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
-                            <FileText className="h-3 w-3" />
-                            <span>{message.attachmentFileName || 'Attachment'}</span>
+                          <div className="mb-3 flex items-center gap-2 text-xs bg-card/50 p-2 rounded-lg border border-border/40">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-foreground font-medium">{message.attachmentFileName || 'Attachment'}</span>
                           </div>
                         ) : null}
                           
@@ -2704,6 +2710,21 @@ const Chat = () => {
       <CreditTopUpDialog 
         open={showCreditTopUpDialog}
         onOpenChange={setShowCreditTopUpDialog}
+      />
+
+      {/* PDF Preview Dialog */}
+      <PDFPreviewDialog
+        open={pdfPreviewOpen}
+        onOpenChange={setPdfPreviewOpen}
+        pdfUrl={pdfPreviewUrl || undefined}
+        fileName={pdfPreviewFileName}
+        extractedText={pdfPreviewText}
+        onExtractText={async (url) => {
+          const { data } = await supabase.functions.invoke('extract-pdf-text', {
+            body: { url }
+          });
+          return data?.text || '';
+        }}
       />
     </div>
   );

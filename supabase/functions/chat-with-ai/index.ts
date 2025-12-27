@@ -411,11 +411,27 @@ serve(async (req) => {
 
               if (!streamResponse || !streamResponse.ok) {
                 const errorText = await streamResponse?.text();
-                console.error(`❌ Stream failed:`, streamResponse?.status, errorText);
+                const statusCode = streamResponse?.status || 0;
+                console.error(`❌ Stream failed: Status ${statusCode}, Body: ${errorText}`);
                 
+                // Provide specific error messages based on status and provider
                 let errorMessage = 'AI service temporarily unavailable';
-                if (streamResponse?.status === 429) errorMessage = 'Rate limit exceeded. Please wait a moment.';
-                if (streamResponse?.status === 402) errorMessage = 'Credits exhausted.';
+                if (statusCode === 429) {
+                  errorMessage = 'Rate limit exceeded. Please wait a moment.';
+                } else if (statusCode === 402) {
+                  errorMessage = 'Credits exhausted.';
+                } else if (statusCode === 401 || statusCode === 403) {
+                  errorMessage = 'Authentication failed - check API configuration';
+                } else if (statusCode === 500) {
+                  // For uncensored provider, include more detail
+                  if (config.provider === 'uncensored') {
+                    errorMessage = `Uncensored AI provider error: ${errorText?.substring(0, 100) || 'Unknown error'}`;
+                  } else {
+                    errorMessage = 'AI provider internal error. Try a different model.';
+                  }
+                } else if (statusCode === 502 || statusCode === 503 || statusCode === 504) {
+                  errorMessage = 'AI service temporarily unavailable. Try again in a moment.';
+                }
                 
                 throw new Error(errorMessage);
               }
@@ -580,7 +596,24 @@ serve(async (req) => {
           });
 
           if (!response.ok) {
-            throw new Error(`Uncensored API error: ${response.status}`);
+            // Log full error response for debugging
+            const errorBody = await response.text();
+            console.error(`❌ Uncensored API error: Status ${response.status}, Body: ${errorBody}`);
+            
+            // Provide specific error messages based on status
+            let errorMessage = 'Uncensored AI service error';
+            if (response.status === 401 || response.status === 403) {
+              errorMessage = 'Uncensored AI: Authentication failed - check API key';
+            } else if (response.status === 429) {
+              errorMessage = 'Uncensored AI: Rate limit exceeded - try again later';
+            } else if (response.status === 500) {
+              errorMessage = `Uncensored AI: Provider error (500) - ${errorBody.substring(0, 100)}`;
+            } else if (response.status === 502 || response.status === 503 || response.status === 504) {
+              errorMessage = 'Uncensored AI: Service temporarily unavailable';
+            } else {
+              errorMessage = `Uncensored AI error: ${response.status} - ${errorBody.substring(0, 100)}`;
+            }
+            throw new Error(errorMessage);
           }
 
           const data = await response.json();
