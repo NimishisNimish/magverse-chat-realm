@@ -3,7 +3,7 @@ import { Sparkles, Zap, Shield, Brain } from "lucide-react";
 
 const AuthBranding = () => {
   const features = [
-    { icon: Brain, text: "10+ AI Models" },
+    { icon: Brain, text: "7 AI Models" },
     { icon: Zap, text: "Lightning Fast" },
     { icon: Shield, text: "Secure & Private" },
   ];
