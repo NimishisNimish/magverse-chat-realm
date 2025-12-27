@@ -865,6 +865,48 @@ export type Database = {
         }
         Relationships: []
       }
+      pdf_text_cache: {
+        Row: {
+          char_count: number | null
+          created_at: string
+          expires_at: string
+          extracted_text: string
+          extraction_method: string | null
+          file_hash: string
+          file_name: string | null
+          file_url: string
+          id: string
+          user_id: string | null
+          word_count: number | null
+        }
+        Insert: {
+          char_count?: number | null
+          created_at?: string
+          expires_at?: string
+          extracted_text: string
+          extraction_method?: string | null
+          file_hash: string
+          file_name?: string | null
+          file_url: string
+          id?: string
+          user_id?: string | null
+          word_count?: number | null
+        }
+        Update: {
+          char_count?: number | null
+          created_at?: string
+          expires_at?: string
+          extracted_text?: string
+          extraction_method?: string | null
+          file_hash?: string
+          file_name?: string | null
+          file_url?: string
+          id?: string
+          user_id?: string | null
+          word_count?: number | null
+        }
+        Relationships: []
+      }
       phone_verification_codes: {
         Row: {
           attempts: number | null
@@ -1295,6 +1337,7 @@ export type Database = {
       }
       check_reset_rate_limit: { Args: { p_email: string }; Returns: boolean }
       cleanup_expired_email_requests: { Args: never; Returns: undefined }
+      cleanup_expired_pdf_cache: { Args: never; Returns: undefined }
       cleanup_expired_phone_codes: { Args: never; Returns: undefined }
       cleanup_old_pending_transactions: { Args: never; Returns: undefined }
       expire_monthly_subscriptions: { Args: never; Returns: undefined }
