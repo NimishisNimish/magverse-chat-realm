@@ -994,32 +994,41 @@ const Chat = () => {
 
         setMessages(prev => [...prev, streamingMessage]);
 
+        let streamTtft: number | null = null;
+        
         try {
           await streamingClient.startStream(
             messagesForApi,
             modelsToUse[0],
             chatId,
-            (model, token, fullContent) => {
+            (model, token, fullContent, ttft) => {
               if (!hasReceivedToken) {
-                console.log('✅ First token received from', model);
+                console.log('✅ First token received from', model, 'TTFT:', ttft, 'ms');
                 hasReceivedToken = true;
+                streamTtft = ttft;
                 // CRITICAL: Disable loading state on first token so skeleton hides & streaming text shows
                 setLoading(false);
               }
               setMessages(prev => 
                 prev.map(msg => 
                   msg.id === streamingMessage.id
-                    ? { ...msg, content: fullContent, isError: false }
+                    ? { ...msg, content: fullContent, isError: false, ttft: streamTtft || undefined }
                     : msg
                 )
               );
             },
-            (model, messageId) => {
-              console.log('✅ Stream complete for', model, 'messageId:', messageId);
+            (model, messageId, metrics) => {
+              console.log('✅ Stream complete for', model, 'TTFT:', metrics.ttft, 'Total:', metrics.totalTime);
               setMessages(prev => 
                 prev.map(msg => 
                   msg.id === streamingMessage.id
-                    ? { ...msg, id: messageId || msg.id, isError: false }
+                    ? { 
+                        ...msg, 
+                        id: messageId || msg.id, 
+                        isError: false,
+                        ttft: metrics.ttft || undefined,
+                        responseTime: metrics.totalTime || undefined,
+                      }
                     : msg
                 )
               );
