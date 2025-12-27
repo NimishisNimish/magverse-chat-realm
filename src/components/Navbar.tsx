@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Sparkles, LogOut, Zap, User, History, MessageSquare, Settings, LayoutDashboard, BarChart3, Shield, Crown, Users, Activity, DollarSign, TrendingUp } from "lucide-react";
+import { Sparkles, LogOut, Zap, User, History, MessageSquare, Settings, Shield, Crown, Activity } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import AdminNotifications from "@/components/AdminNotifications";
@@ -60,25 +60,21 @@ const Navbar = () => {
     
     if (profile.subscription_type === 'lifetime') {
       return (
-        <Link to="/dashboard">
-          <Badge className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 border-0 cursor-pointer">
-            <Crown className="w-3 h-3 mr-1" />
-            Lifetime Pro
-          </Badge>
-        </Link>
+        <Badge className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 border-0 cursor-pointer">
+          <Crown className="w-3 h-3 mr-1" />
+          Lifetime Pro
+        </Badge>
       );
     } else if (profile.subscription_type === 'monthly') {
       return (
-        <Link to="/dashboard">
-          <Badge className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 border-0 cursor-pointer">
-            <Zap className="w-3 h-3 mr-1" />
-            Pro Yearly
-          </Badge>
-        </Link>
+        <Badge className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 border-0 cursor-pointer">
+          <Zap className="w-3 h-3 mr-1" />
+          Pro Yearly
+        </Badge>
       );
     } else {
       return (
-        <Link to="/dashboard">
+        <Link to="/payment">
           <Badge variant="outline" className="border-muted-foreground/30 hover:bg-accent/10 cursor-pointer">
             <User className="w-3 h-3 mr-1" />
             Free Plan
@@ -174,12 +170,6 @@ const Navbar = () => {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link to="/dashboard" className="cursor-pointer">
-                      <LayoutDashboard className="w-4 h-4 mr-2" />
-                      Dashboard
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
                     <Link to="/profile" className="cursor-pointer">
                       <Settings className="w-4 h-4 mr-2" />
                       Profile Settings
@@ -207,33 +197,9 @@ const Navbar = () => {
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link to="/admin/analytics" className="cursor-pointer">
-                          <BarChart3 className="w-4 h-4 mr-2" />
-                          Analytics
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link to="/admin/users" className="cursor-pointer">
-                          <Users className="w-4 h-4 mr-2" />
-                          User Management
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
                         <Link to="/admin/activity" className="cursor-pointer">
                           <Activity className="w-4 h-4 mr-2" />
                           User Activity
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link to="/model-status" className="cursor-pointer">
-                          <Activity className="w-4 h-4 mr-2" />
-                          Model Status
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link to="/cost-tracking" className="cursor-pointer">
-                          <DollarSign className="w-4 h-4 mr-2" />
-                          Cost Tracking
                         </Link>
                       </DropdownMenuItem>
                     </>

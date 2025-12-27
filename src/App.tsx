@@ -34,23 +34,17 @@ const AdminUserActivity = lazy(() => import("./pages/AdminUserActivity"));
 const AdminTraffic = lazy(() => import("./pages/AdminTraffic"));
 const AdminUserDetail = lazy(() => import("./pages/AdminUserDetail"));
 const AdminInvoiceEmailer = lazy(() => import("./pages/AdminInvoiceEmailer"));
-const UserManagement = lazy(() => import("./pages/UserManagement"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const AdminLogin = lazy(() => import("./pages/AdminLogin"));
 
-// Lazy load heavy non-admin pages
-const Dashboard = lazy(() => import("./pages/Dashboard"));
+// Lazy load non-admin pages
 const History = lazy(() => import("./pages/History"));
 const Upgrade = lazy(() => import("./pages/Upgrade"));
 const ProfileSettings = lazy(() => import("./pages/ProfileSettings"));
 const Payment = lazy(() => import("./pages/Payment"));
 const ImageGallery = lazy(() => import("./pages/ImageGallery"));
-const ModelStatus = lazy(() => import("./pages/ModelStatus"));
-const PublicModelStatus = lazy(() => import("./pages/PublicModelStatus"));
-const CostTracking = lazy(() => import("./pages/CostTracking"));
 const ModelComparison = lazy(() => import("./pages/ModelComparison"));
 const Support = lazy(() => import("./pages/Support"));
-const ModelMetrics = lazy(() => import("./pages/ModelMetrics"));
 const Settings = lazy(() => import("./pages/Settings"));
 
 // Lazy load lightweight pages
@@ -98,7 +92,7 @@ const AnimatedRoutes = () => {
     if (pathname === '/auth' || pathname === '/reset-password') return 'scale';
     if (pathname.startsWith('/admin')) return 'slideUp';
     if (pathname === '/chat' || pathname === '/history') return 'slideRight';
-    if (pathname === '/dashboard' || pathname === '/profile') return 'slideLeft';
+    if (pathname === '/profile') return 'slideLeft';
     return 'fade';
   };
   
@@ -122,15 +116,10 @@ const AnimatedRoutes = () => {
           <Route path="/history" element={<ProtectedRoute><PageTransition variant={getTransitionVariant('/history')}><History /></PageTransition></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><PageTransition variant={getTransitionVariant('/profile')}><ProfileSettings /></PageTransition></ProtectedRoute>} />
           <Route path="/upgrade" element={<ProtectedRoute><PageTransition variant="fade"><Upgrade /></PageTransition></ProtectedRoute>} />
-          <Route path="/dashboard" element={<ProtectedRoute><PageTransition variant={getTransitionVariant('/dashboard')}><Dashboard /></PageTransition></ProtectedRoute>} />
           <Route path="/payment" element={<PageTransition variant="scale"><Payment /></PageTransition>} />
           <Route path="/image-gallery" element={<ProtectedRoute><PageTransition variant="slideRight"><ImageGallery /></PageTransition></ProtectedRoute>} />
           <Route path="/support" element={<PageTransition variant="fade"><Support /></PageTransition>} />
-          <Route path="/model-status" element={<AdminProtectedRoute><PageTransition variant="fade"><ModelStatus /></PageTransition></AdminProtectedRoute>} />
-          <Route path="/status" element={<PageTransition variant="fade"><PublicModelStatus /></PageTransition>} />
-          <Route path="/cost-tracking" element={<AdminProtectedRoute><PageTransition variant="fade"><CostTracking /></PageTransition></AdminProtectedRoute>} />
           <Route path="/comparison" element={<ProtectedRoute><PageTransition variant="fade"><ModelComparison /></PageTransition></ProtectedRoute>} />
-          <Route path="/model-metrics" element={<ProtectedRoute><PageTransition variant="fade"><ModelMetrics /></PageTransition></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><PageTransition variant="fade"><Settings /></PageTransition></ProtectedRoute>} />
           
           {/* Admin routes (all lazy loaded) */}
@@ -139,7 +128,6 @@ const AnimatedRoutes = () => {
           <Route path="/admin/analytics" element={<AdminProtectedRoute><PageTransition variant="slideUp"><Analytics /></PageTransition></AdminProtectedRoute>} />
           <Route path="/admin/advanced-analytics" element={<AdminProtectedRoute><PageTransition variant="slideUp"><AdminAnalyticsDashboard /></PageTransition></AdminProtectedRoute>} />
           <Route path="/admin/old-analytics" element={<AdminProtectedRoute><PageTransition variant="slideUp"><AdminAnalytics /></PageTransition></AdminProtectedRoute>} />
-          <Route path="/admin/users" element={<AdminProtectedRoute><PageTransition variant="slideUp"><UserManagement /></PageTransition></AdminProtectedRoute>} />
           <Route path="/admin/activity" element={<AdminProtectedRoute><PageTransition variant="slideUp"><AdminUserActivity /></PageTransition></AdminProtectedRoute>} />
           <Route path="/admin/traffic" element={<AdminProtectedRoute><PageTransition variant="slideUp"><AdminTraffic /></PageTransition></AdminProtectedRoute>} />
           <Route path="/admin/user/:userId" element={<AdminProtectedRoute><PageTransition variant="slideUp"><AdminUserDetail /></PageTransition></AdminProtectedRoute>} />

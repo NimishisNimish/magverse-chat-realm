@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,8 @@ import { supabase } from "@/integrations/supabase/client";
 import AnimatedBackground from "@/components/auth/AnimatedBackground";
 import AuthBranding from "@/components/auth/AuthBranding";
 import AuthSuccessAnimation from "@/components/auth/AuthSuccessAnimation";
+import EmailVerificationPending from "@/components/auth/EmailVerificationPending";
+import EmailVerifiedSuccess from "@/components/auth/EmailVerifiedSuccess";
 
 const emailSchema = z.string().email("Invalid email address").max(255);
 const passwordSchema = z.string()
@@ -33,8 +35,9 @@ const usernameSchema = z.string()
   .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores");
 
 const Auth = () => {
+  const [searchParams] = useSearchParams();
   const [isLogin, setIsLogin] = useState(true);
-  const [signupStep, setSignupStep] = useState<1 | 2>(1);
+  const [signupStep, setSignupStep] = useState<1 | 2 | 'verification' | 'verified'>(1);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -54,6 +57,14 @@ const Auth = () => {
   const { signUp, signIn, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Check for email verification success
+  useEffect(() => {
+    const verified = searchParams.get('verified');
+    if (verified === 'true') {
+      setSignupStep('verified');
+    }
+  }, [searchParams]);
 
   // Load remember me preference
   useEffect(() => {
@@ -213,25 +224,44 @@ const Auth = () => {
         sessionStorage.setItem('magverse_session_only', 'true');
       }
 
-      const { error } = isLogin 
-        ? await signIn(email, password)
-        : await signUp(email, password);
-
-      if (error) {
-        toast({
-          title: "Error",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        if (isLogin) {
+      if (isLogin) {
+        const { error } = await signIn(email, password);
+        if (error) {
+          // Check for unverified email error
+          if (error.message?.includes('Email not confirmed')) {
+            toast({
+              title: "Email not verified",
+              description: "Please check your inbox and verify your email first.",
+              variant: "destructive",
+            });
+            setSignupStep('verification');
+          } else {
+            toast({
+              title: "Error",
+              description: error.message,
+              variant: "destructive",
+            });
+          }
+        } else {
           setSuccessMessage("Welcome back!");
           setShowSuccess(true);
           setTimeout(() => navigate("/chat"), 1500);
+        }
+      } else {
+        const { error } = await signUp(email, password);
+        if (error) {
+          toast({
+            title: "Error",
+            description: error.message,
+            variant: "destructive",
+          });
         } else {
-          setSuccessMessage("Account created!");
-          setShowSuccess(true);
-          setTimeout(() => setSignupStep(2), 1500);
+          // Show email verification pending screen
+          setSignupStep('verification');
+          toast({
+            title: "Check your email",
+            description: "We've sent you a verification link.",
+          });
         }
       }
     } catch (err) {
@@ -302,7 +332,17 @@ const Auth = () => {
             className="glass-card rounded-2xl p-6 sm:p-8 shadow-2xl shadow-primary/5 border border-glass-border"
           >
             <AnimatePresence mode="wait">
-              {showSuccess ? (
+              {signupStep === 'verified' ? (
+                <EmailVerifiedSuccess />
+              ) : signupStep === 'verification' ? (
+                <EmailVerificationPending 
+                  email={email}
+                  onBack={() => {
+                    setSignupStep(1);
+                    setIsLogin(true);
+                  }}
+                />
+              ) : showSuccess ? (
                 <AuthSuccessAnimation 
                   message={successMessage} 
                   subMessage="Redirecting you now..."
