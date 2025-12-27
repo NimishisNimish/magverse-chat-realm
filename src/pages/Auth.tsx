@@ -1,15 +1,23 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles, Mail, Lock, Upload, User, Loader2 } from "lucide-react";
+import { 
+  Sparkles, Mail, Lock, Upload, Loader2, Eye, EyeOff, 
+  ArrowRight, User, KeyRound
+} from "lucide-react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import AnimatedBackground from "@/components/auth/AnimatedBackground";
+import AuthBranding from "@/components/auth/AuthBranding";
+import AuthSuccessAnimation from "@/components/auth/AuthSuccessAnimation";
 
 const emailSchema = z.string().email("Invalid email address").max(255);
 const passwordSchema = z.string()
@@ -29,6 +37,7 @@ const Auth = () => {
   const [signupStep, setSignupStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
@@ -36,9 +45,23 @@ const Auth = () => {
   const [avatarPreview, setAvatarPreview] = useState<string>("");
   const [usernameError, setUsernameError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  
   const { signUp, signIn, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Load remember me preference
+  useEffect(() => {
+    const remembered = localStorage.getItem('magverse_remember_me');
+    if (remembered === 'true') {
+      setRememberMe(true);
+    }
+  }, []);
 
   const checkUsernameAvailability = async (usernameToCheck: string) => {
     try {
@@ -71,8 +94,18 @@ const Auth = () => {
     return true;
   };
 
+  // PRESERVED: Exact Google OAuth logic - DO NOT MODIFY
   const handleGoogleSignIn = async () => {
     setLoading(true);
+    
+    // Apply remember me setting for Google sign-in
+    if (rememberMe) {
+      localStorage.setItem('magverse_remember_me', 'true');
+    } else {
+      localStorage.removeItem('magverse_remember_me');
+      sessionStorage.setItem('magverse_session_only', 'true');
+    }
+    
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -93,7 +126,6 @@ const Auth = () => {
         });
         setLoading(false);
       }
-      // Don't set loading to false on success - user will be redirected
     } catch (err: any) {
       console.error('Google sign-in error:', err);
       toast({
@@ -113,7 +145,6 @@ const Auth = () => {
     try {
       let avatarUrl = null;
 
-      // Upload avatar if provided
       if (avatarFile) {
         const fileExt = avatarFile.name.split('.').pop();
         const filePath = `${user.id}/avatar.${fileExt}`;
@@ -130,7 +161,6 @@ const Auth = () => {
         }
       }
 
-      // Update profile
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -143,12 +173,9 @@ const Auth = () => {
 
       if (error) throw error;
 
-      toast({
-        title: "Profile Updated",
-        description: "Your profile has been set up successfully!",
-      });
-
-      navigate('/chat');
+      setSuccessMessage("Profile updated!");
+      setShowSuccess(true);
+      setTimeout(() => navigate('/chat'), 1500);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -165,9 +192,26 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      // Validate inputs
       emailSchema.parse(email);
       passwordSchema.parse(password);
+
+      if (!isLogin && password !== confirmPassword) {
+        toast({
+          title: "Passwords don't match",
+          description: "Please make sure your passwords match",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Apply remember me setting
+      if (rememberMe) {
+        localStorage.setItem('magverse_remember_me', 'true');
+      } else {
+        localStorage.removeItem('magverse_remember_me');
+        sessionStorage.setItem('magverse_session_only', 'true');
+      }
 
       const { error } = isLogin 
         ? await signIn(email, password)
@@ -181,18 +225,13 @@ const Auth = () => {
         });
       } else {
         if (isLogin) {
-          toast({
-            title: "Success",
-            description: "Logged in successfully!",
-          });
-          navigate("/chat");
+          setSuccessMessage("Welcome back!");
+          setShowSuccess(true);
+          setTimeout(() => navigate("/chat"), 1500);
         } else {
-          // Move to profile setup step
-          toast({
-            title: "Account Created",
-            description: "Please complete your profile setup",
-          });
-          setSignupStep(2);
+          setSuccessMessage("Account created!");
+          setShowSuccess(true);
+          setTimeout(() => setSignupStep(2), 1500);
         }
       }
     } catch (err) {
@@ -210,217 +249,384 @@ const Auth = () => {
     }
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+      opacity: 1,
+      transition: { staggerChildren: 0.1, delayChildren: 0.2 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 }
+  };
+
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-8 animate-fade-in">
-        <div className="text-center space-y-4">
-          <div className="flex justify-center">
-            <Sparkles className="w-16 h-16 text-primary animate-glow-pulse" />
-          </div>
-          <h1 className="text-4xl font-bold gradient-text">Magverse AI</h1>
-          <p className="text-muted-foreground">
-            {isLogin 
-              ? "Welcome back!" 
-              : signupStep === 1 
-                ? "Create your account" 
-                : "Complete your profile"}
-          </p>
-        </div>
+    <div className="min-h-screen bg-background flex relative overflow-hidden">
+      <AnimatedBackground />
+      
+      {/* Left side - Branding (Desktop only) */}
+      <div className="hidden lg:flex lg:w-1/2 relative z-10">
+        <AuthBranding />
+      </div>
 
-        <form onSubmit={handleSubmit} className="glass-card p-8 space-y-6">
-          {signupStep === 1 ? (
-            <>
-              {/* Google Sign-In Button */}
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full border-accent/30"
-                onClick={handleGoogleSignIn}
-                disabled={loading}
-              >
-                {loading ? (
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                ) : (
-                  <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                  </svg>
-                )}
-                Continue with Google
-              </Button>
-
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-glass-border" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">
-                    Or continue with email
-                  </span>
-                </div>
+      {/* Right side - Auth Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 relative z-10">
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="w-full max-w-md"
+        >
+          {/* Mobile logo */}
+          <motion.div 
+            variants={itemVariants}
+            className="lg:hidden text-center mb-8"
+          >
+            <motion.div
+              animate={{ rotate: [0, 5, -5, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              className="inline-block mb-4"
+            >
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/30">
+                <Sparkles className="w-8 h-8 text-primary-foreground" />
               </div>
+            </motion.div>
+            <h1 className="text-3xl font-bold gradient-text">Magverse AI</h1>
+          </motion.div>
 
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
-                    <Mail className="w-4 h-4" />
-                    Email
-                  </label>
-                  <Input
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="glass-card border-accent/30"
-                  />
-                </div>
+          {/* Auth Card */}
+          <motion.div
+            variants={itemVariants}
+            className="glass-card rounded-2xl p-6 sm:p-8 shadow-2xl shadow-primary/5 border border-glass-border"
+          >
+            <AnimatePresence mode="wait">
+              {showSuccess ? (
+                <AuthSuccessAnimation 
+                  message={successMessage} 
+                  subMessage="Redirecting you now..."
+                />
+              ) : signupStep === 1 ? (
+                <motion.div
+                  key="auth-form"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {/* Header */}
+                  <div className="text-center mb-6">
+                    <h2 className="text-2xl font-bold text-foreground mb-2">
+                      {isLogin ? "Welcome back" : "Create account"}
+                    </h2>
+                    <p className="text-muted-foreground text-sm">
+                      {isLogin 
+                        ? "Sign in to continue your AI journey" 
+                        : "Start your AI-powered adventure"}
+                    </p>
+                  </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
-                    <Lock className="w-4 h-4" />
-                    Password
-                  </label>
-                  <Input
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="glass-card border-accent/30"
-                  />
-                </div>
+                  {/* Google Sign-In - PRESERVED EXACT LOGIC */}
+                  <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full h-12 border-border/50 bg-card/50 hover:bg-card hover:border-primary/30 transition-all duration-300"
+                      onClick={handleGoogleSignIn}
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      ) : (
+                        <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+                          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                        </svg>
+                      )}
+                      Continue with Google
+                    </Button>
+                  </motion.div>
 
-                {isLogin && (
-                  <div className="text-right">
+                  {/* Divider */}
+                  <div className="relative my-6">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-border/50" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card/40 backdrop-blur-sm px-3 text-muted-foreground">
+                        or continue with email
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Email/Password Form */}
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* Email Input */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-muted-foreground" />
+                        Email
+                      </Label>
+                      <motion.div whileFocus={{ scale: 1.01 }}>
+                        <Input
+                          type="email"
+                          placeholder="you@example.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          required
+                          className="h-12 bg-input/50 border-border/50 focus:border-primary/50 focus:ring-primary/20 transition-all duration-300"
+                        />
+                      </motion.div>
+                    </div>
+
+                    {/* Password Input */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <Lock className="w-4 h-4 text-muted-foreground" />
+                        Password
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          type={showPassword ? "text" : "password"}
+                          placeholder="••••••••"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                          className="h-12 bg-input/50 border-border/50 focus:border-primary/50 focus:ring-primary/20 pr-12 transition-all duration-300"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Confirm Password (Signup only) */}
+                    {!isLogin && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="space-y-2"
+                      >
+                        <Label className="text-sm font-medium flex items-center gap-2">
+                          <KeyRound className="w-4 h-4 text-muted-foreground" />
+                          Confirm Password
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            type={showConfirmPassword ? "text" : "password"}
+                            placeholder="••••••••"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            required
+                            className="h-12 bg-input/50 border-border/50 focus:border-primary/50 focus:ring-primary/20 pr-12 transition-all duration-300"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Remember Me & Forgot Password */}
+                    {isLogin && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="remember"
+                            checked={rememberMe}
+                            onCheckedChange={(checked) => setRememberMe(checked === true)}
+                            className="border-border/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                          />
+                          <label
+                            htmlFor="remember"
+                            className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                          >
+                            Remember me
+                          </label>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => navigate('/reset-password')}
+                          className="text-sm text-primary hover:text-primary/80 transition-colors"
+                        >
+                          Forgot password?
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Submit Button */}
+                    <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                      <Button
+                        type="submit"
+                        className="w-full h-12 bg-gradient-to-r from-primary to-accent hover:opacity-90 text-primary-foreground font-medium shadow-lg shadow-primary/20 transition-all duration-300"
+                        disabled={loading}
+                      >
+                        {loading ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <>
+                            {isLogin ? "Sign In" : "Create Account"}
+                            <ArrowRight className="w-4 h-4 ml-2" />
+                          </>
+                        )}
+                      </Button>
+                    </motion.div>
+                  </form>
+
+                  {/* Toggle Login/Signup */}
+                  <div className="mt-6 text-center">
                     <button
                       type="button"
-                      onClick={() => navigate('/reset-password')}
-                      className="text-sm text-primary hover:text-primary/80 transition-colors"
+                      onClick={() => {
+                        setIsLogin(!isLogin);
+                        setShowSuccess(false);
+                      }}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                     >
-                      Forgot Password?
+                      {isLogin ? (
+                        <>Don't have an account? <span className="text-primary font-medium">Sign up</span></>
+                      ) : (
+                        <>Already have an account? <span className="text-primary font-medium">Sign in</span></>
+                      )}
                     </button>
                   </div>
-                )}
-              </div>
-
-              <Button
-                type="submit"
-                variant="hero"
-                className="w-full"
-                disabled={loading}
-              >
-                {loading ? "Please wait..." : (isLogin ? "Sign In" : "Continue")}
-              </Button>
-
-              <div className="text-center">
-                <button
-                  type="button"
-                  onClick={() => setIsLogin(!isLogin)}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                </motion.div>
+              ) : (
+                /* Step 2: Profile Setup */
+                <motion.div
+                  key="profile-form"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="space-y-4"
                 >
-                  {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
-                </button>
-              </div>
-            </>
-          ) : (
-            // Step 2: Profile Setup
-            <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-center">Complete Your Profile</h2>
-              
-              {/* Avatar Upload */}
-              <div className="flex flex-col items-center gap-4">
-                <div className="relative">
-                  <Avatar className="w-24 h-24">
-                    <AvatarImage src={avatarPreview} />
-                    <AvatarFallback>{username[0]?.toUpperCase() || "U"}</AvatarFallback>
-                  </Avatar>
-                  <Button
+                  <div className="text-center mb-6">
+                    <h2 className="text-2xl font-bold text-foreground mb-2">Complete Your Profile</h2>
+                    <p className="text-muted-foreground text-sm">Set up your profile to get started</p>
+                  </div>
+                  
+                  {/* Avatar Upload */}
+                  <div className="flex flex-col items-center gap-4">
+                    <motion.div 
+                      className="relative"
+                      whileHover={{ scale: 1.05 }}
+                    >
+                      <Avatar className="w-24 h-24 border-2 border-primary/20">
+                        <AvatarImage src={avatarPreview} />
+                        <AvatarFallback className="bg-primary/10 text-primary text-2xl">
+                          {username[0]?.toUpperCase() || <User className="w-8 h-8" />}
+                        </AvatarFallback>
+                      </Avatar>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="absolute bottom-0 right-0 rounded-full w-8 h-8 p-0 bg-primary hover:bg-primary/90"
+                        onClick={() => document.getElementById('avatar-upload')?.click()}
+                      >
+                        <Upload className="w-4 h-4" />
+                      </Button>
+                      <input
+                        id="avatar-upload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setAvatarFile(file);
+                            setAvatarPreview(URL.createObjectURL(file));
+                          }
+                        }}
+                      />
+                    </motion.div>
+                    <p className="text-sm text-muted-foreground">Upload profile picture (optional)</p>
+                  </div>
+
+                  {/* Username */}
+                  <div className="space-y-2">
+                    <Label>Username *</Label>
+                    <Input
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      onBlur={() => checkUsernameAvailability(username)}
+                      placeholder="johndoe"
+                      className="h-12 bg-input/50 border-border/50"
+                    />
+                    {usernameError && <p className="text-sm text-destructive">{usernameError}</p>}
+                  </div>
+
+                  {/* Display Name */}
+                  <div className="space-y-2">
+                    <Label>Display Name</Label>
+                    <Input
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="John Doe"
+                      className="h-12 bg-input/50 border-border/50"
+                    />
+                  </div>
+
+                  {/* Bio */}
+                  <div className="space-y-2">
+                    <Label>Bio</Label>
+                    <Textarea
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value)}
+                      placeholder="Tell us about yourself..."
+                      maxLength={200}
+                      className="bg-input/50 border-border/50 resize-none"
+                      rows={3}
+                    />
+                    <p className="text-xs text-muted-foreground text-right">{bio.length}/200</p>
+                  </div>
+
+                  <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                    <Button 
+                      type="button"
+                      onClick={handleCompleteProfile} 
+                      className="w-full h-12 bg-gradient-to-r from-primary to-accent" 
+                      disabled={loading || !username}
+                    >
+                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Complete Setup"}
+                    </Button>
+                  </motion.div>
+                  
+                  <Button 
                     type="button"
-                    size="sm"
-                    className="absolute bottom-0 right-0 rounded-full w-8 h-8 p-0"
-                    onClick={() => document.getElementById('avatar-upload')?.click()}
+                    variant="ghost" 
+                    onClick={() => navigate('/chat')} 
+                    className="w-full"
                   >
-                    <Upload className="w-4 h-4" />
+                    Skip for now
                   </Button>
-                  <input
-                    id="avatar-upload"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        setAvatarFile(file);
-                        setAvatarPreview(URL.createObjectURL(file));
-                      }
-                    }}
-                  />
-                </div>
-                <p className="text-sm text-muted-foreground">Upload profile picture (optional)</p>
-              </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
 
-              {/* Username */}
-              <div>
-                <Label>Username *</Label>
-                <Input
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  onBlur={() => checkUsernameAvailability(username)}
-                  placeholder="johndoe"
-                  className="glass-card border-accent/30"
-                />
-                {usernameError && <p className="text-sm text-destructive mt-1">{usernameError}</p>}
-              </div>
-
-              {/* Display Name */}
-              <div>
-                <Label>Display Name</Label>
-                <Input
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="John Doe"
-                  className="glass-card border-accent/30"
-                />
-              </div>
-
-              {/* Bio */}
-              <div>
-                <Label>Bio</Label>
-                <Textarea
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  placeholder="Tell us about yourself..."
-                  maxLength={200}
-                  className="glass-card border-accent/30 resize-none"
-                  rows={3}
-                />
-                <p className="text-xs text-muted-foreground text-right mt-1">{bio.length}/200</p>
-              </div>
-
-              <Button 
-                type="button"
-                onClick={handleCompleteProfile} 
-                className="w-full" 
-                variant="hero"
-                disabled={loading || !username}
-              >
-                {loading ? "Saving..." : "Complete Setup"}
-              </Button>
-              
-              <Button 
-                type="button"
-                variant="ghost" 
-                onClick={() => navigate('/chat')} 
-                className="w-full"
-              >
-                Skip for now
-              </Button>
-            </div>
-          )}
-        </form>
+          {/* Footer */}
+          <motion.p 
+            variants={itemVariants}
+            className="text-center text-xs text-muted-foreground mt-6"
+          >
+            By continuing, you agree to our{" "}
+            <a href="/terms" className="text-primary hover:underline">Terms</a>
+            {" "}and{" "}
+            <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a>
+          </motion.p>
+        </motion.div>
       </div>
     </div>
   );
