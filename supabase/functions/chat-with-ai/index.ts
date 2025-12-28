@@ -435,6 +435,19 @@ serve(async (req) => {
                 
                 throw new Error(errorMessage);
               }
+              const streamContentType = streamResponse.headers.get('content-type') || '';
+              if (
+                config.provider === 'uncensored' &&
+                streamContentType &&
+                !streamContentType.includes('text/event-stream') &&
+                !streamContentType.includes('application/json')
+              ) {
+                const raw = await streamResponse.text();
+                console.error(
+                  `❌ Uncensored stream returned unexpected content-type: ${streamContentType}. Body: ${raw.substring(0, 500)}`
+                );
+                throw new Error('Uncensored AI returned an unexpected response while streaming.');
+              }
 
               const reader = streamResponse.body?.getReader();
               if (!reader) throw new Error('No reader available');
@@ -595,28 +608,41 @@ serve(async (req) => {
             }),
           });
 
+          const contentType = response.headers.get('content-type') || '';
+          const rawBody = await response.text();
+
           if (!response.ok) {
-            // Log full error response for debugging
-            const errorBody = await response.text();
-            console.error(`❌ Uncensored API error: Status ${response.status}, Body: ${errorBody}`);
-            
-            // Provide specific error messages based on status
+            console.error(`❌ Uncensored API error: Status ${response.status}, Content-Type: ${contentType}, Body: ${rawBody}`);
+
             let errorMessage = 'Uncensored AI service error';
             if (response.status === 401 || response.status === 403) {
               errorMessage = 'Uncensored AI: Authentication failed - check API key';
             } else if (response.status === 429) {
               errorMessage = 'Uncensored AI: Rate limit exceeded - try again later';
             } else if (response.status === 500) {
-              errorMessage = `Uncensored AI: Provider error (500) - ${errorBody.substring(0, 100)}`;
+              errorMessage = `Uncensored AI: Provider error (500) - ${rawBody.substring(0, 120)}`;
             } else if (response.status === 502 || response.status === 503 || response.status === 504) {
               errorMessage = 'Uncensored AI: Service temporarily unavailable';
             } else {
-              errorMessage = `Uncensored AI error: ${response.status} - ${errorBody.substring(0, 100)}`;
+              errorMessage = `Uncensored AI error: ${response.status} - ${rawBody.substring(0, 120)}`;
             }
             throw new Error(errorMessage);
           }
 
-          const data = await response.json();
+          // Some proxies/WAFs return HTML with a 200, so guard JSON parsing.
+          if (!contentType.includes('application/json')) {
+            console.error(`❌ Uncensored API returned non-JSON: Status ${response.status}, Content-Type: ${contentType}, Body: ${rawBody.substring(0, 500)}`);
+            throw new Error('Uncensored AI returned an unexpected response (non-JSON). Please check provider availability/API key.');
+          }
+
+          let data: any;
+          try {
+            data = JSON.parse(rawBody);
+          } catch (e) {
+            console.error(`❌ Uncensored API JSON parse failed: ${String(e)}; Body: ${rawBody.substring(0, 500)}`);
+            throw new Error('Uncensored AI returned malformed JSON.');
+          }
+
           content = data.choices?.[0]?.message?.content || 'No response';
         }
 
