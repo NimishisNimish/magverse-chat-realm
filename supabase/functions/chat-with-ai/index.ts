@@ -399,6 +399,8 @@ serve(async (req) => {
                   headers: {
                     'Authorization': `Bearer ${UNCENSORED_CHAT_API_KEY}`,
                     'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'User-Agent': 'magverse-edge/1.0',
                   },
                   body: JSON.stringify({
                     model: config.model,
@@ -600,6 +602,8 @@ serve(async (req) => {
             headers: {
               'Authorization': `Bearer ${UNCENSORED_CHAT_API_KEY}`,
               'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'User-Agent': 'magverse-edge/1.0',
             },
             body: JSON.stringify({
               model: config.model,
