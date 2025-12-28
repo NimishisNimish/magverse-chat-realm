@@ -51,6 +51,9 @@ import { toast as sonnerToast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Link, useSearchParams } from "react-router-dom";
+import { useGuestChat } from "@/hooks/useGuestChat";
+import { GuestChatLimitBanner } from "@/components/GuestChatLimitBanner";
+import { GuestLimitModal } from "@/components/GuestLimitModal";
 import { useCreditAlerts } from "@/hooks/useCreditAlerts";
 import { usePaymentNotifications } from "@/hooks/usePaymentNotifications";
 import { useCreditLimitNotifications } from "@/hooks/useCreditLimitNotifications";
@@ -279,6 +282,17 @@ const Chat = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // Guest chat mode
+  const {
+    messageCount: guestMessageCount,
+    messageLimit: guestMessageLimit,
+    incrementMessageCount: incrementGuestMessageCount,
+    getRemainingMessages: getGuestRemainingMessages,
+    hasReachedLimit: hasReachedGuestLimit,
+  } = useGuestChat();
+  const [showGuestLimitModal, setShowGuestLimitModal] = useState(false);
+  const isGuest = !user;
 
   useCreditAlerts();
   usePaymentNotifications();
@@ -888,12 +902,54 @@ const Chat = () => {
       sonnerToast.info(`Message added to queue (${messageQueue.length + 1} in queue)`);
       return;
     }
+    // Guest mode handling
     if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to use the chat.",
-        variant: "destructive",
-      });
+      // Check if guest has reached limit
+      if (hasReachedGuestLimit()) {
+        setShowGuestLimitModal(true);
+        return;
+      }
+      
+      // Handle guest message with demo response
+      const guestUserMessage: Message = {
+        id: Date.now().toString(),
+        role: "user",
+        content: input,
+        timestamp: new Date(),
+      };
+      
+      setMessages(prev => [...prev, guestUserMessage]);
+      setInput("");
+      incrementGuestMessageCount();
+      setLoading(true);
+      
+      // Simulate AI response for guests
+      setTimeout(() => {
+        const remainingAfterThis = getGuestRemainingMessages() - 1;
+        const demoResponses = [
+          `I'd love to help you with "${input.substring(0, 50)}${input.length > 50 ? '...' : ''}"!\n\nThis is a demo response in guest mode. Create a free account to get:\n\n✨ **Full AI responses** from multiple models\n💬 **Unlimited conversations** with chat history\n🎨 **Image generation** capabilities\n📄 **Document analysis** features\n\n${remainingAfterThis > 0 ? `You have **${remainingAfterThis} free message${remainingAfterThis === 1 ? '' : 's'}** remaining.` : 'This was your last free message!'}`,
+          `Great question about "${input.substring(0, 40)}${input.length > 40 ? '...' : ''}"!\n\nAs a guest, you're seeing a preview of our AI chat. Sign up for free to unlock:\n\n🚀 **10+ AI models** including GPT-5, Claude, Gemini\n💾 **Save & continue** your conversations\n⚡ **Real-time streaming** responses\n🔒 **Secure** personal workspace\n\n${remainingAfterThis > 0 ? `**${remainingAfterThis}** free message${remainingAfterThis === 1 ? '' : 's'} left!` : 'Sign up now to keep chatting!'}`,
+          `That's interesting - "${input.substring(0, 35)}${input.length > 35 ? '...' : ''}"!\n\nYou're in guest mode with limited functionality. Create an account (it's free!) to access:\n\n🧠 **Advanced reasoning** with step-by-step thinking\n🔍 **Web search** with real-time information\n📊 **Code assistance** and debugging\n🎯 **Custom instructions** for personalized AI\n\n${remainingAfterThis > 0 ? `Try **${remainingAfterThis} more** free message${remainingAfterThis === 1 ? '' : 's'}!` : 'Ready to unlock full access?'}`,
+        ];
+        
+        const demoResponse: Message = {
+          id: `demo-${Date.now()}`,
+          role: "assistant",
+          content: demoResponses[guestMessageCount % demoResponses.length],
+          model: "lovable-gemini-flash",
+          timestamp: new Date(),
+          userMessageId: guestUserMessage.id,
+        };
+        
+        setMessages(prev => [...prev, demoResponse]);
+        setLoading(false);
+        
+        // Show modal if this was the last message
+        if (remainingAfterThis <= 0) {
+          setTimeout(() => setShowGuestLimitModal(true), 500);
+        }
+      }, 1500);
+      
       return;
     }
 
@@ -1735,6 +1791,18 @@ const Chat = () => {
             </div>
           </div>
 
+          {/* Guest Mode Banner */}
+          {isGuest && (
+            <GuestChatLimitBanner
+              remainingMessages={getGuestRemainingMessages()}
+              messageLimit={guestMessageLimit}
+              messageCount={guestMessageCount}
+            />
+          )}
+
+          {/* Guest Limit Modal */}
+          <GuestLimitModal open={showGuestLimitModal} onOpenChange={setShowGuestLimitModal} />
+
           {/* Messages Area */}
           <ScrollArea className="flex-1 px-6" ref={scrollAreaRef}>
             <div className="py-8 space-y-6">
@@ -1743,9 +1811,14 @@ const Chat = () => {
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                     <Sparkles className="h-8 w-8 text-primary" />
                   </div>
-                  <h2 className="text-2xl font-semibold mb-2">Welcome to AI Chat</h2>
+                  <h2 className="text-2xl font-semibold mb-2">
+                    {isGuest ? "Try AI Chat" : "Welcome to AI Chat"}
+                  </h2>
                   <p className="text-muted-foreground mb-6 max-w-md">
-                    Choose your AI models and start a conversation
+                    {isGuest 
+                      ? `You have ${getGuestRemainingMessages()} free messages to try. Sign up for unlimited access!`
+                      : "Choose your AI models and start a conversation"
+                    }
                   </p>
                   <div className="flex flex-wrap gap-2 justify-center">
                     {aiModels.slice(0, 3).map((model) => {
