@@ -11,33 +11,41 @@ interface AIModelLogoProps {
   className?: string;
 }
 
-const logoMap: Record<string, string> = {
-  // OpenAI / ChatGPT models
-  'chatgpt': openaiLogo,
-  'lovable-gpt5': openaiLogo,
-  'lovable-gpt5-mini': openaiLogo,
-  'lovable-gpt5-image': openaiLogo,
+// Define logo types for proper dark mode handling
+type LogoType = 'svg-dark' | 'svg-colorful' | 'png-dark' | 'png-light';
 
-  // Google Gemini models
-  'gemini': geminiLogo,
-  'gemini-flash-image': geminiLogo,
-  'lovable-gemini-flash': geminiLogo,
-  'lovable-gemini-pro': geminiLogo,
-  'lovable-gemini-flash-image': geminiLogo,
+interface LogoConfig {
+  src: string;
+  type: LogoType;
+}
 
-  // Anthropic Claude
-  'claude': claudeLogo,
+const logoMap: Record<string, LogoConfig> = {
+  // OpenAI / ChatGPT models - dark SVG, needs inversion in dark mode
+  'chatgpt': { src: openaiLogo, type: 'svg-dark' },
+  'lovable-gpt5': { src: openaiLogo, type: 'svg-dark' },
+  'lovable-gpt5-mini': { src: openaiLogo, type: 'svg-dark' },
+  'lovable-gpt5-image': { src: openaiLogo, type: 'svg-dark' },
 
-  // Perplexity models (including variants)
-  'perplexity': perplexityLogo,
-  'perplexity-pro': perplexityLogo,
-  'perplexity-reasoning': perplexityLogo,
+  // Google Gemini models - colorful SVG, works in both modes
+  'gemini': { src: geminiLogo, type: 'svg-colorful' },
+  'gemini-flash-image': { src: geminiLogo, type: 'svg-colorful' },
+  'lovable-gemini-flash': { src: geminiLogo, type: 'svg-colorful' },
+  'lovable-gemini-pro': { src: geminiLogo, type: 'svg-colorful' },
+  'lovable-gemini-flash-image': { src: geminiLogo, type: 'svg-colorful' },
 
-  // Grok
-  'grok': grokLogo,
+  // Anthropic Claude - dark SVG, needs inversion in dark mode
+  'claude': { src: claudeLogo, type: 'svg-dark' },
 
-  // Uncensored.chat
-  'uncensored-chat': uncensoredLogo,
+  // Perplexity models - dark SVG, needs inversion in dark mode
+  'perplexity': { src: perplexityLogo, type: 'svg-dark' },
+  'perplexity-pro': { src: perplexityLogo, type: 'svg-dark' },
+  'perplexity-reasoning': { src: perplexityLogo, type: 'svg-dark' },
+
+  // Grok - dark SVG, needs inversion in dark mode
+  'grok': { src: grokLogo, type: 'svg-dark' },
+
+  // Uncensored.chat - PNG with dark background
+  'uncensored-chat': { src: uncensoredLogo, type: 'png-light' },
 };
 
 const sizeClasses = {
@@ -47,10 +55,28 @@ const sizeClasses = {
   xl: 'w-14 h-14',
 };
 
+// Dark mode filter classes based on logo type
+const getDarkModeClass = (type: LogoType): string => {
+  switch (type) {
+    case 'svg-dark':
+      // Invert dark SVGs to white in dark mode
+      return 'dark:invert dark:brightness-100';
+    case 'png-dark':
+      // For dark PNGs, use strong inversion and brightness
+      return 'dark:invert dark:brightness-[1.8] dark:contrast-[1.2]';
+    case 'svg-colorful':
+    case 'png-light':
+      // Colorful SVGs and light PNGs are fine as-is
+      return '';
+    default:
+      return '';
+  }
+};
+
 export const AIModelLogo = ({ modelId, size = 'md', className = '' }: AIModelLogoProps) => {
-  const logoSrc = logoMap[modelId];
+  const logoConfig = logoMap[modelId];
   
-  if (!logoSrc) {
+  if (!logoConfig) {
     // Fallback to generic AI icon if logo not found
     return (
       <div className={`${sizeClasses[size]} ${className} rounded-full bg-muted flex items-center justify-center`}>
@@ -59,14 +85,13 @@ export const AIModelLogo = ({ modelId, size = 'md', className = '' }: AIModelLog
     );
   }
 
-  // Add brightness filter for dark logos in dark mode
-  const needsBrightness = modelId === 'perplexity' || modelId === 'perplexity-pro' || modelId === 'perplexity-reasoning' || modelId === 'grok';
+  const darkModeClass = getDarkModeClass(logoConfig.type);
 
   return (
     <img 
-      src={logoSrc} 
+      src={logoConfig.src} 
       alt={`${modelId} logo`} 
-      className={`${sizeClasses[size]} ${className} object-contain ${needsBrightness ? 'dark:brightness-150 dark:contrast-125' : ''}`}
+      className={`${sizeClasses[size]} ${className} object-contain transition-all ${darkModeClass}`}
     />
   );
 };
