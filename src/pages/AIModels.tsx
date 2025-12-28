@@ -7,8 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AIModelLogo } from "@/components/AIModelLogo";
 import { MODEL_CONFIG, ModelConfig } from "@/config/modelConfig";
+import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 
 // Extended model info with pricing
@@ -934,12 +936,19 @@ export default function AIModels() {
               Start chatting with any AI model instantly. No complicated setup required.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/chat">
-                <Button size="lg" className="gap-2">
-                  <Bot className="w-5 h-5" />
-                  Start Chatting
-                </Button>
-              </Link>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link to="/chat">
+                    <Button size="lg" className="gap-2">
+                      <Bot className="w-5 h-5" />
+                      Start Chatting
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Try 3 free messages as a guest, or sign in for unlimited access</p>
+                </TooltipContent>
+              </Tooltip>
               <Link to="/pricing">
                 <Button size="lg" variant="outline" className="gap-2">
                   <Zap className="w-5 h-5" />

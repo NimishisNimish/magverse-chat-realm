@@ -80,6 +80,20 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return user ? <>{children}</> : <Navigate to="/auth" />;
 };
 
+// Allows both guests and authenticated users
+const GuestAllowedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { loading } = useAuth();
+  
+  if (loading) {
+    return <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="animate-pulse">Loading...</div>
+    </div>;
+  }
+  
+  // Allow everyone - guests and authenticated users
+  return <>{children}</>;
+};
+
 
 
 const AnimatedRoutes = () => {
@@ -107,7 +121,7 @@ const AnimatedRoutes = () => {
           <Route path="/pricing" element={<PageTransition variant="fade"><Pricing /></PageTransition>} />
           <Route path="/models" element={<PageTransition variant="fade"><AIModels /></PageTransition>} />
           <Route path="/auth" element={<PageTransition variant={getTransitionVariant('/auth')}><Auth /></PageTransition>} />
-          <Route path="/chat" element={<ProtectedRoute><PageTransition variant={getTransitionVariant('/chat')}><Chat /></PageTransition></ProtectedRoute>} />
+          <Route path="/chat" element={<GuestAllowedRoute><PageTransition variant={getTransitionVariant('/chat')}><Chat /></PageTransition></GuestAllowedRoute>} />
           
           {/* Lazy-loaded routes */}
           <Route path="/reset-password" element={<PageTransition variant="scale"><ResetPassword /></PageTransition>} />
