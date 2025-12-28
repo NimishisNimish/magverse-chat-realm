@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import magverseLogo from "@/assets/magverse-logo.png";
+import magverseLogo from "@/assets/magverse-ai-logo.png";
 
 const Navbar = () => {
   const { user, profile, signOut } = useAuth();

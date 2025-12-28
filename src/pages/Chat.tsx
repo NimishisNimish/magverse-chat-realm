@@ -1818,9 +1818,12 @@ const Chat = () => {
             <div className="py-8 space-y-6">
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-[50vh] text-center">
-                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                    <Sparkles className="h-8 w-8 text-primary" />
-                  </div>
+                  {/* Logo above welcome message */}
+                  <img 
+                    src="/magverse-ai-logo.png" 
+                    alt="Magverse AI" 
+                    className="w-20 h-20 rounded-2xl shadow-lg shadow-primary/30 mb-4" 
+                  />
                   <h2 className="text-2xl font-semibold mb-2">
                     {isGuest ? "Try AI Chat" : "Welcome to AI Chat"}
                   </h2>
@@ -1830,8 +1833,11 @@ const Chat = () => {
                       : "Choose your AI models and start a conversation"
                     }
                   </p>
-                  <div className="flex flex-wrap gap-2 justify-center">
+                  
+                  {/* Selected models with credit cost */}
+                  <div className="flex flex-wrap gap-2 justify-center mb-4">
                     {aiModels.slice(0, 3).map((model) => {
+                      const modelConfig = MODEL_CONFIG.find(m => m.id === model.id);
                       return (
                         <Button
                           key={model.id}
@@ -1842,12 +1848,27 @@ const Chat = () => {
                         >
                           <AIModelLogo modelId={model.id} size="sm" />
                           {model.name}
+                          <Badge variant="secondary" className="ml-1 text-xs">
+                            {modelConfig?.creditsPerMessage || 1} credit{(modelConfig?.creditsPerMessage || 1) > 1 ? 's' : ''}/msg
+                          </Badge>
                         </Button>
                       );
                     })}
                   </div>
                   
-                  {/* Credits moved to Profile Settings - cleaner main UI */}
+                  {/* Credit Balance for logged-in users */}
+                  {user && profile && (
+                    <div className="text-sm text-muted-foreground">
+                      Credits remaining: <span className="font-semibold text-primary">
+                        {profile.subscription_type === 'lifetime' ? '∞' : profile.credits_remaining ?? 0}
+                      </span>
+                      {profile.subscription_type !== 'lifetime' && (
+                        <span className="text-xs ml-1">
+                          / {profile.subscription_type === 'monthly' ? '50 daily' : '5 daily'}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <AnimatePresence>
