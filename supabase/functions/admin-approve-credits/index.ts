@@ -8,6 +8,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 
 const CREDIT_PACKAGES: Record<string, number> = {
   credits_50: 50,
@@ -21,9 +22,9 @@ serve(async (req) => {
   }
 
   try {
-    const { transactionId, action, adminId } = await req.json();
+    const { transactionId, action } = await req.json();
 
-    if (!transactionId || !action || !adminId) {
+    if (!transactionId || !action) {
       return new Response(
         JSON.stringify({ success: false, error: 'Missing required fields' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -37,7 +38,7 @@ serve(async (req) => {
       );
     }
 
-    // Authenticate admin
+    // SECURITY FIX: Extract admin ID from JWT token, not request body
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
       return new Response(
@@ -46,9 +47,29 @@ serve(async (req) => {
       );
     }
 
+    // Create a client with the user's JWT to get their authenticated identity
+    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Get the authenticated user from the JWT
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    
+    if (userError || !user) {
+      console.error('User authentication failed:', userError);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid authentication token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Use the authenticated user's ID as the admin ID
+    const adminId = user.id;
+
+    // Use service role for database operations
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Verify admin role
+    // Verify admin role using the JWT-extracted user ID
     const { data: adminRole, error: roleError } = await supabase
       .from('user_roles')
       .select('role')
@@ -57,7 +78,7 @@ serve(async (req) => {
       .single();
 
     if (roleError || !adminRole) {
-      console.error('Admin verification failed:', roleError);
+      console.error('Admin verification failed for user:', adminId, roleError);
       return new Response(
         JSON.stringify({ success: false, error: 'Admin access required' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -173,7 +194,7 @@ serve(async (req) => {
         },
       });
 
-      console.log(`✅ Approved ${creditsToAdd} credits for user ${transaction.user_id}`);
+      console.log(`✅ Approved ${creditsToAdd} credits for user ${transaction.user_id} by admin ${adminId}`);
 
       return new Response(
         JSON.stringify({
@@ -217,7 +238,7 @@ serve(async (req) => {
         },
       });
 
-      console.log(`❌ Rejected credit purchase for user ${transaction.user_id}`);
+      console.log(`❌ Rejected credit purchase for user ${transaction.user_id} by admin ${adminId}`);
 
       return new Response(
         JSON.stringify({
