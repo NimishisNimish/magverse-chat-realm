@@ -25,14 +25,30 @@ const MAX_FILE_SIZE = 10_000_000;
 const MAX_MESSAGE_LENGTH = 10000;
 const MAX_MODELS_PER_REQUEST = 5;
 const MAX_CONTEXT_MESSAGES = 10; // Limit context for faster responses
-const STREAM_TIMEOUT_MS = 120000; // 2 minute timeout for streams
-const FIRST_TOKEN_TIMEOUT_MS = 30000; // 30 seconds to first token
 
 const VALID_MODELS = ['chatgpt', 'claude', 'perplexity', 'perplexity-pro', 'perplexity-reasoning', 'grok', 'gemini-flash-image', 'uncensored-chat'] as const;
 
 // Model routing: fast models for simple queries, heavy for complex
 const FAST_MODELS = ['chatgpt', 'grok'];
 const HEAVY_MODELS = ['claude', 'perplexity-pro', 'perplexity-reasoning'];
+
+// Model-specific timeout configurations (in milliseconds)
+const MODEL_TIMEOUTS: Record<string, { firstToken: number; total: number }> = {
+  'chatgpt': { firstToken: 30000, total: 90000 },
+  'claude': { firstToken: 45000, total: 120000 },
+  'perplexity': { firstToken: 30000, total: 90000 },
+  'perplexity-pro': { firstToken: 60000, total: 150000 },
+  'perplexity-reasoning': { firstToken: 120000, total: 240000 }, // Deep Research needs more time
+  'grok': { firstToken: 30000, total: 90000 },
+  'gemini-flash-image': { firstToken: 30000, total: 90000 },
+  'uncensored-chat': { firstToken: 30000, total: 90000 },
+};
+
+// Default timeouts if model not in config
+const DEFAULT_TIMEOUTS = { firstToken: 30000, total: 120000 };
+
+// Heartbeat interval for long requests (prevents connection timeout)
+const HEARTBEAT_INTERVAL_MS = 15000;
 
 const MODEL_CONFIG: Record<string, { 
   provider: 'openai' | 'nvidia' | 'google' | 'openrouter' | 'perplexity' | 'groq' | 'lovable' | 'uncensored', 
@@ -321,10 +337,15 @@ serve(async (req) => {
       } else {
         console.log(`📡 Starting SSE for ${modelId}...`);
         
+        // Get model-specific timeouts
+        const timeouts = MODEL_TIMEOUTS[modelId] || DEFAULT_TIMEOUTS;
+        console.log(`⏱️ Using timeouts for ${modelId}: firstToken=${timeouts.firstToken}ms, total=${timeouts.total}ms`);
+
         const stream = new ReadableStream({
           async start(controller) {
             const encoder = new TextEncoder();
             let firstTokenSent = false;
+            let lastActivityTime = Date.now();
             
             const sendEvent = (event: string, data: any) => {
               if (event === 'token' && !firstTokenSent) {
@@ -333,24 +354,50 @@ serve(async (req) => {
                 firstTokenSent = true;
                 clearTimeout(firstTokenTimeoutId); // Clear first token timeout on success
               }
+              lastActivityTime = Date.now();
               controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
             };
 
-            // First token timeout - abort if no tokens received
+            // Heartbeat to keep connection alive for long requests
+            const heartbeatId = setInterval(() => {
+              if (!firstTokenSent) {
+                const elapsed = Date.now() - requestStartTime;
+                sendEvent('ping', { 
+                  status: 'processing', 
+                  elapsed,
+                  model: modelId,
+                  message: elapsed > 30000 ? 'Heavy processing in progress...' : 'Analyzing your request...'
+                });
+              }
+            }, HEARTBEAT_INTERVAL_MS);
+
+            // First token timeout - abort if no tokens received (model-specific)
             const firstTokenTimeoutId = setTimeout(() => {
               if (!firstTokenSent) {
-                console.error('⏰ First token timeout - no response from model');
-                sendEvent('error', { model: modelId, error: 'Model not responding. Try a different model.' });
+                console.error(`⏰ First token timeout for ${modelId} (${timeouts.firstToken}ms)`);
+                clearInterval(heartbeatId);
+                sendEvent('error', { 
+                  model: modelId, 
+                  error: `${modelId} is not responding. Try a different model.`,
+                  errorType: 'timeout',
+                  suggestFallback: true
+                });
                 controller.close();
               }
-            }, FIRST_TOKEN_TIMEOUT_MS);
+            }, timeouts.firstToken);
 
-            // Overall timeout handler
+            // Overall timeout handler (model-specific)
             const timeoutId = setTimeout(() => {
-              console.error('⏰ Stream timeout');
-              sendEvent('error', { model: modelId, error: 'Request timeout - please try again' });
+              console.error(`⏰ Stream timeout for ${modelId} (${timeouts.total}ms)`);
+              clearInterval(heartbeatId);
+              sendEvent('error', { 
+                model: modelId, 
+                error: 'Request timed out. The model may be overloaded.',
+                errorType: 'timeout',
+                suggestFallback: true
+              });
               controller.close();
-            }, STREAM_TIMEOUT_MS);
+            }, timeouts.total);
 
             try {
               let streamResponse;
@@ -490,6 +537,7 @@ serve(async (req) => {
 
               clearTimeout(timeoutId);
               clearTimeout(firstTokenTimeoutId);
+              clearInterval(heartbeatId);
               metrics.streamEnd = Date.now() - requestStartTime;
               console.log(`✅ Stream complete. TTFT: ${metrics.ttft}ms, Total: ${metrics.streamEnd}ms`);
 
@@ -516,8 +564,14 @@ serve(async (req) => {
             } catch (error: any) {
               clearTimeout(timeoutId);
               clearTimeout(firstTokenTimeoutId);
+              clearInterval(heartbeatId);
               console.error('SSE error:', error.message);
-              sendEvent('error', { model: modelId, error: error.message });
+              sendEvent('error', { 
+                model: modelId, 
+                error: error.message,
+                errorType: 'unknown',
+                suggestFallback: true
+              });
               controller.close();
             }
           }
