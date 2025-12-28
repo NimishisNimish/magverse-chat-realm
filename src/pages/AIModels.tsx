@@ -730,8 +730,8 @@ export default function AIModels() {
                     </h4>
                     <div className="flex flex-wrap gap-4">
                       {['chatgpt', 'gemini', 'claude', 'perplexity', 'grok', 'uncensored-chat'].map((modelId) => (
-                        <div key={modelId} className="flex flex-col items-center gap-2 p-3 rounded-lg bg-zinc-100">
-                          <div className="light">
+                        <div key={modelId} className="flex flex-col items-center gap-2 p-3 rounded-lg bg-zinc-100 border border-zinc-200">
+                          <div className="w-9 h-9 flex items-center justify-center">
                             <AIModelLogo modelId={modelId} size="lg" />
                           </div>
                           <span className="text-xs text-zinc-600 capitalize">{modelId.replace('-', ' ')}</span>
@@ -784,8 +784,8 @@ export default function AIModels() {
                       <CardHeader className="pb-4">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex items-center gap-3">
-                            {/* Dark background for icon - matching theme preview */}
-                            <div className="w-14 h-14 rounded-xl bg-zinc-800 flex items-center justify-center shrink-0">
+                            {/* Icon container with proper light/dark mode background */}
+                            <div className="w-14 h-14 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 border border-zinc-200 dark:border-zinc-700">
                               <AIModelLogo modelId={model.id} size="lg" />
                             </div>
                             <div>
