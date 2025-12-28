@@ -17,10 +17,25 @@ interface StreamingState {
   streamingMessageId: string | null;
   ttft: number | null;
   startTime: number | null;
+  currentStatus: string;
 }
 
-const STREAM_TIMEOUT_MS = 120000; // 2 minutes
-const FIRST_TOKEN_TIMEOUT_MS = 30000; // 30 seconds to first token
+// Model-specific timeout configurations (matching backend)
+const MODEL_TIMEOUTS: Record<string, { firstToken: number; total: number }> = {
+  'chatgpt': { firstToken: 30000, total: 90000 },
+  'claude': { firstToken: 45000, total: 120000 },
+  'perplexity': { firstToken: 30000, total: 90000 },
+  'perplexity-pro': { firstToken: 60000, total: 150000 },
+  'perplexity-reasoning': { firstToken: 120000, total: 240000 },
+  'grok': { firstToken: 30000, total: 90000 },
+  'uncensored-chat': { firstToken: 30000, total: 90000 },
+  'lovable-gemini-flash': { firstToken: 25000, total: 90000 },
+  'lovable-gemini-pro': { firstToken: 40000, total: 120000 },
+  'lovable-gpt5': { firstToken: 35000, total: 100000 },
+  'lovable-gpt5-mini': { firstToken: 25000, total: 80000 },
+};
+
+const DEFAULT_TIMEOUTS = { firstToken: 30000, total: 120000 };
 
 export const useStreamingChat = () => {
   const [streamingState, setStreamingState] = useState<StreamingState>({
@@ -28,6 +43,7 @@ export const useStreamingChat = () => {
     streamingMessageId: null,
     ttft: null,
     startTime: null,
+    currentStatus: '',
   });
   
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -45,6 +61,7 @@ export const useStreamingChat = () => {
       streamingMessageId: null,
       ttft: null,
       startTime: null,
+      currentStatus: '',
     });
   }, []);
 
@@ -54,7 +71,7 @@ export const useStreamingChat = () => {
     chatId: string | null,
     onToken: (content: string, fullContent: string, ttft: number | null) => void,
     onComplete: (messageId: string, responseTime: number, ttft: number) => void,
-    onError: (error: string) => void,
+    onError: (error: string, suggestFallback?: boolean, errorType?: string) => void,
   ) => {
     abort(); // Cancel any existing stream
 
@@ -65,32 +82,46 @@ export const useStreamingChat = () => {
     let firstTokenTime: number | null = null;
     let fullContent = '';
     
+    // Get model-specific timeouts
+    const timeouts = MODEL_TIMEOUTS[model] || DEFAULT_TIMEOUTS;
+    
     setStreamingState({
       isStreaming: true,
       streamingMessageId: `streaming-${startTime}`,
       ttft: null,
       startTime,
+      currentStatus: 'Connecting...',
     });
 
-    // First token timeout
+    // First token timeout (model-specific)
     const firstTokenTimeoutId = setTimeout(() => {
       if (!firstTokenTime) {
         abortController.abort();
-        onError('⏱️ No response received. The model may be overloaded. Try again or use a different model.');
+        onError(
+          `⏱️ ${model} is not responding. Try a different model.`,
+          true,
+          'timeout'
+        );
       }
-    }, FIRST_TOKEN_TIMEOUT_MS);
+    }, timeouts.firstToken);
 
-    // Overall timeout
+    // Overall timeout (model-specific)
     const overallTimeoutId = setTimeout(() => {
       abortController.abort();
-      onError('⏱️ Request timed out. Please try again.');
-    }, STREAM_TIMEOUT_MS);
+      onError(
+        '⏱️ Request timed out. The model may be overloaded.',
+        true,
+        'timeout'
+      );
+    }, timeouts.total);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         throw new Error('Not authenticated');
       }
+
+      setStreamingState(prev => ({ ...prev, currentStatus: 'Sending request...' }));
 
       const modelMapping: Record<string, string> = {
         'lovable-gemini-flash': 'google/gemini-2.5-flash',
@@ -117,22 +148,24 @@ export const useStreamingChat = () => {
         }
       );
 
-      clearTimeout(firstTokenTimeoutId);
-
       if (!response.ok) {
+        clearTimeout(firstTokenTimeoutId);
         const errorText = await response.text();
+        
         if (response.status === 429) {
-          throw new Error('⚠️ Rate limit exceeded. Please wait and try again.');
+          throw { message: '⚠️ Rate limit exceeded. Please wait and try again.', type: 'rate_limit' };
         } else if (response.status === 402) {
-          throw new Error('💳 Credits exhausted. Please add credits to continue.');
+          throw { message: '💳 Credits exhausted. Please add credits to continue.', type: 'credits' };
         } else if (response.status === 503) {
-          throw new Error('⏳ Service temporarily unavailable. Please try again.');
+          throw { message: '⏳ Service temporarily unavailable. Please try again.', type: 'unavailable' };
         }
-        throw new Error(`Request failed: ${response.status}`);
+        throw { message: `Request failed: ${response.status}`, type: 'unknown' };
       }
 
+      setStreamingState(prev => ({ ...prev, currentStatus: 'Receiving response...' }));
+
       const reader = response.body?.getReader();
-      if (!reader) throw new Error('No reader available');
+      if (!reader) throw { message: 'No reader available', type: 'unknown' };
 
       const decoder = new TextDecoder();
       let buffer = '';
@@ -164,7 +197,12 @@ export const useStreamingChat = () => {
               if (!firstTokenTime) {
                 firstTokenTime = Date.now();
                 const ttft = firstTokenTime - startTime;
-                setStreamingState(prev => ({ ...prev, ttft }));
+                setStreamingState(prev => ({ 
+                  ...prev, 
+                  ttft,
+                  currentStatus: 'Generating response...'
+                }));
+                clearTimeout(firstTokenTimeoutId);
                 console.log(`⚡ TTFT: ${ttft}ms`);
               }
 
@@ -190,6 +228,7 @@ export const useStreamingChat = () => {
       }
 
       clearTimeout(overallTimeoutId);
+      clearTimeout(firstTokenTimeoutId);
       
       const responseTime = Date.now() - startTime;
       const ttft = firstTokenTime ? firstTokenTime - startTime : responseTime;
@@ -201,16 +240,21 @@ export const useStreamingChat = () => {
         streamingMessageId: null,
         ttft: null,
         startTime: null,
+        currentStatus: '',
       });
 
     } catch (error: any) {
       clearTimeout(firstTokenTimeoutId);
       clearTimeout(overallTimeoutId);
 
+      const errorMessage = error?.message || 'Unknown error occurred';
+      const errorType = error?.type || 'unknown';
+      const suggestFallback = errorType === 'timeout' || errorType === 'unavailable';
+
       if (error.name === 'AbortError') {
-        onError('⏹️ Request cancelled or timed out.');
+        onError('⏹️ Request cancelled or timed out.', true, 'timeout');
       } else {
-        onError(error.message || 'Unknown error occurred');
+        onError(errorMessage, suggestFallback, errorType);
       }
 
       setStreamingState({
@@ -218,6 +262,7 @@ export const useStreamingChat = () => {
         streamingMessageId: null,
         ttft: null,
         startTime: null,
+        currentStatus: '',
       });
     }
   }, [abort]);

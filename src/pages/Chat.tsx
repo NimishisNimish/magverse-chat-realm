@@ -67,6 +67,7 @@ import { AIModelLogo } from "@/components/AIModelLogo";
 import { AITypingIndicator } from "@/components/AITypingIndicator";
 import { AIModelBadge } from "@/components/AIModelBadge";
 import { CreditBalanceIndicator } from "@/components/CreditBalanceIndicator";
+import { ModelFallbackDialog, FALLBACK_MODELS } from "@/components/ModelFallbackDialog";
 import { softCleanMarkdown } from "@/utils/markdownCleaner";
 import {
   DropdownMenu,
@@ -270,6 +271,15 @@ const Chat = () => {
     return saved ? JSON.parse(saved) : false;
   });
   const abortControllerRef = useRef<AbortController | null>(null);
+  
+  // Model fallback dialog state
+  const [fallbackDialogOpen, setFallbackDialogOpen] = useState(false);
+  const [failedModelInfo, setFailedModelInfo] = useState<{
+    modelId: string;
+    modelName: string;
+    errorMessage: string;
+    lastInput: string;
+  } | null>(null);
   
   // PDF Preview state
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
@@ -2093,6 +2103,8 @@ const Chat = () => {
                             key={modelId}
                             modelId={modelId}
                             modelName={model.name}
+                            startTime={responseStartTime || undefined}
+                            showElapsed={true}
                           />
                         );
                       })}
@@ -2796,6 +2808,29 @@ const Chat = () => {
           setPdfPreviewText(text);
         }}
       />
+
+      {/* Model Fallback Dialog */}
+      {failedModelInfo && (
+        <ModelFallbackDialog
+          open={fallbackDialogOpen}
+          onOpenChange={setFallbackDialogOpen}
+          failedModel={failedModelInfo.modelId}
+          failedModelName={failedModelInfo.modelName}
+          errorMessage={failedModelInfo.errorMessage}
+          onRetry={() => {
+            // Retry with the same model
+            setInput(failedModelInfo.lastInput);
+            setFallbackDialogOpen(false);
+          }}
+          onUseFallback={(fallbackModelId) => {
+            // Switch to fallback model and retry
+            setSelectedModels([fallbackModelId]);
+            setInput(failedModelInfo.lastInput);
+            setFallbackDialogOpen(false);
+            sonnerToast.info(`Switched to ${FALLBACK_MODELS[failedModelInfo.modelId]?.fallbackName || fallbackModelId}`);
+          }}
+        />
+      )}
     </div>
   );
 };

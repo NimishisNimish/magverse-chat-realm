@@ -11,7 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Sparkles, Mail, Lock, Upload, Loader2, Eye, EyeOff, 
-  ArrowRight, User, KeyRound
+  ArrowRight, User, KeyRound, MessageSquare
 } from "lucide-react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -387,6 +387,26 @@ const Auth = () => {
                         </svg>
                       )}
                       Continue with Google
+                    </Button>
+                  </motion.div>
+
+                  {/* Continue as Guest */}
+                  <motion.div 
+                    whileHover={{ scale: 1.01 }} 
+                    whileTap={{ scale: 0.99 }}
+                    className="mt-3"
+                  >
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full h-12 border border-dashed border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all duration-300"
+                      onClick={() => navigate('/chat')}
+                    >
+                      <MessageSquare className="w-5 h-5 mr-2 text-muted-foreground" />
+                      <span className="text-muted-foreground">Continue as Guest</span>
+                      <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                        3 free messages
+                      </span>
                     </Button>
                   </motion.div>
 
