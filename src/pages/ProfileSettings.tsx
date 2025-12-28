@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Upload, Mail, Lock, User, Shield, FileText, Download, Bell, Zap } from 'lucide-react';
+import { Loader2, Upload, Mail, Lock, User, Shield, FileText, Download, Bell, Zap, Coins } from 'lucide-react';
 import { generateInvoicePDF } from "@/utils/invoiceGenerator";
 import { Switch } from "@/components/ui/switch";
 import { LoadBalancerSettings } from "@/components/LoadBalancerSettings";
@@ -401,8 +401,12 @@ export default function ProfileSettings() {
           <p className="text-muted-foreground">Manage your account settings and preferences</p>
         </div>
 
-        <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-6 mb-8">
+        <Tabs defaultValue="credits" className="w-full">
+          <TabsList className="grid w-full grid-cols-7 mb-8">
+            <TabsTrigger value="credits" className="flex items-center gap-2">
+              <Coins className="h-4 w-4" />
+              Credits
+            </TabsTrigger>
             <TabsTrigger value="profile" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               Profile
@@ -428,6 +432,97 @@ export default function ProfileSettings() {
               Invoices
             </TabsTrigger>
           </TabsList>
+
+          {/* Credits Tab - NEW */}
+          <TabsContent value="credits">
+            <Card className="p-6 space-y-6">
+              <div className="flex items-center gap-3 mb-4">
+                <Coins className="h-6 w-6 text-primary" />
+                <h3 className="text-xl font-semibold">Credit Usage</h3>
+              </div>
+              
+              <div className="grid gap-4 md:grid-cols-2">
+                {/* Current Credits */}
+                <div className="glass-card p-4 rounded-lg border border-border/50">
+                  <div className="text-sm text-muted-foreground mb-1">Credits Remaining Today</div>
+                  <div className="text-3xl font-bold text-primary">
+                    {profile?.subscription_type === 'lifetime' ? '∞' : profile?.credits_remaining ?? 0}
+                  </div>
+                  {profile?.subscription_type !== 'lifetime' && (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Daily limit: {profile?.subscription_type === 'monthly' ? '50' : '5'} credits
+                    </div>
+                  )}
+                </div>
+                
+                {/* Subscription Type */}
+                <div className="glass-card p-4 rounded-lg border border-border/50">
+                  <div className="text-sm text-muted-foreground mb-1">Your Plan</div>
+                  <div className="text-xl font-bold capitalize">
+                    {profile?.subscription_type === 'lifetime' ? 'Lifetime Pro' : 
+                     profile?.subscription_type === 'monthly' ? 'Pro Yearly' : 
+                     'Free Plan'}
+                  </div>
+                  {profile?.subscription_type === 'free' && (
+                    <Button 
+                      variant="link" 
+                      className="p-0 h-auto text-primary text-xs"
+                      onClick={() => window.location.href = '/pricing'}
+                    >
+                      Upgrade for more credits →
+                    </Button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Credit Cost Per Model */}
+              <div className="space-y-3">
+                <h4 className="text-lg font-medium">Credits Per Message by Model</h4>
+                <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <span className="text-sm">Gemini Flash</span>
+                    <Badge variant="secondary">1 credit</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <span className="text-sm">GPT-5 Mini</span>
+                    <Badge variant="secondary">1 credit</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <span className="text-sm">Perplexity Sonar</span>
+                    <Badge variant="secondary">1 credit</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <span className="text-sm">Gemini Pro</span>
+                    <Badge variant="outline">2 credits</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <span className="text-sm">ChatGPT (GPT-4o)</span>
+                    <Badge variant="outline">2 credits</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <span className="text-sm">Claude Sonnet</span>
+                    <Badge variant="outline">2 credits</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <span className="text-sm">GPT-5</span>
+                    <Badge className="bg-primary/20 text-primary border-primary/30">3 credits</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <span className="text-sm">Perplexity Deep Research</span>
+                    <Badge className="bg-primary/20 text-primary border-primary/30">3 credits</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <span className="text-sm">Image Generation</span>
+                    <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">5 credits</Badge>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-sm text-muted-foreground pt-4 border-t border-border/50">
+                <p>Credits reset daily at midnight UTC. Your usage is tracked in real-time.</p>
+              </div>
+            </Card>
+          </TabsContent>
 
           {/* Profile Tab */}
           <TabsContent value="profile">

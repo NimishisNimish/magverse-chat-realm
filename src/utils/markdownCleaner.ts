@@ -7,6 +7,9 @@ export const cleanMarkdown = (text: string): string => {
   
   let cleaned = text;
   
+  // Remove <think> tags and their content (from reasoning models like Perplexity Deep Research)
+  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  
   // Remove bold markdown (**text** or __text__)
   cleaned = cleaned.replace(/\*\*(.+?)\*\*/g, '$1');
   cleaned = cleaned.replace(/__(.+?)__/g, '$1');
@@ -30,7 +33,7 @@ export const cleanMarkdown = (text: string): string => {
   // Remove strikethrough (~~text~~)
   cleaned = cleaned.replace(/~~(.+?)~~/g, '$1');
   
-  return cleaned;
+  return cleaned.trim();
 };
 
 /**
@@ -42,10 +45,22 @@ export const softCleanMarkdown = (text: string): string => {
   
   let cleaned = text;
   
+  // Remove <think> tags and their content (from reasoning models like Perplexity Deep Research)
+  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  
   // Only remove excessive markdown like ** and __
   cleaned = cleaned.replace(/\*\*(.+?)\*\*/g, '$1');
   cleaned = cleaned.replace(/__(.+?)__/g, '$1');
   
-  return cleaned;
+  return cleaned.trim();
+};
+
+/**
+ * Strips only thinking process tags without affecting other formatting
+ * Use this when you want to preserve markdown but remove AI thinking
+ */
+export const stripThinkingTags = (text: string): string => {
+  if (!text) return text;
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 };
 

@@ -9,6 +9,7 @@ export interface ModelConfig {
   category: 'fast' | 'reasoning' | 'research' | 'image';
   available?: boolean;
   isLovable?: boolean; // Whether it routes through Lovable AI Gateway
+  creditsPerMessage: number; // Credits consumed per message
 }
 
 // These IDs MUST match the backend exactly (chat-with-ai edge function)
@@ -22,7 +23,8 @@ export const MODEL_CONFIG: ModelConfig[] = [
     icon: Zap, 
     color: 'text-blue-400',
     category: 'fast',
-    isLovable: true
+    isLovable: true,
+    creditsPerMessage: 1
   },
   { 
     id: 'lovable-gpt5-mini', 
@@ -31,7 +33,8 @@ export const MODEL_CONFIG: ModelConfig[] = [
     icon: Sparkles, 
     color: 'text-emerald-400',
     category: 'fast',
-    isLovable: true
+    isLovable: true,
+    creditsPerMessage: 1
   },
   
   // Reasoning Models (Lovable AI)
@@ -42,7 +45,8 @@ export const MODEL_CONFIG: ModelConfig[] = [
     icon: Brain, 
     color: 'text-purple-400',
     category: 'reasoning',
-    isLovable: true
+    isLovable: true,
+    creditsPerMessage: 2
   },
   { 
     id: 'lovable-gpt5', 
@@ -51,7 +55,8 @@ export const MODEL_CONFIG: ModelConfig[] = [
     icon: Bot, 
     color: 'text-green-400',
     category: 'reasoning',
-    isLovable: true
+    isLovable: true,
+    creditsPerMessage: 3
   },
   
   // Direct API models
@@ -61,7 +66,8 @@ export const MODEL_CONFIG: ModelConfig[] = [
     description: 'OpenAI flagship model', 
     icon: Bot, 
     color: 'text-green-500',
-    category: 'reasoning'
+    category: 'reasoning',
+    creditsPerMessage: 2
   },
   { 
     id: 'claude', 
@@ -69,7 +75,8 @@ export const MODEL_CONFIG: ModelConfig[] = [
     description: 'Anthropic thoughtful AI', 
     icon: Bot, 
     color: 'text-orange-400',
-    category: 'reasoning'
+    category: 'reasoning',
+    creditsPerMessage: 2
   },
   
   // Perplexity models (user-selectable)
@@ -79,7 +86,8 @@ export const MODEL_CONFIG: ModelConfig[] = [
     description: 'Fast web search AI', 
     icon: Globe, 
     color: 'text-cyan-400',
-    category: 'research'
+    category: 'research',
+    creditsPerMessage: 1
   },
   { 
     id: 'perplexity-pro', 
@@ -87,7 +95,8 @@ export const MODEL_CONFIG: ModelConfig[] = [
     description: 'Multi-step reasoning with sources', 
     icon: Globe, 
     color: 'text-cyan-500',
-    category: 'research'
+    category: 'research',
+    creditsPerMessage: 2
   },
   { 
     id: 'perplexity-reasoning', 
@@ -95,7 +104,8 @@ export const MODEL_CONFIG: ModelConfig[] = [
     description: 'Expert multi-query analysis', 
     icon: Brain, 
     color: 'text-cyan-600',
-    category: 'research'
+    category: 'research',
+    creditsPerMessage: 3
   },
   { 
     id: 'grok', 
@@ -103,7 +113,8 @@ export const MODEL_CONFIG: ModelConfig[] = [
     description: 'Real-time knowledge model', 
     icon: Zap, 
     color: 'text-white',
-    category: 'research'
+    category: 'research',
+    creditsPerMessage: 2
   },
   
   // Uncensored.chat
@@ -113,7 +124,8 @@ export const MODEL_CONFIG: ModelConfig[] = [
     description: 'Unfiltered AI responses', 
     icon: Bot, 
     color: 'text-red-500',
-    category: 'reasoning'
+    category: 'reasoning',
+    creditsPerMessage: 1
   },
   
   // Image generation
@@ -123,7 +135,8 @@ export const MODEL_CONFIG: ModelConfig[] = [
     description: 'AI image generation', 
     icon: Image, 
     color: 'text-pink-400',
-    category: 'image'
+    category: 'image',
+    creditsPerMessage: 5
   },
   { 
     id: 'lovable-gemini-flash-image', 
@@ -132,7 +145,8 @@ export const MODEL_CONFIG: ModelConfig[] = [
     icon: Image, 
     color: 'text-pink-500',
     category: 'image',
-    isLovable: true
+    isLovable: true,
+    creditsPerMessage: 5
   },
 ];
 
@@ -162,6 +176,12 @@ export const sanitizeModelIds = (modelIds: string[]): string[] => {
 export const isLovableModel = (modelId: string): boolean => {
   const config = getModelConfig(modelId);
   return config?.isLovable === true;
+};
+
+// Get credits per message for a model
+export const getCreditsPerMessage = (modelId: string): number => {
+  const config = getModelConfig(modelId);
+  return config?.creditsPerMessage ?? 1;
 };
 
 // Get all Perplexity model variants

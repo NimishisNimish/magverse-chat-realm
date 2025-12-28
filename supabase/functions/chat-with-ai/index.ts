@@ -50,21 +50,71 @@ const DEFAULT_TIMEOUTS = { firstToken: 30000, total: 120000 };
 // Heartbeat interval for long requests (prevents connection timeout)
 const HEARTBEAT_INTERVAL_MS = 15000;
 
+// In-memory request queue for concurrency control
+// Note: In a production multi-instance setup, this would use Redis
+const requestQueue: Map<string, { count: number; lastReset: number }> = new Map();
+const MAX_CONCURRENT_PER_MODEL: Record<string, number> = {
+  'chatgpt': 10,
+  'claude': 5,
+  'perplexity': 10,
+  'perplexity-pro': 5,
+  'perplexity-reasoning': 3, // Deep Research is heavy, limit concurrency
+  'grok': 10,
+  'gemini-flash-image': 5,
+  'uncensored-chat': 10,
+};
+const DEFAULT_MAX_CONCURRENT = 10;
+const QUEUE_RESET_INTERVAL_MS = 60000; // Reset counters every minute
+
+// Check and increment queue counter for a model
+function checkQueueLimit(modelId: string): { allowed: boolean; currentCount: number; maxCount: number } {
+  const now = Date.now();
+  const maxConcurrent = MAX_CONCURRENT_PER_MODEL[modelId] || DEFAULT_MAX_CONCURRENT;
+  
+  let queueState = requestQueue.get(modelId);
+  
+  // Reset if interval passed
+  if (!queueState || (now - queueState.lastReset) > QUEUE_RESET_INTERVAL_MS) {
+    queueState = { count: 0, lastReset: now };
+    requestQueue.set(modelId, queueState);
+  }
+  
+  if (queueState.count >= maxConcurrent) {
+    return { allowed: false, currentCount: queueState.count, maxCount: maxConcurrent };
+  }
+  
+  // Increment counter
+  queueState.count++;
+  requestQueue.set(modelId, queueState);
+  
+  return { allowed: true, currentCount: queueState.count, maxCount: maxConcurrent };
+}
+
+// Decrement queue counter when request completes
+function releaseQueueSlot(modelId: string): void {
+  const queueState = requestQueue.get(modelId);
+  if (queueState && queueState.count > 0) {
+    queueState.count--;
+    requestQueue.set(modelId, queueState);
+  }
+}
+
 const MODEL_CONFIG: Record<string, { 
   provider: 'openai' | 'nvidia' | 'google' | 'openrouter' | 'perplexity' | 'groq' | 'lovable' | 'uncensored', 
   model: string,
   supportsReasoning: boolean,
   maxTokens?: number,
   supportsStreaming?: boolean,
+  creditsPerMessage?: number,
 }> = {
-  'chatgpt': { provider: 'lovable', model: 'google/gemini-2.5-flash', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true },
-  'claude': { provider: 'lovable', model: 'google/gemini-2.5-pro', supportsReasoning: true, supportsStreaming: true },
-  'grok': { provider: 'lovable', model: 'google/gemini-2.5-flash', supportsReasoning: true, supportsStreaming: true },
-  'perplexity': { provider: 'perplexity', model: 'sonar', supportsReasoning: true, supportsStreaming: true },
-  'perplexity-pro': { provider: 'perplexity', model: 'sonar-pro', supportsReasoning: true, supportsStreaming: true },
-  'perplexity-reasoning': { provider: 'perplexity', model: 'sonar-deep-research', supportsReasoning: true, supportsStreaming: false },
-  'gemini-flash-image': { provider: 'lovable', model: 'google/gemini-2.5-flash-image-preview', supportsReasoning: false, supportsStreaming: false },
-  'uncensored-chat': { provider: 'uncensored', model: 'uncensored-v2', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true },
+  'chatgpt': { provider: 'lovable', model: 'google/gemini-2.5-flash', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true, creditsPerMessage: 2 },
+  'claude': { provider: 'lovable', model: 'google/gemini-2.5-pro', supportsReasoning: true, supportsStreaming: true, creditsPerMessage: 2 },
+  'grok': { provider: 'lovable', model: 'google/gemini-2.5-flash', supportsReasoning: true, supportsStreaming: true, creditsPerMessage: 2 },
+  'perplexity': { provider: 'perplexity', model: 'sonar', supportsReasoning: true, supportsStreaming: true, creditsPerMessage: 1 },
+  'perplexity-pro': { provider: 'perplexity', model: 'sonar-pro', supportsReasoning: true, supportsStreaming: true, creditsPerMessage: 2 },
+  'perplexity-reasoning': { provider: 'perplexity', model: 'sonar-deep-research', supportsReasoning: true, supportsStreaming: false, creditsPerMessage: 3 },
+  'gemini-flash-image': { provider: 'lovable', model: 'google/gemini-2.5-flash-image-preview', supportsReasoning: false, supportsStreaming: false, creditsPerMessage: 5 },
+  'uncensored-chat': { provider: 'uncensored', model: 'uncensored-v2', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true, creditsPerMessage: 1 },
 };
 
 // Validation schema

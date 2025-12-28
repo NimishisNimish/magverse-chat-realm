@@ -319,9 +319,7 @@ const Auth = () => {
               transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
               className="inline-block mb-4"
             >
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/30">
-                <Sparkles className="w-8 h-8 text-primary-foreground" />
-              </div>
+              <img src="/magverse-ai-logo.png" alt="Magverse AI" className="w-16 h-16 rounded-2xl shadow-lg shadow-primary/30 mx-auto" />
             </motion.div>
             <h1 className="text-3xl font-bold gradient-text">Magverse AI</h1>
           </motion.div>

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, Zap, Shield, Infinity, Mail, MapPin, Phone, Users, Target, Rocket, Check, X, Crown } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
-import magverseLogo from "@/assets/magverse-logo.png";
+import magverseLogo from "@/assets/magverse-ai-logo.png";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";

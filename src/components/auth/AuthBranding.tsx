@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
-import { Sparkles, Zap, Shield, Brain } from "lucide-react";
+import { Zap, Shield, Brain } from "lucide-react";
+import magverseLogo from "@/assets/magverse-ai-logo.png";
 
 const AuthBranding = () => {
   const features = [
@@ -27,9 +28,7 @@ const AuthBranding = () => {
           transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
           className="inline-block mb-6"
         >
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/30">
-            <Sparkles className="w-10 h-10 text-primary-foreground" />
-          </div>
+          <img src={magverseLogo} alt="Magverse AI" className="w-20 h-20 rounded-2xl shadow-lg shadow-primary/30" />
         </motion.div>
         
         <h1 className="text-4xl font-bold gradient-text mb-3">Magverse AI</h1>
