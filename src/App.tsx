@@ -23,6 +23,7 @@ import Chat from "./pages/Chat";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Pricing from "./pages/Pricing";
+import AIModels from "./pages/AIModels";
 
 // Lazy load admin pages
 const Admin = lazy(() => import("./pages/Admin"));
@@ -104,6 +105,7 @@ const AnimatedRoutes = () => {
           <Route path="/" element={<PageTransition variant={getTransitionVariant('/')}><Index /></PageTransition>} />
           <Route path="/home" element={<PageTransition variant={getTransitionVariant('/')}><Home /></PageTransition>} />
           <Route path="/pricing" element={<PageTransition variant="fade"><Pricing /></PageTransition>} />
+          <Route path="/models" element={<PageTransition variant="fade"><AIModels /></PageTransition>} />
           <Route path="/auth" element={<PageTransition variant={getTransitionVariant('/auth')}><Auth /></PageTransition>} />
           <Route path="/chat" element={<ProtectedRoute><PageTransition variant={getTransitionVariant('/chat')}><Chat /></PageTransition></ProtectedRoute>} />
           
