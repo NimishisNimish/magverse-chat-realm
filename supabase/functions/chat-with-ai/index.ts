@@ -48,7 +48,7 @@ const MODEL_CONFIG: Record<string, {
   'perplexity-pro': { provider: 'perplexity', model: 'sonar-pro', supportsReasoning: true, supportsStreaming: true },
   'perplexity-reasoning': { provider: 'perplexity', model: 'sonar-deep-research', supportsReasoning: true, supportsStreaming: false },
   'gemini-flash-image': { provider: 'lovable', model: 'google/gemini-2.5-flash-image-preview', supportsReasoning: false, supportsStreaming: false },
-  'uncensored-chat': { provider: 'uncensored', model: 'dolphin-mixtral-8x22b', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true },
+  'uncensored-chat': { provider: 'uncensored', model: 'ModelsLab/Llama-3.1-8b-Uncensored-Dare', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true },
 };
 
 // Validation schema
@@ -394,7 +394,7 @@ serve(async (req) => {
                   }),
                 });
               } else if (config.provider === 'uncensored') {
-                streamResponse = await fetch('https://api.uncensored.chat/v1/chat/completions', {
+                streamResponse = await fetch('https://modelslab.com/api/uncensored-chat/v1/chat/completions', {
                   method: 'POST',
                   headers: {
                     'Authorization': `Bearer ${UNCENSORED_CHAT_API_KEY}`,
@@ -582,7 +582,7 @@ serve(async (req) => {
         } else if (config.provider === 'uncensored') {
           if (!UNCENSORED_CHAT_API_KEY) throw new Error('Uncensored API key not configured');
           
-          response = await fetch('https://api.uncensored.chat/v1/chat/completions', {
+          response = await fetch('https://modelslab.com/api/uncensored-chat/v1/chat/completions', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${UNCENSORED_CHAT_API_KEY}`,
