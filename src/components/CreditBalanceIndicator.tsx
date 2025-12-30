@@ -1,13 +1,20 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { Coins, AlertCircle, TrendingUp } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Coins, AlertCircle, TrendingUp, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
-export const CreditBalanceIndicator = () => {
-  const { profile } = useAuth();
+interface CreditBalanceIndicatorProps {
+  compact?: boolean;
+  showRefresh?: boolean;
+}
+
+export const CreditBalanceIndicator = ({ compact = false, showRefresh = false }: CreditBalanceIndicatorProps) => {
+  const { profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   if (!profile) return null;
 
@@ -24,14 +31,63 @@ export const CreditBalanceIndicator = () => {
   const isLowCredits = !isLifetime && credits <= 2 && credits > 0;
   const isOutOfCredits = !isLifetime && credits <= 0;
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshProfile();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-2 text-sm">
+        <Coins className="w-4 h-4 text-primary" />
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={credits}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="font-medium text-foreground"
+          >
+            {creditsToday}
+          </motion.span>
+        </AnimatePresence>
+        {!isLifetime && <span className="text-muted-foreground">/{dailyLimit}</span>}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2 text-sm">
         <Coins className="w-4 h-4 text-primary" />
         <span className="text-muted-foreground">
-          Credits today: <span className="font-medium text-foreground">{creditsToday}</span>
+          Credits today:{" "}
+          <AnimatePresence mode="wait">
+            <motion.span
+              key={credits}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.2 }}
+              className="font-medium text-foreground inline-block"
+            >
+              {creditsToday}
+            </motion.span>
+          </AnimatePresence>
           {!isLifetime && <span className="text-muted-foreground">/{dailyLimit}</span>}
         </span>
+        {showRefresh && (
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6 ml-1"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </Button>
+        )}
       </div>
       
       {isOutOfCredits && (
