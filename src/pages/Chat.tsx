@@ -1516,6 +1516,9 @@ const Chat = () => {
       setImagePrompt("");
       setImageStyle("realistic");
       
+      // Refresh profile to update credits
+      await refreshProfile();
+      
     } catch (error: any) {
       console.error('Image generation error:', error);
       sonnerToast.error(error.message || "Failed to generate image. Try a different prompt.");
