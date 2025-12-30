@@ -4,6 +4,9 @@ import { HeroSection } from "@/components/home/HeroSection";
 import { IndustryLeaders } from "@/components/home/IndustryLeaders";
 import { AdvancedModelLibrary } from "@/components/home/AdvancedModelLibrary";
 import { SuperchargeWorkflow } from "@/components/home/SuperchargeWorkflow";
+import { AboutSection } from "@/components/home/AboutSection";
+import { FounderSection } from "@/components/home/FounderSection";
+import { ContactSection } from "@/components/home/ContactSection";
 import { Footer } from "@/components/home/Footer";
 import { useEffect } from "react";
 
@@ -34,6 +37,9 @@ const Home = () => {
       <IndustryLeaders />
       <AdvancedModelLibrary />
       <SuperchargeWorkflow />
+      <AboutSection />
+      <FounderSection />
+      <ContactSection />
       <Footer />
     </div>
   );

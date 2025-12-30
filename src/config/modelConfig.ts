@@ -1,4 +1,4 @@
-import { Bot, Zap, Brain, Globe, Sparkles, Image } from "lucide-react";
+import { Bot, Zap, Brain, Globe, Sparkles, Image, Wind } from "lucide-react";
 
 export interface ModelConfig {
   id: string;
@@ -77,6 +77,17 @@ export const MODEL_CONFIG: ModelConfig[] = [
     color: 'text-orange-400',
     category: 'reasoning',
     creditsPerMessage: 2
+  },
+  
+  // Mistral AI
+  { 
+    id: 'mistral', 
+    name: 'Mistral AI', 
+    description: 'Fast & efficient open model', 
+    icon: Wind, 
+    color: 'text-orange-500',
+    category: 'fast',
+    creditsPerMessage: 1
   },
   
   // Perplexity models (user-selectable)

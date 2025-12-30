@@ -17,6 +17,7 @@ const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
 const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const UNCENSORED_CHAT_API_KEY = Deno.env.get('UNCENSORED_CHAT_API_KEY');
+const MISTRAL_API_KEY = Deno.env.get('MISTRAL_API_KEY');
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -26,22 +27,24 @@ const MAX_MESSAGE_LENGTH = 10000;
 const MAX_MODELS_PER_REQUEST = 5;
 const MAX_CONTEXT_MESSAGES = 10; // Limit context for faster responses
 
-const VALID_MODELS = ['chatgpt', 'claude', 'perplexity', 'perplexity-pro', 'perplexity-reasoning', 'grok', 'gemini-flash-image', 'uncensored-chat'] as const;
+const VALID_MODELS = ['chatgpt', 'claude', 'perplexity', 'perplexity-pro', 'perplexity-reasoning', 'grok', 'gemini-flash-image', 'uncensored-chat', 'mistral'] as const;
 
 // Model routing: fast models for simple queries, heavy for complex
 const FAST_MODELS = ['chatgpt', 'grok'];
 const HEAVY_MODELS = ['claude', 'perplexity-pro', 'perplexity-reasoning'];
 
 // Model-specific timeout configurations (in milliseconds)
+// Deep Research: 5-6 min, Reasoning: 8 min for complex tasks
 const MODEL_TIMEOUTS: Record<string, { firstToken: number; total: number }> = {
   'chatgpt': { firstToken: 30000, total: 90000 },
   'claude': { firstToken: 45000, total: 120000 },
   'perplexity': { firstToken: 30000, total: 90000 },
-  'perplexity-pro': { firstToken: 60000, total: 150000 },
-  'perplexity-reasoning': { firstToken: 120000, total: 240000 }, // Deep Research needs more time
+  'perplexity-pro': { firstToken: 90000, total: 300000 }, // 5 min total for research
+  'perplexity-reasoning': { firstToken: 180000, total: 480000 }, // 8 min for deep reasoning
   'grok': { firstToken: 30000, total: 90000 },
   'gemini-flash-image': { firstToken: 30000, total: 90000 },
   'uncensored-chat': { firstToken: 30000, total: 90000 },
+  'mistral': { firstToken: 30000, total: 90000 },
 };
 
 // Default timeouts if model not in config
@@ -62,6 +65,7 @@ const MAX_CONCURRENT_PER_MODEL: Record<string, number> = {
   'grok': 10,
   'gemini-flash-image': 5,
   'uncensored-chat': 10,
+  'mistral': 10,
 };
 const DEFAULT_MAX_CONCURRENT = 10;
 const QUEUE_RESET_INTERVAL_MS = 60000; // Reset counters every minute
@@ -100,7 +104,7 @@ function releaseQueueSlot(modelId: string): void {
 }
 
 const MODEL_CONFIG: Record<string, { 
-  provider: 'openai' | 'nvidia' | 'google' | 'openrouter' | 'perplexity' | 'groq' | 'lovable' | 'uncensored', 
+  provider: 'openai' | 'nvidia' | 'google' | 'openrouter' | 'perplexity' | 'groq' | 'lovable' | 'uncensored' | 'mistral', 
   model: string,
   supportsReasoning: boolean,
   maxTokens?: number,
@@ -115,6 +119,7 @@ const MODEL_CONFIG: Record<string, {
   'perplexity-reasoning': { provider: 'perplexity', model: 'sonar-deep-research', supportsReasoning: true, supportsStreaming: false, creditsPerMessage: 3 },
   'gemini-flash-image': { provider: 'lovable', model: 'google/gemini-2.5-flash-image-preview', supportsReasoning: false, supportsStreaming: false, creditsPerMessage: 5 },
   'uncensored-chat': { provider: 'uncensored', model: 'uncensored-v2', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true, creditsPerMessage: 1 },
+  'mistral': { provider: 'mistral', model: 'mistral-large-latest', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true, creditsPerMessage: 1 },
 };
 
 // Validation schema
@@ -459,6 +464,8 @@ serve(async (req) => {
                 throw new Error('Perplexity API key not configured');
               } else if (config.provider === 'uncensored' && !UNCENSORED_CHAT_API_KEY) {
                 throw new Error('Uncensored API key not configured');
+              } else if (config.provider === 'mistral' && !MISTRAL_API_KEY) {
+                throw new Error('Mistral API key not configured');
               }
 
               // Make streaming request based on provider
@@ -498,6 +505,20 @@ serve(async (req) => {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'User-Agent': 'magverse-edge/1.0',
+                  },
+                  body: JSON.stringify({
+                    model: config.model,
+                    messages: processedMessages,
+                    max_tokens: config.maxTokens || 4096,
+                    stream: true,
+                  }),
+                });
+              } else if (config.provider === 'mistral') {
+                streamResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${MISTRAL_API_KEY}`,
+                    'Content-Type': 'application/json',
                   },
                   body: JSON.stringify({
                     model: config.model,
@@ -737,7 +758,6 @@ serve(async (req) => {
             throw new Error(errorMessage);
           }
 
-          // Some proxies/WAFs return HTML with a 200, so guard JSON parsing.
           if (!contentType.includes('application/json')) {
             console.error(`❌ Uncensored API returned non-JSON: Status ${response.status}, Content-Type: ${contentType}, Body: ${rawBody.substring(0, 500)}`);
             throw new Error('Uncensored AI returned an unexpected response (non-JSON). Please check provider availability/API key.');
@@ -751,6 +771,29 @@ serve(async (req) => {
             throw new Error('Uncensored AI returned malformed JSON.');
           }
 
+          content = data.choices?.[0]?.message?.content || 'No response';
+        } else if (config.provider === 'mistral') {
+          if (!MISTRAL_API_KEY) throw new Error('Mistral API key not configured');
+          
+          response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${MISTRAL_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: config.model,
+              messages: processedMessages,
+              max_tokens: config.maxTokens || 4096,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Mistral error: ${response.status} - ${errorText.substring(0, 100)}`);
+          }
+
+          const data = await response.json();
           content = data.choices?.[0]?.message?.content || 'No response';
         }
 
