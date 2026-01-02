@@ -1,53 +1,56 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Zap, Shield, Infinity, Target } from "lucide-react";
+import { Zap, Shield, Infinity, Target, ArrowRight } from "lucide-react";
 
 const features = [
   {
     icon: Zap,
     title: "Unified Intelligence",
-    description: "Access GPT-4o, Claude 3.5 Sonnet, Gemini Pro, and more through a single interface. No switching accounts, no multiple bills.",
+    description: "Access GPT-4o, Claude 3.5, Gemini Pro, and more through a single interface. No switching accounts, no multiple bills.",
     link: "/chat",
     linkText: "Try Multiverse Chat",
     size: "large" as const,
-    showDecorative: true,
+    emoji: "⚡",
   },
   {
     icon: Shield,
     title: "Enterprise Security",
     description: "Your data is encrypted and never used for training. Built for professional privacy.",
     size: "medium" as const,
+    emoji: "🛡️",
   },
   {
     icon: Infinity,
     title: "Unlimited Chats",
     description: "No daily limits for Pro users. Continuous innovation.",
     size: "small" as const,
+    emoji: "♾️",
   },
   {
     icon: Target,
     title: "Deep Research",
     description: "Advanced reasoning models for complex problem solving.",
     size: "small" as const,
+    emoji: "🎯",
   },
 ];
 
 export const SuperchargeWorkflow = () => {
   return (
-    <section className="py-24 relative z-10">
+    <section className="py-28 relative z-10">
       <div className="container mx-auto px-4">
         {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
           <h2 className="text-4xl md:text-6xl font-bold mb-6">
-            <span className="text-foreground italic">Supercharge your </span>
-            <span className="bg-gradient-to-r from-primary via-purple-400 to-muted-foreground bg-clip-text text-transparent italic">
-              Workflow
+            <span className="text-foreground">About our </span>
+            <span className="bg-gradient-to-r from-primary via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              apps
             </span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -55,107 +58,62 @@ export const SuperchargeWorkflow = () => {
           </p>
         </motion.div>
 
-        {/* Bento Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-          {/* Large card - Unified Intelligence */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="md:col-span-1 lg:row-span-2"
-          >
-            <div className="h-full bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl p-8 relative overflow-hidden group hover:border-primary/50 transition-colors">
-              {/* Icon */}
-              <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center mb-6">
-                <Zap className="w-6 h-6 text-primary" />
-              </div>
-
-              {/* Decorative element */}
-              <div className="absolute top-8 right-8 opacity-20 group-hover:opacity-30 transition-opacity">
-                <Zap className="w-32 h-32 text-primary" />
-              </div>
-
-              <h3 className="text-2xl font-bold text-foreground mb-4">
-                {features[0].title}
-              </h3>
-              <p className="text-muted-foreground mb-6 relative z-10">
-                {features[0].description}
-              </p>
-
-              <Link 
-                to={features[0].link!} 
-                className="inline-flex items-center gap-2 text-primary hover:underline font-medium"
-              >
-                {features[0].linkText}
-                <Zap className="w-4 h-4" />
-              </Link>
-            </div>
-          </motion.div>
-
-          {/* Medium card - Enterprise Security */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="md:col-span-1 lg:col-span-2"
-          >
-            <div className="h-full bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl p-8 group hover:border-primary/50 transition-colors">
-              <div className="flex items-start gap-6">
-                <div className="w-12 h-12 rounded-full bg-muted/50 border border-border/50 flex items-center justify-center shrink-0">
-                  <Shield className="w-6 h-6 text-muted-foreground" />
+        {/* Grid Layout - Agentix style */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
+          {features.map((feature, index) => (
+            <motion.div
+              key={feature.title}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+              className={`
+                ${feature.size === 'large' ? 'lg:col-span-2 lg:row-span-2' : ''}
+                ${feature.size === 'medium' ? 'lg:col-span-2' : ''}
+              `}
+            >
+              <div className={`
+                h-full bg-card border border-border rounded-2xl p-6 relative overflow-hidden 
+                card-hover-effect group
+                ${feature.size === 'large' ? 'p-8' : ''}
+              `}>
+                {/* Gradient overlay on hover */}
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                
+                {/* Emoji icon */}
+                <div className="text-3xl mb-4 relative z-10">
+                  {feature.emoji}
                 </div>
-                <div>
-                  <h3 className="text-xl font-bold text-foreground mb-2">
-                    {features[1].title}
+                
+                {/* Content */}
+                <div className="relative z-10">
+                  <h3 className={`font-bold text-foreground mb-3 ${feature.size === 'large' ? 'text-2xl' : 'text-lg'}`}>
+                    {feature.title}
                   </h3>
-                  <p className="text-muted-foreground">
-                    {features[1].description}
+                  <p className={`text-muted-foreground ${feature.size === 'large' ? 'text-base mb-6' : 'text-sm'}`}>
+                    {feature.description}
                   </p>
+                  
+                  {feature.link && (
+                    <Link 
+                      to={feature.link} 
+                      className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-medium group/link"
+                    >
+                      {feature.linkText}
+                      <ArrowRight className="w-4 h-4 group-hover/link:translate-x-1 transition-transform" />
+                    </Link>
+                  )}
                 </div>
+                
+                {/* Decorative icon for large cards */}
+                {feature.size === 'large' && (
+                  <div className="absolute bottom-4 right-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <feature.icon className="w-24 h-24 text-primary" />
+                  </div>
+                )}
               </div>
-            </div>
-          </motion.div>
-
-          {/* Small cards */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
-            <div className="h-full bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl p-8 text-center group hover:border-primary/50 transition-colors">
-              <div className="w-12 h-12 rounded-full bg-muted/50 border border-border/50 flex items-center justify-center mx-auto mb-4">
-                <Infinity className="w-6 h-6 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-bold text-foreground mb-2">
-                {features[2].title}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {features[2].description}
-              </p>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-          >
-            <div className="h-full bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl p-8 text-center group hover:border-primary/50 transition-colors">
-              <div className="w-12 h-12 rounded-full bg-muted/50 border border-border/50 flex items-center justify-center mx-auto mb-4">
-                <Target className="w-6 h-6 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-bold text-foreground mb-2">
-                {features[3].title}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {features[3].description}
-              </p>
-            </div>
-          </motion.div>
+            </motion.div>
+          ))}
         </div>
       </div>
     </section>
