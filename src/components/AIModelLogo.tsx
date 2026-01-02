@@ -1,9 +1,10 @@
-import openaiLogo from "@/assets/ai-logos/openai-logo.svg";
-import geminiLogo from "@/assets/ai-logos/gemini-logo.svg";
-import claudeLogo from "@/assets/ai-logos/claude-logo.svg";
-import perplexityLogo from "@/assets/ai-logos/perplexity-logo.svg";
-import grokLogo from "@/assets/ai-logos/grok-logo.svg";
+import openaiLogo from "@/assets/ai-logos/chatgpt-reference.png";
+import geminiLogo from "@/assets/ai-logos/gemini-reference.png";
+import claudeLogo from "@/assets/ai-logos/claude-reference.png";
+import perplexityLogo from "@/assets/ai-logos/perplexity-reference.png";
+import grokLogo from "@/assets/ai-logos/grok-reference.png";
 import uncensoredLogo from "@/assets/ai-logos/uncensored-logo.png";
+
 
 interface AIModelLogoProps {
   modelId: string;
@@ -21,28 +22,28 @@ interface LogoConfig {
 
 const logoMap: Record<string, LogoConfig> = {
   // OpenAI / ChatGPT models - dark SVG, needs inversion in dark mode
-  'chatgpt': { src: openaiLogo, type: 'svg-dark' },
-  'lovable-gpt5': { src: openaiLogo, type: 'svg-dark' },
-  'lovable-gpt5-mini': { src: openaiLogo, type: 'svg-dark' },
-  'lovable-gpt5-image': { src: openaiLogo, type: 'svg-dark' },
+  'chatgpt': { src: openaiLogo, type: 'png-dark' },
+  'lovable-gpt5': { src: openaiLogo, type: 'png-dark' },
+  'lovable-gpt5-mini': { src: openaiLogo, type: 'png-dark' },
+  'lovable-gpt5-image': { src: openaiLogo, type: 'png-dark' },
 
   // Google Gemini models - colorful SVG, works in both modes
-  'gemini': { src: geminiLogo, type: 'svg-colorful' },
-  'gemini-flash-image': { src: geminiLogo, type: 'svg-colorful' },
-  'lovable-gemini-flash': { src: geminiLogo, type: 'svg-colorful' },
-  'lovable-gemini-pro': { src: geminiLogo, type: 'svg-colorful' },
-  'lovable-gemini-flash-image': { src: geminiLogo, type: 'svg-colorful' },
+  'gemini': { src: geminiLogo, type: 'png-colorful' },
+  'gemini-flash-image': { src: geminiLogo, type: 'png-colorful' },
+  'lovable-gemini-flash': { src: geminiLogo, type: 'png-colorful' },
+  'lovable-gemini-pro': { src: geminiLogo, type: 'png-colorful' },
+  'lovable-gemini-flash-image': { src: geminiLogo, type: 'png-colorful' },
 
   // Anthropic Claude - dark SVG, needs inversion in dark mode
-  'claude': { src: claudeLogo, type: 'svg-dark' },
+  'claude': { src: claudeLogo, type: 'png-dark' },
 
   // Perplexity models - dark SVG, needs inversion in dark mode
-  'perplexity': { src: perplexityLogo, type: 'svg-dark' },
-  'perplexity-pro': { src: perplexityLogo, type: 'svg-dark' },
-  'perplexity-reasoning': { src: perplexityLogo, type: 'svg-dark' },
+  'perplexity': { src: perplexityLogo, type: 'png-dark' },
+  'perplexity-pro': { src: perplexityLogo, type: 'png-dark' },
+  'perplexity-reasoning': { src: perplexityLogo, type: 'png-dark' },
 
   // Grok - dark SVG, needs inversion in dark mode
-  'grok': { src: grokLogo, type: 'svg-dark' },
+  'grok': { src: grokLogo, type: 'png-dark' },
 
   // Uncensored.chat - PNG with dark background
   'uncensored-chat': { src: uncensoredLogo, type: 'png-light' },
