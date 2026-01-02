@@ -393,80 +393,94 @@ export default function ProfileSettings() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* Background effects */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px]" />
+        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-500/5 rounded-full blur-[100px]" />
+      </div>
+      
       <Navbar />
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Profile Settings</h1>
-          <p className="text-muted-foreground">Manage your account settings and preferences</p>
+      <div className="container mx-auto px-4 pt-24 pb-12 max-w-5xl relative z-10">
+        {/* Header */}
+        <div className="mb-10">
+          <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            Settings
+          </h1>
+          <p className="text-muted-foreground text-lg">Manage your account settings and preferences</p>
         </div>
 
         <Tabs defaultValue="credits" className="w-full">
-          <TabsList className="grid w-full grid-cols-7 mb-8">
-            <TabsTrigger value="credits" className="flex items-center gap-2">
+          <TabsList className="grid w-full grid-cols-7 mb-8 bg-card/50 border border-border/50 p-1 rounded-xl h-auto">
+            <TabsTrigger value="credits" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5">
               <Coins className="h-4 w-4" />
-              Credits
+              <span className="hidden sm:inline">Credits</span>
             </TabsTrigger>
-            <TabsTrigger value="profile" className="flex items-center gap-2">
+            <TabsTrigger value="profile" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5">
               <User className="h-4 w-4" />
-              Profile
+              <span className="hidden sm:inline">Profile</span>
             </TabsTrigger>
-            <TabsTrigger value="security" className="flex items-center gap-2">
+            <TabsTrigger value="security" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5">
               <Shield className="h-4 w-4" />
-              Security
+              <span className="hidden sm:inline">Security</span>
             </TabsTrigger>
-            <TabsTrigger value="emails" className="flex items-center gap-2">
+            <TabsTrigger value="emails" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5">
               <Mail className="h-4 w-4" />
-              Emails
+              <span className="hidden sm:inline">Emails</span>
             </TabsTrigger>
-            <TabsTrigger value="recovery" className="flex items-center gap-2">
+            <TabsTrigger value="recovery" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5">
               <Shield className="h-4 w-4" />
-              Recovery
+              <span className="hidden sm:inline">Recovery</span>
             </TabsTrigger>
-            <TabsTrigger value="ai-performance" className="flex items-center gap-2">
+            <TabsTrigger value="ai-performance" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5">
               <Zap className="h-4 w-4" />
-              AI Performance
+              <span className="hidden sm:inline">AI</span>
             </TabsTrigger>
-            <TabsTrigger value="invoices" className="flex items-center gap-2">
+            <TabsTrigger value="invoices" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg py-2.5">
               <FileText className="h-4 w-4" />
-              Invoices
+              <span className="hidden sm:inline">Invoices</span>
             </TabsTrigger>
           </TabsList>
 
-          {/* Credits Tab - NEW */}
+          {/* Credits Tab */}
           <TabsContent value="credits">
-            <Card className="p-6 space-y-6">
+            <Card className="bg-card/50 backdrop-blur-sm border-border/50 p-6 space-y-6">
               <div className="flex items-center gap-3 mb-4">
-                <Coins className="h-6 w-6 text-primary" />
-                <h3 className="text-xl font-semibold">Credit Usage</h3>
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Coins className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold">Credit Usage</h3>
+                  <p className="text-sm text-muted-foreground">Track your AI usage and credits</p>
+                </div>
               </div>
               
               <div className="grid gap-4 md:grid-cols-2">
                 {/* Current Credits */}
-                <div className="glass-card p-4 rounded-lg border border-border/50">
-                  <div className="text-sm text-muted-foreground mb-1">Credits Remaining Today</div>
-                  <div className="text-3xl font-bold text-primary">
+                <div className="bg-gradient-to-br from-primary/10 to-primary/5 p-5 rounded-2xl border border-primary/20">
+                  <div className="text-sm text-muted-foreground mb-2">Credits Remaining Today</div>
+                  <div className="text-4xl font-bold text-primary">
                     {profile?.subscription_type === 'lifetime' ? '∞' : profile?.credits_remaining ?? 0}
                   </div>
                   {profile?.subscription_type !== 'lifetime' && (
-                    <div className="text-xs text-muted-foreground mt-1">
+                    <div className="text-xs text-muted-foreground mt-2">
                       Daily limit: {profile?.subscription_type === 'monthly' ? '50' : '5'} credits
                     </div>
                   )}
                 </div>
                 
                 {/* Subscription Type */}
-                <div className="glass-card p-4 rounded-lg border border-border/50">
-                  <div className="text-sm text-muted-foreground mb-1">Your Plan</div>
-                  <div className="text-xl font-bold capitalize">
+                <div className="bg-card p-5 rounded-2xl border border-border/50">
+                  <div className="text-sm text-muted-foreground mb-2">Your Plan</div>
+                  <div className="text-2xl font-bold capitalize">
                     {profile?.subscription_type === 'lifetime' ? 'Lifetime Pro' : 
                      profile?.subscription_type === 'monthly' ? 'Pro Yearly' : 
                      'Free Plan'}
                   </div>
-                  {profile?.subscription_type === 'free' && (
+                  {profile?.subscription_type !== 'lifetime' && profile?.subscription_type !== 'monthly' && (
                     <Button 
                       variant="link" 
-                      className="p-0 h-auto text-primary text-xs"
+                      className="p-0 h-auto text-primary text-sm mt-2"
                       onClick={() => window.location.href = '/pricing'}
                     >
                       Upgrade for more credits →
@@ -476,43 +490,43 @@ export default function ProfileSettings() {
               </div>
               
               {/* Credit Cost Per Model */}
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <h4 className="text-lg font-medium">Credits Per Message by Model</h4>
-                <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                    <span className="text-sm">Gemini Flash</span>
-                    <Badge variant="secondary">1 credit</Badge>
+                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                  <div className="flex items-center justify-between p-4 bg-card rounded-xl border border-border/50">
+                    <span className="text-sm font-medium">Gemini Flash</span>
+                    <Badge variant="secondary" className="bg-muted">1 credit</Badge>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                    <span className="text-sm">GPT-5 Mini</span>
-                    <Badge variant="secondary">1 credit</Badge>
+                  <div className="flex items-center justify-between p-4 bg-card rounded-xl border border-border/50">
+                    <span className="text-sm font-medium">GPT-5 Mini</span>
+                    <Badge variant="secondary" className="bg-muted">1 credit</Badge>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                    <span className="text-sm">Perplexity Sonar</span>
-                    <Badge variant="secondary">1 credit</Badge>
+                  <div className="flex items-center justify-between p-4 bg-card rounded-xl border border-border/50">
+                    <span className="text-sm font-medium">Perplexity</span>
+                    <Badge variant="secondary" className="bg-muted">1 credit</Badge>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                    <span className="text-sm">Gemini Pro</span>
+                  <div className="flex items-center justify-between p-4 bg-card rounded-xl border border-border/50">
+                    <span className="text-sm font-medium">Gemini Pro</span>
                     <Badge variant="outline">2 credits</Badge>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                    <span className="text-sm">ChatGPT (GPT-4o)</span>
+                  <div className="flex items-center justify-between p-4 bg-card rounded-xl border border-border/50">
+                    <span className="text-sm font-medium">ChatGPT</span>
                     <Badge variant="outline">2 credits</Badge>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                    <span className="text-sm">Claude Sonnet</span>
+                  <div className="flex items-center justify-between p-4 bg-card rounded-xl border border-border/50">
+                    <span className="text-sm font-medium">Claude</span>
                     <Badge variant="outline">2 credits</Badge>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                    <span className="text-sm">GPT-5</span>
+                  <div className="flex items-center justify-between p-4 bg-card rounded-xl border border-border/50">
+                    <span className="text-sm font-medium">GPT-5</span>
                     <Badge className="bg-primary/20 text-primary border-primary/30">3 credits</Badge>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                    <span className="text-sm">Perplexity Deep Research</span>
+                  <div className="flex items-center justify-between p-4 bg-card rounded-xl border border-border/50">
+                    <span className="text-sm font-medium">Deep Research</span>
                     <Badge className="bg-primary/20 text-primary border-primary/30">3 credits</Badge>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                    <span className="text-sm">Image Generation</span>
+                  <div className="flex items-center justify-between p-4 bg-card rounded-xl border border-border/50">
+                    <span className="text-sm font-medium">Image Gen</span>
                     <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">5 credits</Badge>
                   </div>
                 </div>

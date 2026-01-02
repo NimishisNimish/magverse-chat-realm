@@ -719,6 +719,26 @@ serve(async (req) => {
           const data = await response.json();
           content = data.choices?.[0]?.message?.content || 'No response';
           
+          // Extract citations if available
+          const citations = data.citations || [];
+          if (citations.length > 0) {
+            // Append sources metadata to response
+            const sourcesData = citations.map((url: string, idx: number) => ({
+              url,
+              title: `Source ${idx + 1}`,
+              snippet: ''
+            }));
+            
+            // Store sources in response for frontend
+            return {
+              success: true,
+              model: modelId,
+              response: content,
+              messageId: null,
+              responseTime: Date.now() - modelStartTime,
+              sources: sourcesData,
+            };
+          }
         } else if (config.provider === 'uncensored') {
           if (!UNCENSORED_CHAT_API_KEY) throw new Error('Uncensored API key not configured');
           
