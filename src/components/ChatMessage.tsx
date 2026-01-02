@@ -6,7 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { AIModelLogo } from '@/components/AIModelLogo';
 import { AIModelBadge } from '@/components/AIModelBadge';
 import { FeedbackButtons } from '@/components/FeedbackButtons';
-import { renderWithCitations } from '@/utils/citationRenderer';
+import { MessageSources } from '@/components/MessageSources';
+import CodeBlock from '@/components/CodeBlock';
 import { softCleanMarkdown } from '@/utils/markdownCleaner';
 import { 
   FileText, 
@@ -18,6 +19,12 @@ import {
   Brain,
   Clock
 } from 'lucide-react';
+
+interface Source {
+  url: string;
+  title: string;
+  snippet?: string;
+}
 
 interface Message {
   id: string;
@@ -34,6 +41,7 @@ interface Message {
   isError?: boolean;
   ttft?: number;
   responseTime?: number;
+  sources?: Source[];
 }
 
 interface ChatMessageProps {
@@ -56,7 +64,49 @@ interface ChatMessageProps {
   onRetry: (message: Message) => void;
 }
 
-// Memoized message content - only parse markdown when content is final
+// Parse content and extract code blocks
+const parseContentWithCodeBlocks = (content: string): React.ReactNode[] => {
+  const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+  let keyIndex = 0;
+
+  while ((match = codeBlockRegex.exec(content)) !== null) {
+    // Add text before code block
+    if (match.index > lastIndex) {
+      const textBefore = content.slice(lastIndex, match.index);
+      parts.push(
+        <span key={`text-${keyIndex++}`} className="whitespace-pre-wrap">
+          {textBefore}
+        </span>
+      );
+    }
+
+    // Add code block
+    const language = match[1] || 'text';
+    const code = match[2].trim();
+    parts.push(
+      <CodeBlock key={`code-${keyIndex++}`} code={code} language={language} />
+    );
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text after last code block
+  if (lastIndex < content.length) {
+    const remainingText = content.slice(lastIndex);
+    parts.push(
+      <span key={`text-${keyIndex++}`} className="whitespace-pre-wrap">
+        {remainingText}
+      </span>
+    );
+  }
+
+  return parts.length > 0 ? parts : [<span key="content">{content}</span>];
+};
+
+// Memoized message content with code block support
 const MessageContent = memo(({ 
   content, 
   isStreaming 
@@ -64,17 +114,19 @@ const MessageContent = memo(({
   content: string; 
   isStreaming?: boolean;
 }) => {
-  // During streaming, show raw text for performance
-  // Parse markdown only when streaming is complete
   const processedContent = useMemo(() => {
     if (isStreaming) {
-      return content; // Raw text during streaming for performance
+      // During streaming, show raw text for performance
+      return <span className="whitespace-pre-wrap">{content}</span>;
     }
-    return softCleanMarkdown(renderWithCitations(content));
+    
+    // Clean markdown first, then parse code blocks
+    const cleanedContent = softCleanMarkdown(content);
+    return parseContentWithCodeBlocks(cleanedContent);
   }, [content, isStreaming]);
 
   return (
-    <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
+    <div className="prose prose-sm dark:prose-invert max-w-none">
       {processedContent}
     </div>
   );
@@ -102,6 +154,10 @@ const ChatMessage = memo(({
   onRetry,
 }: ChatMessageProps) => {
   
+  // Check if this is a Perplexity model that should show sources
+  const isPerplexityModel = message.model && 
+    ['perplexity', 'perplexity-pro', 'perplexity-reasoning'].includes(message.model);
+  
   return (
     <motion.div
       key={message.id}
@@ -117,7 +173,7 @@ const ChatMessage = memo(({
               ? 'bg-primary text-primary-foreground'
               : message.isError
                 ? 'bg-destructive/10 border-2 border-destructive/40'
-                : 'bg-muted/50 border border-border/40'
+                : 'bg-card border border-border/40'
           }`}
         >
           {/* Image attachment */}
@@ -193,6 +249,11 @@ const ChatMessage = memo(({
             )
           ) : (
             <MessageContent content={message.content} isStreaming={isStreaming} />
+          )}
+
+          {/* Sources for Perplexity models */}
+          {message.role === 'assistant' && isPerplexityModel && message.sources && message.sources.length > 0 && (
+            <MessageSources sources={message.sources} />
           )}
 
           {/* Thinking Process Display */}
