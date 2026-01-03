@@ -13,7 +13,7 @@ interface AIModelLogoProps {
 }
 
 // Define logo types for proper dark mode handling
-type LogoType = 'svg-dark' | 'svg-colorful' | 'png-dark' | 'png-light';
+type LogoType = 'svg-dark' | 'svg-colorful' | 'png-dark' | 'png-light' | 'png-colorful';
 
 interface LogoConfig {
   src: string;
@@ -66,8 +66,9 @@ const getDarkModeClass = (type: LogoType): string => {
       // For dark PNGs, use strong inversion and brightness
       return 'dark:invert dark:brightness-[1.8] dark:contrast-[1.2]';
     case 'svg-colorful':
+    case 'png-colorful':
     case 'png-light':
-      // Colorful SVGs and light PNGs are fine as-is
+      // Colorful SVGs/PNGs and light PNGs are fine as-is
       return '';
     default:
       return '';

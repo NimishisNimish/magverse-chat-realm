@@ -1,11 +1,11 @@
 import { motion } from "framer-motion";
 
-// Import real logos
-import perplexityLogo from "@/assets/ai-logos/perplexity-logo.png";
-import claudeLogo from "@/assets/ai-logos/claude-logo-clean.png";
-import chatgptLogo from "@/assets/ai-logos/chatgpt-logo-clean.png";
-import grokLogo from "@/assets/ai-logos/grok-logo.png";
-import geminiLogo from "@/assets/ai-logos/gemini-logo.svg";
+// Import reference logos (higher quality)
+import perplexityLogo from "@/assets/ai-logos/perplexity-reference.png";
+import claudeLogo from "@/assets/ai-logos/claude-reference.png";
+import chatgptLogo from "@/assets/ai-logos/chatgpt-reference.png";
+import grokLogo from "@/assets/ai-logos/grok-reference.png";
+import geminiLogo from "@/assets/ai-logos/gemini-reference.png";
 import mistralLogo from "@/assets/ai-logos/mistral-logo-clean.png";
 
 const leaders = [

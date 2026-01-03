@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AdminSubscriptionManager } from "@/components/AdminSubscriptionManager";
 import { AdminCreditPurchases } from "@/components/AdminCreditPurchases";
 import { AdminTestUncensoredAI } from "@/components/AdminTestUncensoredAI";
+import { AdminRefundManager } from "@/components/AdminRefundManager";
 import { 
   CheckCircle, 
   XCircle, 
@@ -27,7 +28,8 @@ import {
   CreditCard,
   Users,
   Coins,
-  Zap
+  Zap,
+  RotateCcw
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -341,7 +343,7 @@ const Admin = () => {
 
           {/* Main Admin Tabs */}
           <Tabs defaultValue="payments" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="payments" className="flex items-center gap-2">
                 <CreditCard className="w-4 h-4" />
                 Payment Verification
@@ -349,6 +351,10 @@ const Admin = () => {
               <TabsTrigger value="credits" className="flex items-center gap-2">
                 <Coins className="w-4 h-4" />
                 Credit Purchases
+              </TabsTrigger>
+              <TabsTrigger value="refunds" className="flex items-center gap-2">
+                <RotateCcw className="w-4 h-4" />
+                Refunds
               </TabsTrigger>
               <TabsTrigger value="subscriptions" className="flex items-center gap-2">
                 <Users className="w-4 h-4" />
@@ -509,6 +515,10 @@ const Admin = () => {
 
             <TabsContent value="subscriptions">
               <AdminSubscriptionManager />
+            </TabsContent>
+
+            <TabsContent value="refunds">
+              <AdminRefundManager />
             </TabsContent>
 
             <TabsContent value="uncensored">
