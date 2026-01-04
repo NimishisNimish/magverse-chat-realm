@@ -30,7 +30,7 @@ export const HeroSection = ({ user }: HeroSectionProps) => {
         <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm">
           <Sparkles className="w-4 h-4 text-primary" />
           <span className="text-sm text-foreground font-medium">
-            Book a live demo
+            Start your AI journey today
           </span>
         </div>
       </motion.div>

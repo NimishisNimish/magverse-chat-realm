@@ -47,6 +47,8 @@ const ImageGallery = lazy(() => import("./pages/ImageGallery"));
 const ModelComparison = lazy(() => import("./pages/ModelComparison"));
 const Support = lazy(() => import("./pages/Support"));
 const Settings = lazy(() => import("./pages/Settings"));
+const RefundRequest = lazy(() => import("./pages/RefundRequest"));
+const TokenUsage = lazy(() => import("./pages/TokenUsage"));
 
 // Lazy load lightweight pages
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
@@ -137,7 +139,8 @@ const AnimatedRoutes = () => {
           <Route path="/support" element={<PageTransition variant="fade"><Support /></PageTransition>} />
           <Route path="/comparison" element={<ProtectedRoute><PageTransition variant="fade"><ModelComparison /></PageTransition></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><PageTransition variant="fade"><Settings /></PageTransition></ProtectedRoute>} />
-          
+          <Route path="/refund-request" element={<ProtectedRoute><PageTransition variant="fade"><RefundRequest /></PageTransition></ProtectedRoute>} />
+          <Route path="/token-usage" element={<ProtectedRoute><PageTransition variant="fade"><TokenUsage /></PageTransition></ProtectedRoute>} />
           {/* Admin routes (all lazy loaded) */}
           <Route path="/admin" element={<AdminProtectedRoute><PageTransition variant={getTransitionVariant('/admin')}><Admin /></PageTransition></AdminProtectedRoute>} />
           <Route path="/admin/dashboard" element={<AdminProtectedRoute><PageTransition variant="slideUp"><AdminDashboard /></PageTransition></AdminProtectedRoute>} />

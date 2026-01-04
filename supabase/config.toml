@@ -18,10 +18,15 @@ request_timeout = 300
 
 [functions.chat-with-ai]
 verify_jwt = true
-request_timeout = 300
+request_timeout = 600
 
 [functions.extract-pdf-text]
 verify_jwt = true
+request_timeout = 120
+
+[functions.process-document]
+verify_jwt = true
+request_timeout = 120
 
 [functions.change-email]
 verify_jwt = true

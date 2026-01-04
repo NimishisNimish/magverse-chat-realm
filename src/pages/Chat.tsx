@@ -112,21 +112,24 @@ import { classifyQuery, getOptimalModels, getQueryTypeInfo, QueryType } from "@/
 // NOTE: Gemini Direct has been REMOVED - use Lovable AI models instead
 const aiModels = [
   // Fast models (Lovable AI - Recommended)
-  { id: "lovable-gemini-flash", name: "Gemini Flash", icon: Zap, color: "text-blue-400", category: "fast", isLovable: true },
-  { id: "lovable-gpt5-mini", name: "GPT-5 Mini", icon: Sparkles, color: "text-emerald-400", category: "fast", isLovable: true },
+  { id: "lovable-gemini-flash", name: "Gemini Flash", icon: Zap, color: "text-blue-400", category: "fast", isLovable: true, credits: 1 },
+  { id: "lovable-gpt5-mini", name: "GPT-5 Mini", icon: Sparkles, color: "text-emerald-400", category: "fast", isLovable: true, credits: 1 },
   // Reasoning models (Lovable AI)
-  { id: "lovable-gemini-pro", name: "Gemini Pro", icon: Brain, color: "text-purple-400", category: "reasoning", isLovable: true },
-  { id: "lovable-gpt5", name: "GPT-5", icon: Bot, color: "text-green-400", category: "reasoning", isLovable: true },
+  { id: "lovable-gemini-pro", name: "Gemini Pro", icon: Brain, color: "text-purple-400", category: "reasoning", isLovable: true, credits: 2 },
+  { id: "lovable-gpt5", name: "GPT-5", icon: Bot, color: "text-green-400", category: "reasoning", isLovable: true, credits: 2 },
   // Direct API models
-  { id: "chatgpt", name: "ChatGPT (GPT-4o)", icon: Bot, color: "text-green-500", category: "reasoning", isLovable: false },
-  { id: "claude", name: "Claude Sonnet", icon: Brain, color: "text-orange-400", category: "reasoning", isLovable: false },
-  // Perplexity variants (user-selectable)
-  { id: "perplexity", name: "Perplexity (Sonar)", icon: Globe, color: "text-cyan-400", category: "research", isLovable: false },
-  { id: "perplexity-pro", name: "Perplexity Pro", icon: Globe, color: "text-cyan-500", category: "research", isLovable: false },
-  { id: "perplexity-reasoning", name: "Perplexity Reasoning", icon: Brain, color: "text-cyan-600", category: "research", isLovable: false },
-  { id: "grok", name: "Grok", icon: Zap, color: "text-white", category: "research", isLovable: false },
+  { id: "chatgpt", name: "ChatGPT (GPT-4o)", icon: Bot, color: "text-green-500", category: "reasoning", isLovable: false, credits: 2 },
+  { id: "claude", name: "Claude Sonnet", icon: Brain, color: "text-orange-400", category: "reasoning", isLovable: false, credits: 2 },
+  { id: "mistral", name: "Mistral AI", icon: Sparkles, color: "text-amber-400", category: "reasoning", isLovable: false, credits: 1 },
   // Uncensored.chat
-  { id: "uncensored-chat", name: "Uncensored AI", icon: Bot, color: "text-red-500", category: "reasoning", isLovable: false },
+  { id: "uncensored-chat", name: "Uncensored AI", icon: Bot, color: "text-red-500", category: "reasoning", isLovable: false, credits: 1 },
+  // Web Search (Perplexity)
+  { id: "perplexity", name: "Perplexity Sonar", icon: Globe, color: "text-cyan-400", category: "web-search", isLovable: false, credits: 1 },
+  // Deep Research
+  { id: "perplexity-pro", name: "Perplexity Deep Research", icon: Globe, color: "text-cyan-500", category: "deep-research", isLovable: false, credits: 3 },
+  // Research
+  { id: "perplexity-reasoning", name: "Perplexity Pro", icon: Brain, color: "text-cyan-600", category: "research", isLovable: false, credits: 2 },
+  { id: "grok", name: "Grok", icon: Zap, color: "text-white", category: "research", isLovable: false, credits: 2 },
 ];
 
 const tools = [
@@ -345,22 +348,27 @@ const Chat = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Safety net: auto-reset loading after timeout
+  // Safety net: auto-reset loading after extended timeout for deep research
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
     
     if (loading) {
+      // 10 minute timeout for deep research models
+      const timeoutMs = selectedModels.some(m => 
+        m.includes('perplexity-pro') || m.includes('perplexity-reasoning')
+      ) ? 600000 : 180000; // 10 min for research, 3 min for others
+      
       timeoutId = setTimeout(() => {
-        console.warn('⏰ Loading state auto-reset after 90 seconds');
+        console.warn(`⏰ Loading state auto-reset after ${timeoutMs/1000}s`);
         setLoading(false);
-        sonnerToast.error("Request timeout. Please try again.");
-      }, 90000); // 90 seconds
+        sonnerToast.error("Request timeout. Please try again or use a faster model.");
+      }, timeoutMs);
     }
     
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [loading]);
+  }, [loading, selectedModels]);
 
   // Process message queue (sort by priority)
   useEffect(() => {
