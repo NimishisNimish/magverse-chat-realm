@@ -1,20 +1,13 @@
 import { motion } from "framer-motion";
 
-// Import reference logos (higher quality)
-import perplexityLogo from "@/assets/ai-logos/perplexity-reference.png";
-import claudeLogo from "@/assets/ai-logos/claude-reference.png";
-import chatgptLogo from "@/assets/ai-logos/chatgpt-reference.png";
-import grokLogo from "@/assets/ai-logos/grok-reference.png";
-import geminiLogo from "@/assets/ai-logos/gemini-reference.png";
-import mistralLogo from "@/assets/ai-logos/mistral-logo-clean.png";
-
+// Bold text names for companies (no logos as per request)
 const leaders = [
-  { name: "OpenAI", logo: chatgptLogo },
-  { name: "Anthropic", logo: claudeLogo },
-  { name: "Google", logo: geminiLogo },
-  { name: "xAI", logo: grokLogo },
-  { name: "Perplexity", logo: perplexityLogo },
-  { name: "Mistral", logo: mistralLogo },
+  { name: "OpenAI" },
+  { name: "Anthropic" },
+  { name: "Google" },
+  { name: "xAI" },
+  { name: "Perplexity" },
+  { name: "Mistral" },
 ];
 
 export const IndustryLeaders = () => {
@@ -32,7 +25,7 @@ export const IndustryLeaders = () => {
             Trusted Companies
           </p>
           
-          <div className="flex flex-wrap items-center justify-center gap-10 md:gap-16">
+          <div className="flex flex-wrap items-center justify-center gap-8 md:gap-12">
             {leaders.map((leader, index) => (
               <motion.div
                 key={leader.name}
@@ -40,16 +33,9 @@ export const IndustryLeaders = () => {
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: index * 0.08 }}
-                className="flex items-center gap-3 group"
+                className="group"
               >
-                <div className="w-10 h-10 rounded-lg bg-muted/30 border border-border/50 flex items-center justify-center overflow-hidden group-hover:border-primary/50 transition-colors">
-                  <img 
-                    src={leader.logo} 
-                    alt={leader.name} 
-                    className="w-6 h-6 object-contain opacity-70 group-hover:opacity-100 transition-opacity"
-                  />
-                </div>
-                <span className="text-lg font-semibold text-muted-foreground/60 group-hover:text-foreground transition-colors">
+                <span className="text-xl md:text-2xl font-bold text-muted-foreground/70 group-hover:text-foreground transition-colors cursor-default">
                   {leader.name}
                 </span>
               </motion.div>

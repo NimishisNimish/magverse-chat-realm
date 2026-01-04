@@ -118,7 +118,7 @@ const MODEL_CONFIG: Record<string, {
   'perplexity-pro': { provider: 'perplexity', model: 'sonar-pro', supportsReasoning: true, supportsStreaming: true, creditsPerMessage: 2 },
   'perplexity-reasoning': { provider: 'perplexity', model: 'sonar-deep-research', supportsReasoning: true, supportsStreaming: false, creditsPerMessage: 3 },
   'gemini-flash-image': { provider: 'lovable', model: 'google/gemini-2.5-flash-image-preview', supportsReasoning: false, supportsStreaming: false, creditsPerMessage: 5 },
-  'uncensored-chat': { provider: 'uncensored', model: 'uncensored-v2', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true, creditsPerMessage: 1 },
+  'uncensored-chat': { provider: 'uncensored', model: 'dolphin-2.9.1-llama-3-70b', supportsReasoning: true, maxTokens: 4096, supportsStreaming: false, creditsPerMessage: 1 },
   'mistral': { provider: 'mistral', model: 'mistral-large-latest', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true, creditsPerMessage: 1 },
 };
 

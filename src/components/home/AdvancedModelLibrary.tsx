@@ -121,16 +121,16 @@ export const AdvancedModelLibrary = () => {
                       <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                       
                       <div className="flex flex-col items-center space-y-4 text-center relative z-10">
-                        {/* Logo */}
-                        <div className="w-16 h-16 rounded-xl bg-muted/50 border border-border flex items-center justify-center group-hover:border-primary/50 transition-colors overflow-hidden">
+                        {/* Logo - Larger size */}
+                        <div className="w-20 h-20 rounded-xl bg-muted/50 border border-border flex items-center justify-center group-hover:border-primary/50 transition-colors overflow-hidden">
                           {logoSrc ? (
                             <img 
                               src={logoSrc} 
                               alt={model.name}
-                              className="w-10 h-10 object-contain"
+                              className="w-14 h-14 object-contain"
                             />
                           ) : (
-                            <model.icon className={`w-8 h-8 ${model.color}`} />
+                            <model.icon className={`w-10 h-10 ${model.color}`} />
                           )}
                         </div>
                         
