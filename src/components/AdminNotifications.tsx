@@ -89,19 +89,32 @@ const AdminNotifications = () => {
     if (payments) {
       // Get user emails and usernames
       const userIds = [...new Set(payments.map(p => p.user_id))];
-      const { data: usersData } = await supabase.auth.admin.listUsers();
+      
+      // Get profiles from database
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, username')
         .in('id', userIds);
 
+      // Fetch user emails securely via Edge Function
+      let userEmails: Record<string, string> = {};
+      try {
+        const { data, error } = await supabase.functions.invoke('admin-get-user-emails', {
+          body: { userIds }
+        });
+        if (!error && data?.userEmails) {
+          userEmails = data.userEmails;
+        }
+      } catch (err) {
+        console.error('Failed to fetch user emails:', err);
+      }
+
       const enrichedPayments = payments.map(p => {
         const profile = profiles?.find(pr => pr.id === p.user_id);
-        const userEmail = usersData?.users?.find((u: any) => u.id === p.user_id)?.email;
         return {
           ...p,
           username: profile?.username,
-          email: userEmail,
+          email: userEmails[p.user_id] || undefined,
         };
       });
 
@@ -124,15 +137,25 @@ const AdminNotifications = () => {
         async (payload) => {
           const newPayment = payload.new as any;
 
-          // Fetch user details
-          const { data: usersData } = await supabase.auth.admin.listUsers();
+          // Fetch user profile
           const { data: profile } = await supabase
             .from('profiles')
             .select('username')
             .eq('id', newPayment.user_id)
             .single();
 
-          const userEmail = usersData?.users?.find((u: any) => u.id === newPayment.user_id)?.email;
+          // Fetch user email securely via Edge Function
+          let userEmail: string | undefined;
+          try {
+            const { data, error } = await supabase.functions.invoke('admin-get-user-emails', {
+              body: { userIds: [newPayment.user_id] }
+            });
+            if (!error && data?.userEmails?.[newPayment.user_id]) {
+              userEmail = data.userEmails[newPayment.user_id];
+            }
+          } catch (err) {
+            console.error('Failed to fetch user email:', err);
+          }
 
           const enrichedPayment = {
             ...newPayment,
