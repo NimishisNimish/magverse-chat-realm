@@ -590,9 +590,9 @@ const Payment = () => {
                     <p className="text-sm text-muted-foreground mb-3">
                       Not satisfied? Request a full refund within 7 days of payment. No questions asked.
                     </p>
-                    <Link to="/support">
+                    <Link to="/refund-request">
                       <Button variant="outline" size="sm">
-                        Contact Support
+                        Request Refund
                         <ArrowRight className="w-4 h-4 ml-2" />
                       </Button>
                     </Link>

@@ -134,7 +134,7 @@ export const Footer = () => {
         {/* Bottom bar */}
         <div className="pt-8 border-t border-border/30 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            © 2025 Magverse AI. Designed for professionals.
+            © 2026 Magverse AI. Designed for professionals.
           </p>
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border/50 bg-muted/20">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />

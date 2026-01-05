@@ -29,7 +29,8 @@ import {
   Users,
   Coins,
   Zap,
-  RotateCcw
+  RotateCcw,
+  Activity
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -288,7 +289,7 @@ const Admin = () => {
               <h1 className="text-4xl font-bold gradient-text mb-2">Admin Dashboard</h1>
               <p className="text-muted-foreground">Manage payments and subscriptions</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button onClick={() => navigate('/admin/advanced-analytics')} variant="outline" size="sm">
                 Advanced Analytics
               </Button>
@@ -297,6 +298,10 @@ const Admin = () => {
               </Button>
               <Button onClick={() => navigate('/admin/activity')} variant="outline" size="sm">
                 User Activity
+              </Button>
+              <Button onClick={() => navigate('/token-usage')} variant="outline" size="sm">
+                <Activity className="w-4 h-4 mr-2" />
+                Token Usage
               </Button>
               <Button onClick={loadTransactions} variant="outline" size="sm" disabled={loading}>
                 <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
