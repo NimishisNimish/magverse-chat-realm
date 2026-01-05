@@ -21,17 +21,43 @@ const Pricing = () => {
       popular: false,
       features: [
         { text: "5 messages per day", included: true },
-        { text: "Access to GPT-5 Mini", included: true },
+        { text: "Access to GPT-5 Mini only", included: true },
         { text: "Basic support", included: true },
         { text: "Standard response time", included: true },
         { text: "All premium AI models", included: false },
         { text: "Deep research mode", included: false },
         { text: "Image generation", included: false },
-        { text: "Priority support", included: false },
+        { text: "Web search (Perplexity)", included: false },
+        { text: "Sources & citations", included: false },
+        { text: "File upload", included: false },
+        { text: "Chat export", included: false },
       ],
       cta: user ? "Start Chatting" : "Get Started",
       ctaLink: user ? "/chat" : "/auth",
       variant: "outline" as const,
+    },
+    {
+      name: "Student",
+      description: "Perfect for students - First month FREE!",
+      monthlyPrice: 29,
+      yearlyPrice: 149,
+      popular: false,
+      badge: "STUDENTS",
+      badgeColor: "bg-gradient-to-r from-purple-500 to-pink-500",
+      features: [
+        { text: "First month completely FREE", included: true, highlight: true },
+        { text: "200 messages per day", included: true },
+        { text: "All 7+ premium AI models", included: true },
+        { text: "Deep research mode", included: true },
+        { text: "Image generation", included: true },
+        { text: "Web search (Perplexity)", included: true },
+        { text: "Sources & citations", included: true },
+        { text: "File upload & export", included: true },
+      ],
+      cta: "Start Free Trial",
+      ctaLink: user ? "/payment?plan=student" : "/auth",
+      variant: "outline" as const,
+      icon: Users,
     },
     {
       name: "Pro",
@@ -141,10 +167,11 @@ const Pricing = () => {
           </motion.div>
 
           {/* Pricing Cards */}
-          <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {plans.map((plan, index) => {
               const price = plan.isOneTime ? plan.yearlyPrice : (isYearly ? plan.yearlyPrice : plan.monthlyPrice);
               const period = plan.isOneTime ? "forever" : (isYearly ? "/year" : "/month");
+              const isStudent = plan.name === "Student";
               
               return (
                 <motion.div
@@ -152,15 +179,17 @@ const Pricing = () => {
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className={`relative rounded-2xl p-8 transition-all duration-300 hover:scale-[1.02] ${
+                  className={`relative rounded-2xl p-6 transition-all duration-300 hover:scale-[1.02] ${
                     plan.popular 
                       ? 'bg-gradient-to-b from-primary/20 to-background border-2 border-primary shadow-[0_0_40px_rgba(168,85,247,0.2)]' 
-                      : 'bg-card/50 backdrop-blur-sm border border-border/50 hover:border-border'
+                      : isStudent
+                        ? 'bg-gradient-to-b from-purple-500/10 to-pink-500/10 border-2 border-purple-500/50 shadow-[0_0_30px_rgba(168,85,247,0.15)]'
+                        : 'bg-card/50 backdrop-blur-sm border border-border/50 hover:border-border'
                   }`}
                 >
                   {plan.badge && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <Badge className="bg-primary text-primary-foreground shadow-lg px-4">
+                      <Badge className={`${(plan as any).badgeColor || 'bg-primary'} text-primary-foreground shadow-lg px-4`}>
                         {plan.badge}
                       </Badge>
                     </div>
@@ -331,23 +360,24 @@ const Pricing = () => {
                 <thead>
                   <tr className="border-b border-border/50">
                     <th className="text-left p-4 font-semibold">Features</th>
-                    <th className="text-center p-4 font-semibold w-32">Free</th>
-                    <th className="text-center p-4 font-semibold w-32 bg-primary/5">Pro</th>
-                    <th className="text-center p-4 font-semibold w-32">Lifetime</th>
+                    <th className="text-center p-4 font-semibold w-28">Free</th>
+                    <th className="text-center p-4 font-semibold w-28 bg-purple-500/5">Student</th>
+                    <th className="text-center p-4 font-semibold w-28 bg-primary/5">Pro</th>
+                    <th className="text-center p-4 font-semibold w-28">Lifetime</th>
                   </tr>
                 </thead>
                 <tbody>
                   {[
-                    { feature: "Daily messages", free: "5", pro: "500", lifetime: "Unlimited" },
-                    { feature: "AI Models", free: "GPT-5 Mini", pro: "All 7+", lifetime: "All 7+" },
-                    { feature: "Web Search (Perplexity)", free: false, pro: true, lifetime: true },
-                    { feature: "Deep Research", free: false, pro: true, lifetime: true },
-                    { feature: "Image Generation", free: false, pro: true, lifetime: true },
-                    { feature: "Sources & Citations", free: false, pro: true, lifetime: true },
-                    { feature: "File Upload", free: false, pro: true, lifetime: true },
-                    { feature: "Chat Export", free: false, pro: true, lifetime: true },
-                    { feature: "Support", free: "Basic", pro: "Priority", lifetime: "Priority" },
-                    { feature: "Duration", free: "Forever", pro: isYearly ? "1 Year" : "1 Month", lifetime: "Forever" },
+                    { feature: "Daily messages", free: "5", student: "200", pro: "500", lifetime: "Unlimited" },
+                    { feature: "AI Models", free: "GPT-5 Mini", student: "All 7+", pro: "All 7+", lifetime: "All 7+" },
+                    { feature: "Web Search (Perplexity)", free: false, student: true, pro: true, lifetime: true },
+                    { feature: "Deep Research", free: false, student: true, pro: true, lifetime: true },
+                    { feature: "Image Generation", free: false, student: true, pro: true, lifetime: true },
+                    { feature: "Sources & Citations", free: false, student: true, pro: true, lifetime: true },
+                    { feature: "File Upload", free: false, student: true, pro: true, lifetime: true },
+                    { feature: "Chat Export", free: false, student: true, pro: true, lifetime: true },
+                    { feature: "Support", free: "Basic", student: "Standard", pro: "Priority", lifetime: "Priority" },
+                    { feature: "Free Trial", free: "N/A", student: "1 Month", pro: "N/A", lifetime: "N/A" },
                   ].map((row, index) => (
                     <motion.tr 
                       key={index}
@@ -362,6 +392,13 @@ const Pricing = () => {
                           row.free ? <Check className="w-5 h-5 text-primary mx-auto" /> : <span className="text-muted-foreground">—</span>
                         ) : (
                           <span className="text-sm">{row.free}</span>
+                        )}
+                      </td>
+                      <td className="text-center p-4 bg-purple-500/5">
+                        {typeof row.student === 'boolean' ? (
+                          row.student ? <Check className="w-5 h-5 text-purple-500 mx-auto" /> : <span className="text-muted-foreground">—</span>
+                        ) : (
+                          <span className="text-sm font-medium text-purple-500">{row.student}</span>
                         )}
                       </td>
                       <td className="text-center p-4 bg-primary/5">

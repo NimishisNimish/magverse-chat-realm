@@ -319,6 +319,31 @@ const Chat = () => {
     }
   }, [user, refreshProfile]);
 
+  // Real-time subscription for chat history sidebar
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('chat-sidebar-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chat_history',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          loadChatHistoryList();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   const loadChatHistoryList = async () => {
     if (!user) return;
     
@@ -1847,7 +1872,7 @@ const Chat = () => {
                   
                   {/* Selected models with credit cost */}
                   <div className="flex flex-wrap gap-2 justify-center mb-4">
-                    {aiModels.slice(0, 3).map((model) => {
+                    {aiModels.slice(0, 4).map((model) => {
                       const modelConfig = MODEL_CONFIG.find(m => m.id === model.id);
                       return (
                         <Button
@@ -1855,12 +1880,11 @@ const Chat = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => handleModelToggle(model.id)}
-                          className="gap-2"
+                          className="gap-2 border-primary/30 hover:border-primary/60"
                         >
-                          <AIModelLogo modelId={model.id} size="sm" />
                           {model.name}
-                          <Badge variant="secondary" className="ml-1 text-xs">
-                            {modelConfig?.creditsPerMessage || 1} credit{(modelConfig?.creditsPerMessage || 1) > 1 ? 's' : ''}/msg
+                          <Badge variant="secondary" className="ml-1 text-xs bg-primary/10">
+                            {modelConfig?.creditsPerMessage || 1}cr
                           </Badge>
                         </Button>
                       );
@@ -2569,45 +2593,53 @@ const Chat = () => {
           )}
           
           <ScrollArea className="max-h-[400px] pr-4">
-            <div className="space-y-2">
-              {aiModels.map(model => {
-                const modelConfig = MODEL_CONFIG.find(m => m.id === model.id);
-                const isAvailable = modelConfig?.available !== false;
-                const isSelected = selectedModels.includes(model.id);
+            <div className="space-y-1">
+              {/* Group models by category */}
+              {['fast', 'reasoning', 'web-search', 'deep-research', 'research'].map(category => {
+                const categoryModels = aiModels.filter(m => m.category === category);
+                if (categoryModels.length === 0) return null;
+                
+                const categoryLabels: Record<string, string> = {
+                  'fast': '⚡ Fast',
+                  'reasoning': '🧠 Reasoning', 
+                  'web-search': '🔍 Web Search',
+                  'deep-research': '📚 Deep Research',
+                  'research': '🔬 Research'
+                };
                 
                 return (
-                  <Button
-                    key={model.id}
-                    variant={isSelected ? "secondary" : "outline"}
-                    className={`w-full justify-start h-auto py-3 ${!isAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    onClick={() => isAvailable && handleModelToggle(model.id)}
-                    disabled={!isAvailable}
-                  >
-                    <div className="flex items-center gap-3 w-full">
-                      <AIModelLogo modelId={model.id} size="md" />
-                      <div className="flex-1 text-left">
-                        <div className="font-medium flex items-center gap-2">
-                          {model.name}
-                          {!isAvailable && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400">
-                              Limited
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground capitalize">
-                          {model.category}
-                        </div>
-                      </div>
-                      {isSelected && isAvailable && (
-                        <Badge variant="default" className="text-xs">
-                          Selected
-                        </Badge>
-                      )}
-                      {!isAvailable && (
-                        <AlertCircle className="w-4 h-4 text-amber-500" />
-                      )}
+                  <div key={category} className="mb-4">
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 px-2">
+                      {categoryLabels[category]}
                     </div>
-                  </Button>
+                    {categoryModels.map(model => {
+                      const modelConfig = MODEL_CONFIG.find(m => m.id === model.id);
+                      const isAvailable = modelConfig?.available !== false;
+                      const isSelected = selectedModels.includes(model.id);
+                      
+                      return (
+                        <Button
+                          key={model.id}
+                          variant={isSelected ? "secondary" : "ghost"}
+                          className={`w-full justify-between h-auto py-2.5 px-3 mb-1 ${!isAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          onClick={() => isAvailable && handleModelToggle(model.id)}
+                          disabled={!isAvailable}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{model.name}</span>
+                            {isSelected && (
+                              <Badge variant="default" className="text-xs bg-primary/20 text-primary border-0">
+                                Active
+                              </Badge>
+                            )}
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            {modelConfig?.creditsPerMessage || model.credits} cr
+                          </Badge>
+                        </Button>
+                      );
+                    })}
+                  </div>
                 );
               })}
             </div>
