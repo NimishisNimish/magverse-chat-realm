@@ -401,7 +401,7 @@ const Pricing = () => {
                 Not satisfied with your purchase? Request a refund within 7 days of payment. 
                 We'll process it within 3-5 business days, no questions asked.
               </p>
-              <Link to="/support">
+              <Link to="/refund-request">
                 <Button variant="outline" className="mt-4">
                   Request Refund
                   <ArrowRight className="w-4 h-4 ml-2" />
