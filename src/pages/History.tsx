@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -92,12 +92,39 @@ const History = () => {
     },
     getNextPageParam: (lastPage) => lastPage.nextPage,
     enabled: !!user,
-    staleTime: 60 * 1000, // Cache for 1 minute
+    staleTime: 30 * 1000, // Cache for 30 seconds
     gcTime: 5 * 60 * 1000,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     initialPageParam: 0,
+    refetchOnWindowFocus: true, // Refetch when window gains focus
   });
+
+  // Real-time subscription for instant updates
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('chat-history-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chat_history',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          // Invalidate and refetch on any change
+          queryClient.invalidateQueries({ queryKey: ['chat-history', user.id] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, queryClient]);
 
   // Flatten all pages into single array
   const allChats = useMemo(
