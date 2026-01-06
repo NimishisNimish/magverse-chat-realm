@@ -1193,6 +1193,41 @@ export type Database = {
           },
         ]
       }
+      transaction_gateway_logs: {
+        Row: {
+          gateway_order_id_full: string | null
+          gateway_payment_id_full: string | null
+          id: string
+          logged_at: string | null
+          raw_gateway_response: Json | null
+          transaction_id: string
+        }
+        Insert: {
+          gateway_order_id_full?: string | null
+          gateway_payment_id_full?: string | null
+          id?: string
+          logged_at?: string | null
+          raw_gateway_response?: Json | null
+          transaction_id: string
+        }
+        Update: {
+          gateway_order_id_full?: string | null
+          gateway_payment_id_full?: string | null
+          id?: string
+          logged_at?: string | null
+          raw_gateway_response?: Json | null
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_gateway_logs_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           amount: number
@@ -1447,6 +1482,15 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_full_transaction_gateway_data: {
+        Args: { p_transaction_id: string }
+        Returns: {
+          gateway_order_id_full: string
+          gateway_payment_id_full: string
+          logged_at: string
+          raw_gateway_response: Json
+        }[]
+      }
       get_inactive_users: {
         Args: { days?: number }
         Returns: {
@@ -1472,6 +1516,7 @@ export type Database = {
         Returns: boolean
       }
       reset_daily_credits: { Args: never; Returns: undefined }
+      sanitize_gateway_response: { Args: { raw_response: Json }; Returns: Json }
       update_all_user_segments: { Args: never; Returns: undefined }
       update_user_segments: { Args: { p_user_id: string }; Returns: undefined }
     }
