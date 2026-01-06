@@ -1,9 +1,38 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Mail, Phone, ArrowUpRight, Github, Linkedin, Twitter } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import magverseLogo from "@/assets/magverse-ai-logo.png";
 
 export const Footer = () => {
+  const [email, setEmail] = useState("");
+  const [subscribing, setSubscribing] = useState(false);
+
+  const handleSubscribe = async () => {
+    if (!email) {
+      toast.error("Please enter your email");
+      return;
+    }
+
+    setSubscribing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('subscribe-newsletter', {
+        body: { email, source: 'footer' }
+      });
+
+      if (error) throw error;
+      
+      toast.success(data.message || "Successfully subscribed! 🎉");
+      setEmail("");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to subscribe");
+    } finally {
+      setSubscribing(false);
+    }
+  };
+
   return (
     <footer className="border-t border-border/30 bg-card/30 relative z-10">
       <div className="container mx-auto px-4 py-20">
@@ -121,11 +150,18 @@ export const Footer = () => {
             <div className="flex gap-2">
               <input 
                 type="email" 
-                placeholder="Enter your email" 
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSubscribe()}
                 className="flex-1 px-4 py-2.5 rounded-xl bg-muted/30 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-colors text-sm"
               />
-              <button className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-colors">
-                Subscribe
+              <button 
+                onClick={handleSubscribe}
+                disabled={subscribing}
+                className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {subscribing ? '...' : 'Subscribe'}
               </button>
             </div>
           </div>
