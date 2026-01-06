@@ -1016,9 +1016,11 @@ export type Database = {
           monthly_credits: number | null
           monthly_credits_used: number | null
           phone_number: string | null
+          phone_number_encrypted: string | null
           phone_verified: boolean | null
           phone_verified_at: string | null
           recovery_email: string | null
+          recovery_email_encrypted: string | null
           subscription_expires_at: string | null
           subscription_type: string | null
           theme_preferences: Json | null
@@ -1047,9 +1049,11 @@ export type Database = {
           monthly_credits?: number | null
           monthly_credits_used?: number | null
           phone_number?: string | null
+          phone_number_encrypted?: string | null
           phone_verified?: boolean | null
           phone_verified_at?: string | null
           recovery_email?: string | null
+          recovery_email_encrypted?: string | null
           subscription_expires_at?: string | null
           subscription_type?: string | null
           theme_preferences?: Json | null
@@ -1078,9 +1082,11 @@ export type Database = {
           monthly_credits?: number | null
           monthly_credits_used?: number | null
           phone_number?: string | null
+          phone_number_encrypted?: string | null
           phone_verified?: boolean | null
           phone_verified_at?: string | null
           recovery_email?: string | null
+          recovery_email_encrypted?: string | null
           subscription_expires_at?: string | null
           subscription_type?: string | null
           theme_preferences?: Json | null
@@ -1397,6 +1403,14 @@ export type Database = {
       cleanup_expired_pdf_cache: { Args: never; Returns: undefined }
       cleanup_expired_phone_codes: { Args: never; Returns: undefined }
       cleanup_old_pending_transactions: { Args: never; Returns: undefined }
+      decrypt_sensitive_data: {
+        Args: { encrypted_data: string; user_id: string }
+        Returns: string
+      }
+      encrypt_sensitive_data: {
+        Args: { data: string; user_id: string }
+        Returns: string
+      }
       expire_monthly_subscriptions: { Args: never; Returns: undefined }
       generate_share_code: { Args: never; Returns: string }
       generate_verification_code: {
@@ -1439,6 +1453,13 @@ export type Database = {
           created_at: string
           display_name: string
           id: string
+        }[]
+      }
+      get_my_sensitive_profile_data: {
+        Args: never
+        Returns: {
+          phone_number_decrypted: string
+          recovery_email_decrypted: string
         }[]
       }
       get_user_dashboard_stats: { Args: { p_user_id: string }; Returns: Json }
