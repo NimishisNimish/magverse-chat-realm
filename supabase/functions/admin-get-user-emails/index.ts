@@ -20,15 +20,17 @@ serve(async (req) => {
       );
     }
 
-    // Create client with user's auth token
+    const token = authHeader.replace('Bearer ', '');
+
+    // Create client with user's auth token (for RLS-protected queries)
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    // Get the authenticated user
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    // Validate the token explicitly (avoids relying on global headers for auth)
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
     if (userError || !user) {
       console.error('Auth failed:', userError?.message);
       return new Response(
