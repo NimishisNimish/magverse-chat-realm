@@ -54,6 +54,9 @@ const TokenUsage = lazy(() => import("./pages/TokenUsage"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const ResetPasswordConfirm = lazy(() => import("./pages/ResetPasswordConfirm"));
 const LinkPhone = lazy(() => import("./pages/LinkPhone"));
+const Patches = lazy(() => import("./pages/Patches"));
+const AdminPatches = lazy(() => import("./pages/AdminPatches"));
+const AdminStudentTrials = lazy(() => import("./pages/AdminStudentTrials"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 
@@ -130,6 +133,7 @@ const AnimatedRoutes = () => {
           <Route path="/reset-password-confirm" element={<PageTransition variant="scale"><ResetPasswordConfirm /></PageTransition>} />
           <Route path="/privacy-policy" element={<PageTransition variant="fade"><PrivacyPolicy /></PageTransition>} />
           <Route path="/terms-of-service" element={<PageTransition variant="fade"><TermsOfService /></PageTransition>} />
+          <Route path="/patches" element={<PageTransition variant="fade"><Patches /></PageTransition>} />
           <Route path="/link-phone" element={<ProtectedRoute><PageTransition variant="scale"><LinkPhone /></PageTransition></ProtectedRoute>} />
           <Route path="/history" element={<ProtectedRoute><PageTransition variant={getTransitionVariant('/history')}><History /></PageTransition></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><PageTransition variant={getTransitionVariant('/profile')}><ProfileSettings /></PageTransition></ProtectedRoute>} />
@@ -152,6 +156,8 @@ const AnimatedRoutes = () => {
           <Route path="/admin/user/:userId" element={<AdminProtectedRoute><PageTransition variant="slideUp"><AdminUserDetail /></PageTransition></AdminProtectedRoute>} />
           <Route path="/admin/insights" element={<AdminProtectedRoute><PageTransition variant="fade"><AdminInsights /></PageTransition></AdminProtectedRoute>} />
           <Route path="/admin/invoice-emails" element={<AdminProtectedRoute><PageTransition variant="fade"><AdminInvoiceEmailer /></PageTransition></AdminProtectedRoute>} />
+          <Route path="/admin/patches" element={<AdminProtectedRoute><PageTransition variant="fade"><AdminPatches /></PageTransition></AdminProtectedRoute>} />
+          <Route path="/admin/student-trials" element={<AdminProtectedRoute><PageTransition variant="fade"><AdminStudentTrials /></PageTransition></AdminProtectedRoute>} />
           <Route path="/admin-login" element={<PageTransition variant="scale"><AdminLogin /></PageTransition>} />
           
           <Route path="*" element={<PageTransition variant="fade"><NotFound /></PageTransition>} />
