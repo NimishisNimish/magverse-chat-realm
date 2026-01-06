@@ -284,6 +284,7 @@ export type Database = {
           id: string
           model: string | null
           role: string
+          sources: Json | null
           user_id: string
         }
         Insert: {
@@ -295,6 +296,7 @@ export type Database = {
           id?: string
           model?: string | null
           role: string
+          sources?: Json | null
           user_id: string
         }
         Update: {
@@ -306,6 +308,7 @@ export type Database = {
           id?: string
           model?: string | null
           role?: string
+          sources?: Json | null
           user_id?: string
         }
         Relationships: [
@@ -649,6 +652,54 @@ export type Database = {
           },
         ]
       }
+      feature_updates: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          image_url: string | null
+          is_published: boolean | null
+          notify_subscribers: boolean | null
+          published_at: string | null
+          summary: string | null
+          title: string
+          updated_at: string | null
+          version: string | null
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          image_url?: string | null
+          is_published?: boolean | null
+          notify_subscribers?: boolean | null
+          published_at?: string | null
+          summary?: string | null
+          title: string
+          updated_at?: string | null
+          version?: string | null
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          image_url?: string | null
+          is_published?: boolean | null
+          notify_subscribers?: boolean | null
+          published_at?: string | null
+          summary?: string | null
+          title?: string
+          updated_at?: string | null
+          version?: string | null
+        }
+        Relationships: []
+      }
       invoices: {
         Row: {
           amount: number
@@ -838,6 +889,39 @@ export type Database = {
         }
         Relationships: []
       }
+      newsletter_subscribers: {
+        Row: {
+          email: string
+          id: string
+          is_active: boolean | null
+          metadata: Json | null
+          source: string | null
+          subscribed_at: string | null
+          unsubscribed_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          email: string
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          source?: string | null
+          subscribed_at?: string | null
+          unsubscribed_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          email?: string
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          source?: string | null
+          subscribed_at?: string | null
+          unsubscribed_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       password_reset_attempts: {
         Row: {
           created_at: string | null
@@ -914,6 +998,7 @@ export type Database = {
           created_at: string | null
           expires_at: string
           id: string
+          max_attempts: number | null
           phone_number: string
           purpose: string
           user_id: string | null
@@ -925,6 +1010,7 @@ export type Database = {
           created_at?: string | null
           expires_at: string
           id?: string
+          max_attempts?: number | null
           phone_number: string
           purpose?: string
           user_id?: string | null
@@ -936,6 +1022,7 @@ export type Database = {
           created_at?: string | null
           expires_at?: string
           id?: string
+          max_attempts?: number | null
           phone_number?: string
           purpose?: string
           user_id?: string | null
@@ -1192,6 +1279,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      student_trial_applications: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          is_edu_email: boolean | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string | null
+          trial_end_date: string | null
+          trial_start_date: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          is_edu_email?: boolean | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          trial_end_date?: string | null
+          trial_start_date?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          is_edu_email?: boolean | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          trial_end_date?: string | null
+          trial_start_date?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       transaction_gateway_logs: {
         Row: {
