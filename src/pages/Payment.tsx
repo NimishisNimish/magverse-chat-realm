@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
@@ -23,7 +23,9 @@ import {
   ArrowRight,
   Clock,
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  GraduationCap,
+  Loader2
 } from "lucide-react";
 import upiQrCode from "@/assets/phonepe-qr-code.png";
 import { triggerUpgradeConfetti } from "@/utils/confetti";
@@ -45,9 +47,77 @@ const Payment = () => {
   const [uploadingProof, setUploadingProof] = useState(false);
   const [selectedCreditPackage, setSelectedCreditPackage] = useState<string | null>(null);
   
+  // Student trial state
+  const [studentEmail, setStudentEmail] = useState("");
+  const [applyingForTrial, setApplyingForTrial] = useState(false);
+  const [trialApplicationStatus, setTrialApplicationStatus] = useState<'idle' | 'pending' | 'approved' | 'rejected'>('idle');
+  
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Check existing student trial application
+  useEffect(() => {
+    const checkTrialStatus = async () => {
+      if (!user?.email) return;
+      const { data } = await supabase
+        .from('student_trial_applications')
+        .select('status')
+        .eq('user_id', user.id)
+        .single();
+      if (data) {
+        setTrialApplicationStatus(data.status as any);
+        setStudentEmail(user.email);
+      }
+    };
+    checkTrialStatus();
+  }, [user]);
+
+  const handleStudentTrialApplication = async () => {
+    if (!user) {
+      navigate("/auth");
+      return;
+    }
+    if (!studentEmail) {
+      toast({ title: "Email Required", description: "Please enter your student email", variant: "destructive" });
+      return;
+    }
+
+    setApplyingForTrial(true);
+    try {
+      const isEduEmail = studentEmail.toLowerCase().includes('.edu') || 
+                         studentEmail.toLowerCase().includes('.ac.') ||
+                         studentEmail.toLowerCase().includes('.edu.');
+
+      const { error } = await supabase.from('student_trial_applications').insert({
+        user_id: user.id,
+        email: studentEmail,
+        is_edu_email: isEduEmail,
+        status: 'pending',
+      });
+
+      if (error) {
+        if (error.code === '23505') {
+          toast({ title: "Already Applied", description: "You have already submitted a trial application", variant: "destructive" });
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      setTrialApplicationStatus('pending');
+      toast({ 
+        title: "Application Submitted! 🎓", 
+        description: isEduEmail 
+          ? "Your .edu email has been verified! Admin will approve shortly." 
+          : "We'll verify your student status and get back to you within 24 hours."
+      });
+    } catch (error: any) {
+      toast({ title: "Application Failed", description: error.message, variant: "destructive" });
+    } finally {
+      setApplyingForTrial(false);
+    }
+  };
 
   const { data: transactions = [] } = useQuery({
     queryKey: ['user-transactions', user?.id],
@@ -356,6 +426,89 @@ const Payment = () => {
                     </button>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Student Free Trial */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
+            <Card className="border-purple-500/30 bg-gradient-to-br from-purple-500/5 to-pink-500/5 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-purple-500/20 to-pink-500/20 flex items-center justify-center">
+                    <GraduationCap className="w-5 h-5 text-purple-400" />
+                  </div>
+                  Student Free Trial
+                  <Badge className="bg-gradient-to-r from-purple-500 to-pink-500">1 Month Free</Badge>
+                </CardTitle>
+                <CardDescription>
+                  Students with .edu email get 1 month free trial. After trial: ₹100/year.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {trialApplicationStatus === 'pending' ? (
+                  <div className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-center">
+                    <Clock className="w-8 h-8 mx-auto mb-2 text-yellow-400" />
+                    <p className="font-medium text-yellow-400">Application Under Review</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Admin will verify your student email and approve shortly.
+                    </p>
+                  </div>
+                ) : trialApplicationStatus === 'approved' ? (
+                  <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30 text-center">
+                    <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-400" />
+                    <p className="font-medium text-green-400">Trial Approved! 🎉</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      You have 1 month of free access. Enjoy learning!
+                    </p>
+                  </div>
+                ) : trialApplicationStatus === 'rejected' ? (
+                  <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-center">
+                    <X className="w-8 h-8 mx-auto mb-2 text-red-400" />
+                    <p className="font-medium text-red-400">Application Not Approved</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Please use a valid student email (.edu) or contact support.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="student-email">Student Email (.edu preferred)</Label>
+                      <Input
+                        id="student-email"
+                        type="email"
+                        placeholder="your.name@university.edu"
+                        value={studentEmail}
+                        onChange={(e) => setStudentEmail(e.target.value)}
+                        className="bg-background/50"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Enter your official student email. .edu emails are auto-verified.
+                      </p>
+                    </div>
+                    <Button
+                      onClick={handleStudentTrialApplication}
+                      disabled={applyingForTrial || !studentEmail}
+                      className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                    >
+                      {applyingForTrial ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        <>
+                          <GraduationCap className="w-4 h-4 mr-2" />
+                          Start Free Trial
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>

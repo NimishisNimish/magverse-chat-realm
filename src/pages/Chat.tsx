@@ -2359,154 +2359,181 @@ const Chat = () => {
                 </div>
               )}
 
-              {/* Main Input Row - Mobile Optimized */}
-              <div className="flex items-center gap-1 sm:gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                  accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.txt,.md"
-                />
-                
-                {/* Plus Button for File Upload */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading || loading}
-                  className="shrink-0 rounded-full h-9 w-9 sm:h-10 sm:w-10"
-                  title="Add files"
-                >
-                {uploading ? (
-                  <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
-                ) : (
-                  <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
-                )}
-                </Button>
+              {/* Main Input Container - Gen Z Aesthetic */}
+              <div className="relative bg-gradient-to-r from-muted/30 via-muted/20 to-muted/30 rounded-2xl border border-border/40 p-2 sm:p-3 backdrop-blur-sm">
+                {/* Quick Action Chips Row */}
+                <div className="flex items-center gap-1.5 mb-2 overflow-x-auto pb-1 scrollbar-hide">
+                  {/* Model Selector Chip */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setModelSelectionOpen(true)}
+                    className="h-7 px-2.5 rounded-full bg-primary/10 hover:bg-primary/20 border border-primary/30 gap-1.5 shrink-0"
+                  >
+                    <Cpu className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-xs font-medium">
+                      {selectedModels.length > 0 
+                        ? aiModels.find(m => m.id === selectedModels[0])?.name.split(' ')[0] || 'Model'
+                        : 'Model'}
+                    </span>
+                    {selectedModels.length > 1 && (
+                      <Badge variant="secondary" className="h-4 px-1 text-[10px]">
+                        +{selectedModels.length - 1}
+                      </Badge>
+                    )}
+                  </Button>
 
-                {/* Tools Dropdown - Mobile Optimized */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className="gap-1 sm:gap-2 h-9 sm:h-10 px-2 sm:px-3 rounded-full"
-                    >
-                      <Wrench className="h-4 w-4" />
-                      <span className="text-xs sm:text-sm hidden sm:inline">Tools</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                   <DropdownMenuContent align="start" className="w-64 sm:w-72">
-                    {/* Quick Actions Section */}
-                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Quick Actions</div>
-                    {tools.slice(0, 4).map(tool => {
-                      const Icon = tool.icon;
-                      const isActive = (tool.id === 'fast-mode' && activeQuickAction === 'fast') ||
-                                       (tool.id === 'reasoning-mode' && activeQuickAction === 'reasoning') ||
-                                       (tool.id === 'research-mode' && activeQuickAction === 'research');
-                      return (
-                        <DropdownMenuItem 
-                          key={tool.id}
-                          onClick={() => handleToolSelect(tool.id)}
-                          className={`gap-3 cursor-pointer py-3 ${isActive ? 'bg-primary/10' : ''}`}
-                        >
-                          <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-primary' : ''}`} />
-                          <div className="flex flex-col">
-                            <span className={`text-sm font-medium ${isActive ? 'text-primary' : ''}`}>{tool.name}</span>
-                            <span className="text-xs text-muted-foreground">{tool.description}</span>
-                          </div>
-                        </DropdownMenuItem>
-                      );
-                    })}
-                    <div className="border-t border-border my-2" />
-                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Tools</div>
-                    {tools.slice(4).map(tool => {
-                      const Icon = tool.icon;
-                      return (
-                        <DropdownMenuItem 
-                          key={tool.id}
-                          onClick={() => handleToolSelect(tool.id)}
-                          className="gap-3 cursor-pointer py-3"
-                        >
-                          <Icon className="h-4 w-4 shrink-0" />
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium">{tool.name}</span>
-                            <span className="text-xs text-muted-foreground">{tool.description}</span>
-                          </div>
-                        </DropdownMenuItem>
-                      );
-                    })}
-                    <div className="border-t border-border my-2" />
-                    <div className="px-3 py-3 flex items-center justify-between">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">🤖 Auto-select models</span>
-                        <span className="text-xs text-muted-foreground">AI picks best model</span>
-                      </div>
-                      <Switch
-                        checked={autoSelectModel}
-                        onCheckedChange={setAutoSelectModel}
-                      />
-                    </div>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  {/* Quick Action Chips */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="h-7 px-2.5 rounded-full bg-muted/50 hover:bg-muted border border-border/40 gap-1.5 shrink-0"
+                  >
+                    {uploading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Plus className="h-3.5 w-3.5" />
+                    )}
+                    <span className="text-xs hidden sm:inline">Attach</span>
+                  </Button>
 
-                {/* Input Field - Mobile Optimized */}
-                <div className="flex-1 min-w-0">
-                  <Textarea
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyPress}
-                    placeholder="Ask AI..."
-                    className="min-h-[40px] sm:min-h-[44px] max-h-[120px] sm:max-h-[200px] resize-none rounded-2xl sm:rounded-full px-3 sm:px-4 py-2 border-border/40 text-sm sm:text-base"
-                    disabled={loading}
-                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setImageDialogOpen(true)}
+                    className="h-7 px-2.5 rounded-full bg-gradient-to-r from-pink-500/10 to-purple-500/10 hover:from-pink-500/20 hover:to-purple-500/20 border border-pink-500/30 gap-1.5 shrink-0"
+                  >
+                    <ImageIcon className="h-3.5 w-3.5 text-pink-400" />
+                    <span className="text-xs hidden sm:inline">Create</span>
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleToolSelect('research-mode')}
+                    className={`h-7 px-2.5 rounded-full border gap-1.5 shrink-0 ${
+                      activeQuickAction === 'research' 
+                        ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400' 
+                        : 'bg-muted/50 border-border/40 hover:bg-muted'
+                    }`}
+                  >
+                    <Search className="h-3.5 w-3.5" />
+                    <span className="text-xs hidden sm:inline">Search</span>
+                  </Button>
+
+                  {/* More Tools Button */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 rounded-full bg-muted/50 hover:bg-muted border border-border/40 shrink-0"
+                      >
+                        <Layers className="h-3.5 w-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56">
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Quick Actions</div>
+                      {tools.slice(0, 4).map(tool => {
+                        const Icon = tool.icon;
+                        const isActive = (tool.id === 'fast-mode' && activeQuickAction === 'fast') ||
+                                         (tool.id === 'reasoning-mode' && activeQuickAction === 'reasoning') ||
+                                         (tool.id === 'research-mode' && activeQuickAction === 'research');
+                        return (
+                          <DropdownMenuItem 
+                            key={tool.id}
+                            onClick={() => handleToolSelect(tool.id)}
+                            className={`gap-2 cursor-pointer ${isActive ? 'bg-primary/10' : ''}`}
+                          >
+                            <Icon className={`h-4 w-4 ${isActive ? 'text-primary' : ''}`} />
+                            <span className={isActive ? 'text-primary' : ''}>{tool.name}</span>
+                          </DropdownMenuItem>
+                        );
+                      })}
+                      <div className="border-t border-border my-1" />
+                      <DropdownMenuItem onClick={() => setDocumentDialogOpen(true)} className="gap-2 cursor-pointer">
+                        <FileSearch className="h-4 w-4" />
+                        Analyze Document
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setModelSelectionOpen(true)} className="gap-2 cursor-pointer">
+                        <Settings className="h-4 w-4" />
+                        Select Models
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
-                {/* Send/Stop Button - Mobile Optimized */}
-                {loading ? (
-                  <Button
-                    onClick={handleStop}
-                    size="icon"
-                    variant="destructive"
-                    className="shrink-0 rounded-full h-9 w-9 sm:h-10 sm:w-10"
-                    title="Stop generation"
-                  >
-                    <Square className="h-4 w-4 sm:h-5 sm:w-5" />
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={() => handleSend()}
-                    disabled={!input.trim() && !attachmentUrl}
-                    size="icon"
-                    className="shrink-0 rounded-full h-9 w-9 sm:h-10 sm:w-10 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all shadow-lg"
-                    title="Send message (Enter)"
-                  >
-                    <Send className="h-4 w-4 sm:h-5 sm:w-5 fill-current" />
-                  </Button>
-                )}
+                {/* Input Row */}
+                <div className="flex items-end gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.txt,.md"
+                  />
+                  
+                  {/* Textarea with auto-resize feel */}
+                  <div className="flex-1 min-w-0">
+                    <Textarea
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={handleKeyPress}
+                      placeholder="Ask anything... ✨"
+                      className="min-h-[44px] max-h-[200px] resize-none rounded-xl border-0 bg-transparent px-3 py-3 text-sm sm:text-base focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
+                      disabled={loading}
+                    />
+                  </div>
+
+                  {/* Send/Stop Button */}
+                  {loading ? (
+                    <Button
+                      onClick={handleStop}
+                      size="icon"
+                      variant="destructive"
+                      className="shrink-0 rounded-xl h-10 w-10 sm:h-11 sm:w-11 shadow-lg"
+                      title="Stop generation"
+                    >
+                      <Square className="h-4 w-4 sm:h-5 sm:w-5" />
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => handleSend()}
+                      disabled={!input.trim() && !attachmentUrl}
+                      size="icon"
+                      className="shrink-0 rounded-xl h-10 w-10 sm:h-11 sm:w-11 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 shadow-lg shadow-purple-500/25 transition-all hover:scale-105"
+                      title="Send message (Enter)"
+                    >
+                      <Send className="h-4 w-4 sm:h-5 sm:w-5" />
+                    </Button>
+                  )}
+                </div>
               </div>
 
-              {/* Selected Models Display - Mobile Optimized */}
+              {/* Selected Models - More compact */}
               {selectedModels.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1 sm:gap-1.5 overflow-x-auto pb-1">
-                  {aiModels.map(model => {
-                    const isSelected = selectedModels.includes(model.id);
-                    if (!isSelected) return null;
+                <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+                  <span>Using:</span>
+                  {selectedModels.slice(0, 3).map(modelId => {
+                    const model = aiModels.find(m => m.id === modelId);
                     return (
                       <Badge
-                        key={model.id}
-                        variant="secondary"
-                        className="h-6 sm:h-7 px-1.5 sm:px-2 gap-1 sm:gap-1.5 text-[10px] sm:text-xs cursor-pointer hover:bg-secondary/80 transition-colors shrink-0"
-                        onClick={() => handleModelToggle(model.id)}
+                        key={modelId}
+                        variant="outline"
+                        className="h-5 px-1.5 gap-1 text-[10px] cursor-pointer hover:bg-muted"
+                        onClick={() => handleModelToggle(modelId)}
                       >
-                        <AIModelLogo modelId={model.id} size="sm" />
-                        <span className="hidden sm:inline">{model.name}</span>
-                        <span className="sm:hidden">{model.name.split(' ')[0]}</span>
-                        <X className="h-2.5 w-2.5 sm:h-3 sm:w-3 ml-0.5" />
+                        <AIModelLogo modelId={modelId} size="sm" />
+                        {model?.name.split(' ')[0]}
+                        <X className="h-2.5 w-2.5" />
                       </Badge>
                     );
                   })}
+                  {selectedModels.length > 3 && (
+                    <span className="text-muted-foreground">+{selectedModels.length - 3} more</span>
+                  )}
                 </div>
               )}
             </div>

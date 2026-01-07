@@ -120,3 +120,6 @@ verify_jwt = false
 
 [functions.send-patch-notification]
 verify_jwt = true
+
+[functions.tavily-search]
+verify_jwt = false
