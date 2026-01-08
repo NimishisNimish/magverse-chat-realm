@@ -153,8 +153,8 @@ const ChatMessage = memo(({
   onDownloadImage,
   onRetry,
 }: ChatMessageProps) => {
-  
-  // Check if this is a Perplexity model that should show sources
+  // Check if this model should show sources (Perplexity or any message with sources)
+  const shouldShowSources = message.role === 'assistant' && message.sources && message.sources.length > 0;
   const isPerplexityModel = message.model && 
     ['perplexity', 'perplexity-pro', 'perplexity-reasoning'].includes(message.model);
   
@@ -251,9 +251,9 @@ const ChatMessage = memo(({
             <MessageContent content={message.content} isStreaming={isStreaming} />
           )}
 
-          {/* Sources for Perplexity models */}
-          {message.role === 'assistant' && isPerplexityModel && message.sources && message.sources.length > 0 && (
-            <MessageSources sources={message.sources} />
+          {/* Sources display - works for Perplexity and any AI with web search results */}
+          {shouldShowSources && (
+            <MessageSources sources={message.sources!} />
           )}
 
           {/* Thinking Process Display */}
