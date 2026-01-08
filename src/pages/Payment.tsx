@@ -38,7 +38,7 @@ declare global {
 }
 
 const Payment = () => {
-  const [selectedPlan, setSelectedPlan] = useState<"monthly" | "lifetime">("lifetime");
+  const [selectedPlan, setSelectedPlan] = useState<"basic" | "student" | "monthly" | "lifetime">("lifetime");
   const [paymentMethod, setPaymentMethod] = useState<"razorpay" | "upi">("upi");
   const [isProcessing, setIsProcessing] = useState(false);
   const [upiId, setUpiId] = useState("");
@@ -136,6 +136,18 @@ const Payment = () => {
   });
 
   const plans = {
+    basic: {
+      name: "Basic Monthly",
+      amount: 29,
+      description: "100 messages/day for 1 month",
+      features: ["All AI models", "Basic support", "Standard speed"]
+    },
+    student: {
+      name: "Student Yearly",
+      amount: 100,
+      description: "200 messages/day for students",
+      features: ["All AI models", "Student verification", "1 year access"]
+    },
     monthly: {
       name: "Pro Yearly",
       amount: 199,
@@ -524,65 +536,131 @@ const Payment = () => {
                 <CardTitle>Select Your Plan</CardTitle>
                 <CardDescription>Choose a subscription plan for unlimited access</CardDescription>
               </CardHeader>
-              <CardContent className="grid md:grid-cols-2 gap-4">
+              <CardContent className="grid md:grid-cols-4 gap-4">
+                {/* Basic Monthly ₹29 */}
                 <button 
-                  onClick={() => { setSelectedPlan("monthly"); setSelectedCreditPackage(null); }} 
-                  className={`relative p-6 rounded-xl border-2 transition-all text-left hover:scale-[1.02] ${
-                    selectedPlan === "monthly" && !selectedCreditPackage 
+                  onClick={() => { setSelectedPlan("basic"); setSelectedCreditPackage(null); }} 
+                  className={`relative p-5 rounded-xl border-2 transition-all text-left hover:scale-[1.02] ${
+                    selectedPlan === "basic" && !selectedCreditPackage 
                       ? "border-primary bg-primary/10" 
                       : "border-border/50 hover:border-primary/50"
                   }`}
                 >
-                  <Badge className="absolute top-4 right-4 bg-green-500">Limited Offer</Badge>
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Sparkles className="w-5 h-5 text-primary" />
+                  <Badge className="absolute top-3 right-3 bg-blue-500 text-xs">New</Badge>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                      <Zap className="w-4 h-4 text-blue-500" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold">Pro Yearly</h3>
-                      <p className="text-sm text-muted-foreground">500 messages/day</p>
+                      <h3 className="text-lg font-bold">Basic</h3>
+                      <p className="text-xs text-muted-foreground">100 msg/day</p>
                     </div>
                   </div>
-                  <div className="flex items-baseline gap-2 mb-3">
-                    <span className="text-4xl font-bold">₹199</span>
-                    <span className="text-muted-foreground line-through">₹299</span>
-                    <span className="text-muted-foreground">/year</span>
+                  <div className="flex items-baseline gap-1 mb-2">
+                    <span className="text-3xl font-bold">₹29</span>
+                    <span className="text-muted-foreground text-sm">/month</span>
                   </div>
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    {plans.monthly.features.map((f, i) => (
-                      <li key={i} className="flex items-center gap-2">
-                        <CheckCircle className="w-3 h-3 text-primary" /> {f}
+                  <ul className="text-xs text-muted-foreground space-y-1">
+                    {plans.basic.features.map((f, i) => (
+                      <li key={i} className="flex items-center gap-1">
+                        <CheckCircle className="w-2.5 h-2.5 text-blue-500" /> {f}
                       </li>
                     ))}
                   </ul>
                 </button>
 
+                {/* Student ₹100/year */}
                 <button 
-                  onClick={() => { setSelectedPlan("lifetime"); setSelectedCreditPackage(null); }} 
-                  className={`relative p-6 rounded-xl border-2 transition-all text-left hover:scale-[1.02] ${
-                    selectedPlan === "lifetime" && !selectedCreditPackage 
+                  onClick={() => { setSelectedPlan("student"); setSelectedCreditPackage(null); }} 
+                  className={`relative p-5 rounded-xl border-2 transition-all text-left hover:scale-[1.02] ${
+                    selectedPlan === "student" && !selectedCreditPackage 
+                      ? "border-purple-500 bg-purple-500/10" 
+                      : "border-border/50 hover:border-purple-500/50"
+                  }`}
+                >
+                  <Badge className="absolute top-3 right-3 bg-gradient-to-r from-purple-500 to-pink-500 text-xs">Student</Badge>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                      <GraduationCap className="w-4 h-4 text-purple-500" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Student</h3>
+                      <p className="text-xs text-muted-foreground">200 msg/day</p>
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-1 mb-2">
+                    <span className="text-3xl font-bold">₹100</span>
+                    <span className="text-muted-foreground text-sm">/year</span>
+                  </div>
+                  <ul className="text-xs text-muted-foreground space-y-1">
+                    {plans.student.features.map((f, i) => (
+                      <li key={i} className="flex items-center gap-1">
+                        <CheckCircle className="w-2.5 h-2.5 text-purple-500" /> {f}
+                      </li>
+                    ))}
+                  </ul>
+                </button>
+
+                {/* Pro Yearly ₹199 */}
+                <button 
+                  onClick={() => { setSelectedPlan("monthly"); setSelectedCreditPackage(null); }} 
+                  className={`relative p-5 rounded-xl border-2 transition-all text-left hover:scale-[1.02] ${
+                    selectedPlan === "monthly" && !selectedCreditPackage 
                       ? "border-primary bg-primary/10" 
                       : "border-border/50 hover:border-primary/50"
                   }`}
                 >
-                  <Badge className="absolute top-4 right-4 bg-accent">Best Value</Badge>
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
-                      <Crown className="w-5 h-5 text-accent" />
+                  <Badge className="absolute top-3 right-3 bg-green-500 text-xs">Popular</Badge>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Sparkles className="w-4 h-4 text-primary" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold">Lifetime Pro</h3>
-                      <p className="text-sm text-muted-foreground">Unlimited forever</p>
+                      <h3 className="text-lg font-bold">Pro Yearly</h3>
+                      <p className="text-xs text-muted-foreground">500 msg/day</p>
                     </div>
                   </div>
-                  <div className="flex items-baseline gap-2 mb-3">
-                    <span className="text-4xl font-bold">₹699</span>
-                    <span className="text-muted-foreground">/forever</span>
+                  <div className="flex items-baseline gap-1 mb-2">
+                    <span className="text-3xl font-bold">₹199</span>
+                    <span className="text-muted-foreground line-through text-sm">₹299</span>
+                    <span className="text-muted-foreground text-sm">/year</span>
                   </div>
-                  <ul className="text-sm text-muted-foreground space-y-1">
+                  <ul className="text-xs text-muted-foreground space-y-1">
+                    {plans.monthly.features.map((f, i) => (
+                      <li key={i} className="flex items-center gap-1">
+                        <CheckCircle className="w-2.5 h-2.5 text-primary" /> {f}
+                      </li>
+                    ))}
+                  </ul>
+                </button>
+
+                {/* Lifetime ₹699 */}
+                <button 
+                  onClick={() => { setSelectedPlan("lifetime"); setSelectedCreditPackage(null); }} 
+                  className={`relative p-5 rounded-xl border-2 transition-all text-left hover:scale-[1.02] ${
+                    selectedPlan === "lifetime" && !selectedCreditPackage 
+                      ? "border-accent bg-accent/10" 
+                      : "border-border/50 hover:border-accent/50"
+                  }`}
+                >
+                  <Badge className="absolute top-3 right-3 bg-accent text-xs">Best Value</Badge>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                      <Crown className="w-4 h-4 text-accent" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Lifetime</h3>
+                      <p className="text-xs text-muted-foreground">Unlimited</p>
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-1 mb-2">
+                    <span className="text-3xl font-bold">₹699</span>
+                    <span className="text-muted-foreground text-sm">/forever</span>
+                  </div>
+                  <ul className="text-xs text-muted-foreground space-y-1">
                     {plans.lifetime.features.map((f, i) => (
-                      <li key={i} className="flex items-center gap-2">
-                        <CheckCircle className="w-3 h-3 text-accent" /> {f}
+                      <li key={i} className="flex items-center gap-1">
+                        <CheckCircle className="w-2.5 h-2.5 text-accent" /> {f}
                       </li>
                     ))}
                   </ul>
