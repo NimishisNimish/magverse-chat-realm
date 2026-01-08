@@ -59,6 +59,7 @@ const Navbar = () => {
     { href: "/", label: "Home" },
     { href: "/chat", label: "Chat" },
     { href: "/models", label: "Models" },
+    { href: "/patches", label: "Updates" },
     ...(profile?.subscription_type !== 'monthly' ? [{ href: "/pricing", label: "Pricing" }] : []),
     { href: "/support", label: "Support" },
   ];

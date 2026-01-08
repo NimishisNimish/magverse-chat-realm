@@ -18,6 +18,7 @@ const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const UNCENSORED_CHAT_API_KEY = Deno.env.get('UNCENSORED_CHAT_API_KEY');
 const MISTRAL_API_KEY = Deno.env.get('MISTRAL_API_KEY');
+const EMERGENT_API_KEY = Deno.env.get('EMERGENT_API_KEY');
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -104,20 +105,24 @@ function releaseQueueSlot(modelId: string): void {
 }
 
 const MODEL_CONFIG: Record<string, { 
-  provider: 'openai' | 'nvidia' | 'google' | 'openrouter' | 'perplexity' | 'groq' | 'lovable' | 'uncensored' | 'mistral', 
+  provider: 'openai' | 'nvidia' | 'google' | 'openrouter' | 'perplexity' | 'groq' | 'lovable' | 'uncensored' | 'mistral' | 'emergent', 
   model: string,
   supportsReasoning: boolean,
   maxTokens?: number,
   supportsStreaming?: boolean,
   creditsPerMessage?: number,
 }> = {
-  'chatgpt': { provider: 'lovable', model: 'google/gemini-2.5-flash', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true, creditsPerMessage: 2 },
-  'claude': { provider: 'lovable', model: 'google/gemini-2.5-pro', supportsReasoning: true, supportsStreaming: true, creditsPerMessage: 2 },
-  'grok': { provider: 'lovable', model: 'google/gemini-2.5-flash', supportsReasoning: true, supportsStreaming: true, creditsPerMessage: 2 },
+  // Emergent API models (primary) - Claude Sonnet 4.5, Opus 4.5, GPT 5.1, Gemini 3
+  'chatgpt': { provider: 'emergent', model: 'gpt-5.1', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true, creditsPerMessage: 2 },
+  'claude': { provider: 'emergent', model: 'claude-sonnet-4.5', supportsReasoning: true, supportsStreaming: true, creditsPerMessage: 2 },
+  'grok': { provider: 'emergent', model: 'gemini-3', supportsReasoning: true, supportsStreaming: true, creditsPerMessage: 2 },
+  // Perplexity models (keep for search)
   'perplexity': { provider: 'perplexity', model: 'sonar', supportsReasoning: true, supportsStreaming: true, creditsPerMessage: 1 },
   'perplexity-pro': { provider: 'perplexity', model: 'sonar-pro', supportsReasoning: true, supportsStreaming: true, creditsPerMessage: 2 },
   'perplexity-reasoning': { provider: 'perplexity', model: 'sonar-deep-research', supportsReasoning: true, supportsStreaming: false, creditsPerMessage: 3 },
+  // Keep Lovable for image generation
   'gemini-flash-image': { provider: 'lovable', model: 'google/gemini-2.5-flash-image-preview', supportsReasoning: false, supportsStreaming: false, creditsPerMessage: 5 },
+  // Uncensored and Mistral
   'uncensored-chat': { provider: 'uncensored', model: 'dolphin-2.9.1-llama-3-70b', supportsReasoning: true, maxTokens: 4096, supportsStreaming: false, creditsPerMessage: 1 },
   'mistral': { provider: 'mistral', model: 'mistral-large-latest', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true, creditsPerMessage: 1 },
 };
@@ -458,7 +463,9 @@ serve(async (req) => {
               let streamResponse;
               
               // Validate API key
-              if (config.provider === 'lovable' && !LOVABLE_API_KEY) {
+              if (config.provider === 'emergent' && !EMERGENT_API_KEY) {
+                throw new Error('Emergent API key not configured');
+              } else if (config.provider === 'lovable' && !LOVABLE_API_KEY) {
                 throw new Error('Lovable API key not configured');
               } else if (config.provider === 'perplexity' && !PERPLEXITY_API_KEY) {
                 throw new Error('Perplexity API key not configured');
@@ -469,7 +476,21 @@ serve(async (req) => {
               }
 
               // Make streaming request based on provider
-              if (config.provider === 'lovable') {
+              if (config.provider === 'emergent') {
+                streamResponse = await fetch('https://api.emergentmind.com/v1/chat/completions', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${EMERGENT_API_KEY}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    model: config.model,
+                    messages: processedMessages,
+                    stream: true,
+                    max_tokens: config.maxTokens || 4096,
+                  }),
+                });
+              } else if (config.provider === 'lovable') {
                 streamResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
                   method: 'POST',
                   headers: {
@@ -672,7 +693,31 @@ serve(async (req) => {
         let response;
         let content = '';
 
-        if (config.provider === 'lovable') {
+        if (config.provider === 'emergent') {
+          if (!EMERGENT_API_KEY) throw new Error('Emergent API key not configured');
+          
+          response = await fetch('https://api.emergentmind.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${EMERGENT_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: config.model,
+              messages: processedMessages,
+              max_tokens: config.maxTokens || 4096,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(response.status === 429 ? 'Rate limit exceeded' : `Emergent API error: ${errorText.substring(0, 100)}`);
+          }
+
+          const data = await response.json();
+          content = data.choices?.[0]?.message?.content || 'No response';
+          
+        } else if (config.provider === 'lovable') {
           if (!LOVABLE_API_KEY) throw new Error('API key not configured');
           
           response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {

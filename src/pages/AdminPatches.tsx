@@ -83,6 +83,9 @@ const AdminPatches = () => {
     category: 'feature',
     notify_subscribers: true,
   });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>('');
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     fetchUpdates();
@@ -117,6 +120,52 @@ const AdminPatches = () => {
       notify_subscribers: true,
     });
     setSelectedUpdate(null);
+    setImageFile(null);
+    setImagePreview('');
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image must be less than 5MB');
+        return;
+      }
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setImagePreview(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImage = async (): Promise<string | null> => {
+    if (!imageFile) return form.image_url || null;
+    
+    setUploadingImage(true);
+    try {
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('patch-images')
+        .upload(fileName, imageFile);
+      
+      if (error) throw error;
+      
+      const { data: urlData } = supabase.storage
+        .from('patch-images')
+        .getPublicUrl(fileName);
+      
+      return urlData.publicUrl;
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      toast.error('Failed to upload image');
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const openCreateDialog = () => {
@@ -146,6 +195,9 @@ const AdminPatches = () => {
 
     setSaving(true);
     try {
+      // Upload image if selected
+      const imageUrl = await uploadImage();
+      
       if (selectedUpdate) {
         // Update existing
         const { error } = await supabase
@@ -154,7 +206,7 @@ const AdminPatches = () => {
             title: form.title,
             content: form.content,
             summary: form.summary || null,
-            image_url: form.image_url || null,
+            image_url: imageUrl,
             version: form.version || null,
             category: form.category,
             notify_subscribers: form.notify_subscribers,
@@ -172,7 +224,7 @@ const AdminPatches = () => {
             title: form.title,
             content: form.content,
             summary: form.summary || null,
-            image_url: form.image_url || null,
+            image_url: imageUrl,
             version: form.version || null,
             category: form.category,
             notify_subscribers: form.notify_subscribers,
@@ -514,23 +566,48 @@ const AdminPatches = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>Image URL (optional)</Label>
+              <Label>Feature Image (optional)</Label>
               <div className="flex gap-2">
                 <Input
-                  placeholder="https://..."
-                  value={form.image_url}
-                  onChange={(e) => setForm({ ...form, image_url: e.target.value })}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  className="hidden"
+                  id="image-upload"
                 />
-                <Button variant="outline" size="icon" disabled>
-                  <Upload className="w-4 h-4" />
-                </Button>
+                <label 
+                  htmlFor="image-upload" 
+                  className="flex-1 flex items-center justify-center gap-2 h-10 px-4 rounded-md border border-input bg-background hover:bg-accent cursor-pointer transition-colors"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  {imageFile ? imageFile.name : 'Choose image...'}
+                </label>
+                {(imagePreview || form.image_url) && (
+                  <Button 
+                    variant="outline" 
+                    size="icon"
+                    onClick={() => {
+                      setImageFile(null);
+                      setImagePreview('');
+                      setForm({ ...form, image_url: '' });
+                    }}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
-              {form.image_url && (
+              {(imagePreview || form.image_url) && (
                 <img 
-                  src={form.image_url} 
+                  src={imagePreview || form.image_url} 
                   alt="Preview" 
-                  className="w-full h-32 object-cover rounded-lg mt-2"
+                  className="w-full h-40 object-cover rounded-lg mt-2 border border-border"
                 />
+              )}
+              {uploadingImage && (
+                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  Uploading image...
+                </div>
               )}
             </div>
 
