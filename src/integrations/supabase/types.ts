@@ -1631,6 +1631,37 @@ export type Database = {
           id: string
         }[]
       }
+      get_my_secure_profile: {
+        Args: never
+        Returns: {
+          animation_preferences: Json
+          avatar_url: string
+          bio: string
+          created_at: string
+          credits_remaining: number
+          display_name: string
+          email_credit_alerts_enabled: boolean
+          email_digest_enabled: boolean
+          email_invoices_enabled: boolean
+          email_marketing_enabled: boolean
+          email_system_enabled: boolean
+          email_welcome_enabled: boolean
+          id: string
+          is_pro: boolean
+          monthly_credits: number
+          monthly_credits_used: number
+          phone_number_decrypted: string
+          phone_number_masked: string
+          phone_verified: boolean
+          phone_verified_at: string
+          recovery_email_decrypted: string
+          recovery_email_masked: string
+          subscription_expires_at: string
+          subscription_type: string
+          theme_preferences: Json
+          username: string
+        }[]
+      }
       get_my_sensitive_profile_data: {
         Args: never
         Returns: {
