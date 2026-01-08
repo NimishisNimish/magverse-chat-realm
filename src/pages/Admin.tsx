@@ -30,7 +30,8 @@ import {
   Coins,
   Zap,
   RotateCcw,
-  Activity
+  Activity,
+  GraduationCap
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -290,6 +291,14 @@ const Admin = () => {
               <p className="text-muted-foreground">Manage payments and subscriptions</p>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button onClick={() => navigate('/admin/student-trials')} variant="outline" size="sm">
+                <GraduationCap className="w-4 h-4 mr-2" />
+                Student Trials
+              </Button>
+              <Button onClick={() => navigate('/admin/patches')} variant="outline" size="sm">
+                <FileText className="w-4 h-4 mr-2" />
+                Patch Notes
+              </Button>
               <Button onClick={() => navigate('/admin/advanced-analytics')} variant="outline" size="sm">
                 Advanced Analytics
               </Button>

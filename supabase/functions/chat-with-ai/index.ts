@@ -19,6 +19,48 @@ const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const UNCENSORED_CHAT_API_KEY = Deno.env.get('UNCENSORED_CHAT_API_KEY');
 const MISTRAL_API_KEY = Deno.env.get('MISTRAL_API_KEY');
 const EMERGENT_API_KEY = Deno.env.get('EMERGENT_API_KEY');
+const TAVILY_API_KEY = Deno.env.get('TAVILY_API_KEY');
+
+// Tavily search function for web grounding
+async function performTavilySearch(query: string, maxResults = 5): Promise<{ sources: Array<{url: string, title: string, snippet: string}>, answer?: string }> {
+  if (!TAVILY_API_KEY) {
+    console.log('⚠️ Tavily API key not configured, skipping web search');
+    return { sources: [] };
+  }
+
+  try {
+    const response = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: TAVILY_API_KEY,
+        query,
+        search_depth: 'basic',
+        max_results: maxResults,
+        include_answer: true,
+        include_raw_content: false,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`Tavily search failed: ${response.status}`);
+      return { sources: [] };
+    }
+
+    const data = await response.json();
+    const sources = (data.results || []).map((r: any, i: number) => ({
+      url: r.url,
+      title: r.title || `Source ${i + 1}`,
+      snippet: r.content?.substring(0, 200) || '',
+    }));
+
+    console.log(`🔍 Tavily found ${sources.length} sources`);
+    return { sources, answer: data.answer };
+  } catch (error) {
+    console.error('Tavily search error:', error);
+    return { sources: [] };
+  }
+}
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -111,20 +153,21 @@ const MODEL_CONFIG: Record<string, {
   maxTokens?: number,
   supportsStreaming?: boolean,
   creditsPerMessage?: number,
+  enableWebSearch?: boolean,
 }> = {
-  // Emergent API models (primary) - Claude Sonnet 4.5, Opus 4.5, GPT 5.1, Gemini 3
-  'chatgpt': { provider: 'emergent', model: 'gpt-5.1', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true, creditsPerMessage: 2 },
-  'claude': { provider: 'emergent', model: 'claude-sonnet-4.5', supportsReasoning: true, supportsStreaming: true, creditsPerMessage: 2 },
-  'grok': { provider: 'emergent', model: 'gemini-3', supportsReasoning: true, supportsStreaming: true, creditsPerMessage: 2 },
+  // Emergent API models - using correct model IDs
+  'chatgpt': { provider: 'emergent', model: 'openai/gpt-4o', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true, creditsPerMessage: 2, enableWebSearch: true },
+  'claude': { provider: 'emergent', model: 'anthropic/claude-sonnet-4', supportsReasoning: true, supportsStreaming: true, creditsPerMessage: 2, enableWebSearch: true },
+  'grok': { provider: 'emergent', model: 'google/gemini-2.0-flash', supportsReasoning: true, supportsStreaming: true, creditsPerMessage: 2, enableWebSearch: true },
   // Perplexity models (keep for search)
-  'perplexity': { provider: 'perplexity', model: 'sonar', supportsReasoning: true, supportsStreaming: true, creditsPerMessage: 1 },
-  'perplexity-pro': { provider: 'perplexity', model: 'sonar-pro', supportsReasoning: true, supportsStreaming: true, creditsPerMessage: 2 },
-  'perplexity-reasoning': { provider: 'perplexity', model: 'sonar-deep-research', supportsReasoning: true, supportsStreaming: false, creditsPerMessage: 3 },
+  'perplexity': { provider: 'perplexity', model: 'sonar', supportsReasoning: true, supportsStreaming: true, creditsPerMessage: 1, enableWebSearch: true },
+  'perplexity-pro': { provider: 'perplexity', model: 'sonar-pro', supportsReasoning: true, supportsStreaming: true, creditsPerMessage: 2, enableWebSearch: true },
+  'perplexity-reasoning': { provider: 'perplexity', model: 'sonar-deep-research', supportsReasoning: true, supportsStreaming: false, creditsPerMessage: 3, enableWebSearch: true },
   // Keep Lovable for image generation
-  'gemini-flash-image': { provider: 'lovable', model: 'google/gemini-2.5-flash-image-preview', supportsReasoning: false, supportsStreaming: false, creditsPerMessage: 5 },
+  'gemini-flash-image': { provider: 'lovable', model: 'google/gemini-2.5-flash-image', supportsReasoning: false, supportsStreaming: false, creditsPerMessage: 5 },
   // Uncensored and Mistral
-  'uncensored-chat': { provider: 'uncensored', model: 'dolphin-2.9.1-llama-3-70b', supportsReasoning: true, maxTokens: 4096, supportsStreaming: false, creditsPerMessage: 1 },
-  'mistral': { provider: 'mistral', model: 'mistral-large-latest', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true, creditsPerMessage: 1 },
+  'uncensored-chat': { provider: 'uncensored', model: 'dolphin-2.9.1-llama-3-70b', supportsReasoning: true, maxTokens: 4096, supportsStreaming: false, creditsPerMessage: 1, enableWebSearch: true },
+  'mistral': { provider: 'mistral', model: 'mistral-large-latest', supportsReasoning: true, maxTokens: 4096, supportsStreaming: true, creditsPerMessage: 1, enableWebSearch: true },
 };
 
 // Validation schema
@@ -298,8 +341,34 @@ serve(async (req) => {
     // Add concise system prompt
     processedMessages.unshift({
       role: 'system',
-      content: 'Be direct and concise. Answer immediately without preamble.'
+      content: 'Be direct and concise. Answer immediately without preamble. If web search results are provided, incorporate them naturally and cite sources.'
     });
+
+    // Perform Tavily web search for models that support it
+    let webSearchResults: { sources: Array<{url: string, title: string, snippet: string}>, answer?: string } = { sources: [] };
+    const modelConfig = MODEL_CONFIG[selectedModels[0]];
+    if (modelConfig?.enableWebSearch && !isImageGeneration) {
+      const userQuery = typeof processedMessages[processedMessages.length - 1]?.content === 'string' 
+        ? processedMessages[processedMessages.length - 1].content 
+        : '';
+      
+      if (userQuery.length > 10) {
+        console.log('🔍 Performing Tavily web search...');
+        webSearchResults = await performTavilySearch(userQuery, 5);
+        
+        // Add search context to messages if sources found
+        if (webSearchResults.sources.length > 0) {
+          const searchContext = webSearchResults.sources.map((s, i) => 
+            `[${i + 1}] ${s.title}: ${s.snippet}`
+          ).join('\n');
+          
+          processedMessages.push({
+            role: 'system',
+            content: `Web search results for context:\n${searchContext}\n\nUse these sources to inform your response and cite them when relevant using [1], [2], etc.`
+          });
+        }
+      }
+    }
 
     // Create/get chat
     let currentChatId = chatId;
@@ -477,7 +546,7 @@ serve(async (req) => {
 
               // Make streaming request based on provider
               if (config.provider === 'emergent') {
-                streamResponse = await fetch('https://api.emergentmind.com/v1/chat/completions', {
+                streamResponse = await fetch('https://api.emergentmind.ai/v1/chat/completions', {
                   method: 'POST',
                   headers: {
                     'Authorization': `Bearer ${EMERGENT_API_KEY}`,
@@ -633,13 +702,14 @@ serve(async (req) => {
               metrics.streamEnd = Date.now() - requestStartTime;
               console.log(`✅ Stream complete. TTFT: ${metrics.ttft}ms, Total: ${metrics.streamEnd}ms`);
 
-              // Save to database
+              // Save to database with sources
               const { data: newMessage } = await supabase.from('chat_messages').insert({
                 chat_id: currentChatId,
                 user_id: user.id,
                 role: 'assistant',
                 content: fullContent,
                 model: modelId,
+                sources: webSearchResults.sources.length > 0 ? webSearchResults.sources : null,
               }).select().single();
 
               // Log metrics
@@ -650,7 +720,12 @@ serve(async (req) => {
                 message_id: newMessage?.id,
               });
 
-              sendEvent('done', { model: modelId, messageId: newMessage?.id, metrics });
+              sendEvent('done', { 
+                model: modelId, 
+                messageId: newMessage?.id, 
+                metrics,
+                sources: webSearchResults.sources 
+              });
               controller.close();
 
             } catch (error: any) {
@@ -696,7 +771,7 @@ serve(async (req) => {
         if (config.provider === 'emergent') {
           if (!EMERGENT_API_KEY) throw new Error('Emergent API key not configured');
           
-          response = await fetch('https://api.emergentmind.com/v1/chat/completions', {
+          response = await fetch('https://api.emergentmind.ai/v1/chat/completions', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${EMERGENT_API_KEY}`,
@@ -865,13 +940,14 @@ serve(async (req) => {
         const responseTime = Date.now() - modelStartTime;
         console.log(`✅ ${modelId} responded in ${responseTime}ms`);
 
-        // Save message
+        // Save message with sources
         const { data: newMessage } = await supabase.from('chat_messages').insert({
           chat_id: currentChatId,
           user_id: user.id,
           role: 'assistant',
           content,
           model: modelId,
+          sources: webSearchResults.sources.length > 0 ? webSearchResults.sources : null,
         }).select().single();
 
         // Log metrics
@@ -888,6 +964,7 @@ serve(async (req) => {
           response: content,
           messageId: newMessage?.id,
           responseTime,
+          sources: webSearchResults.sources,
         };
 
       } catch (error: any) {
