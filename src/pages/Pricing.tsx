@@ -105,9 +105,9 @@ const Pricing = () => {
   ];
 
   const creditPackages = [
-    { credits: 50, price: 49, perCredit: "₹0.98" },
-    { credits: 200, price: 149, perCredit: "₹0.75", popular: true },
-    { credits: 500, price: 299, perCredit: "₹0.60", bestValue: true },
+    { credits: 50, price: 25, perCredit: "₹0.50" },
+    { credits: 200, price: 75, perCredit: "₹0.38", popular: true },
+    { credits: 500, price: 150, perCredit: "₹0.30", bestValue: true },
   ];
 
   const features = [

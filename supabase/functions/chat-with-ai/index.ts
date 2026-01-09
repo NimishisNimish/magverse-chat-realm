@@ -76,22 +76,22 @@ const VALID_MODELS = ['chatgpt', 'claude', 'perplexity', 'perplexity-pro', 'perp
 const FAST_MODELS = ['chatgpt', 'grok'];
 const HEAVY_MODELS = ['claude', 'perplexity-pro', 'perplexity-reasoning'];
 
-// Model-specific timeout configurations (in milliseconds)
-// Deep Research: 5-6 min, Reasoning: 8 min for complex tasks
+// Model-specific timeout configurations (in milliseconds) - INCREASED for reliability
+// Deep Research: 8+ min, Reasoning: 4+ min for complex tasks
 const MODEL_TIMEOUTS: Record<string, { firstToken: number; total: number }> = {
-  'chatgpt': { firstToken: 30000, total: 90000 },
-  'claude': { firstToken: 45000, total: 120000 },
-  'perplexity': { firstToken: 30000, total: 90000 },
-  'perplexity-pro': { firstToken: 90000, total: 300000 }, // 5 min total for research
-  'perplexity-reasoning': { firstToken: 180000, total: 480000 }, // 8 min for deep reasoning
-  'grok': { firstToken: 30000, total: 90000 },
-  'gemini-flash-image': { firstToken: 30000, total: 90000 },
-  'uncensored-chat': { firstToken: 30000, total: 90000 },
-  'mistral': { firstToken: 30000, total: 90000 },
+  'chatgpt': { firstToken: 60000, total: 180000 }, // 60s first token, 3 min total
+  'claude': { firstToken: 90000, total: 240000 }, // 90s first token, 4 min total  
+  'perplexity': { firstToken: 45000, total: 120000 },
+  'perplexity-pro': { firstToken: 120000, total: 360000 }, // 2 min first, 6 min total
+  'perplexity-reasoning': { firstToken: 180000, total: 540000 }, // 3 min first, 9 min total
+  'grok': { firstToken: 60000, total: 180000 },
+  'gemini-flash-image': { firstToken: 60000, total: 120000 },
+  'uncensored-chat': { firstToken: 60000, total: 180000 },
+  'mistral': { firstToken: 60000, total: 180000 },
 };
 
-// Default timeouts if model not in config
-const DEFAULT_TIMEOUTS = { firstToken: 30000, total: 120000 };
+// Default timeouts if model not in config - INCREASED
+const DEFAULT_TIMEOUTS = { firstToken: 60000, total: 180000 }; // 60s first, 3 min total
 
 // Heartbeat interval for long requests (prevents connection timeout)
 const HEARTBEAT_INTERVAL_MS = 15000;
