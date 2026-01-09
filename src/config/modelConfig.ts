@@ -59,11 +59,11 @@ export const MODEL_CONFIG: ModelConfig[] = [
     creditsPerMessage: 3
   },
   
-  // Direct API models (Emergent)
+  // Direct API models (Emergent) - GPT-4o and Claude Sonnet 4
   { 
     id: 'chatgpt', 
-    name: 'GPT-4o', 
-    description: 'OpenAI flagship model', 
+    name: 'ChatGPT (GPT-4o)', 
+    description: 'OpenAI GPT-4o flagship model', 
     icon: Bot, 
     color: 'text-green-500',
     category: 'reasoning',
@@ -72,7 +72,7 @@ export const MODEL_CONFIG: ModelConfig[] = [
   { 
     id: 'claude', 
     name: 'Claude Sonnet 4', 
-    description: 'Anthropic thoughtful AI', 
+    description: 'Anthropic Claude Sonnet 4 AI', 
     icon: Bot, 
     color: 'text-orange-400',
     category: 'reasoning',

@@ -20,22 +20,23 @@ interface StreamingState {
   currentStatus: string;
 }
 
-// Model-specific timeout configurations (matching backend)
+// Model-specific timeout configurations (matching backend) - INCREASED for reliability
 const MODEL_TIMEOUTS: Record<string, { firstToken: number; total: number }> = {
-  'chatgpt': { firstToken: 30000, total: 90000 },
-  'claude': { firstToken: 45000, total: 120000 },
-  'perplexity': { firstToken: 30000, total: 90000 },
-  'perplexity-pro': { firstToken: 60000, total: 150000 },
-  'perplexity-reasoning': { firstToken: 120000, total: 240000 },
-  'grok': { firstToken: 30000, total: 90000 },
-  'uncensored-chat': { firstToken: 30000, total: 90000 },
-  'lovable-gemini-flash': { firstToken: 25000, total: 90000 },
-  'lovable-gemini-pro': { firstToken: 40000, total: 120000 },
-  'lovable-gpt5': { firstToken: 35000, total: 100000 },
-  'lovable-gpt5-mini': { firstToken: 25000, total: 80000 },
+  'chatgpt': { firstToken: 60000, total: 180000 }, // 60s first token, 3 min total
+  'claude': { firstToken: 90000, total: 240000 }, // 90s first token, 4 min total
+  'perplexity': { firstToken: 45000, total: 120000 },
+  'perplexity-pro': { firstToken: 120000, total: 300000 }, // 2 min first, 5 min total
+  'perplexity-reasoning': { firstToken: 180000, total: 480000 }, // 3 min first, 8 min total
+  'grok': { firstToken: 60000, total: 180000 },
+  'uncensored-chat': { firstToken: 60000, total: 180000 },
+  'mistral': { firstToken: 60000, total: 180000 },
+  'lovable-gemini-flash': { firstToken: 45000, total: 120000 },
+  'lovable-gemini-pro': { firstToken: 60000, total: 180000 },
+  'lovable-gpt5': { firstToken: 60000, total: 180000 },
+  'lovable-gpt5-mini': { firstToken: 45000, total: 120000 },
 };
 
-const DEFAULT_TIMEOUTS = { firstToken: 30000, total: 120000 };
+const DEFAULT_TIMEOUTS = { firstToken: 60000, total: 180000 }; // 60s first token, 3 min total
 
 export const useStreamingChat = () => {
   const [streamingState, setStreamingState] = useState<StreamingState>({

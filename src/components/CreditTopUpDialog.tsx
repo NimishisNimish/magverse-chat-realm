@@ -9,9 +9,9 @@ interface CreditTopUpDialogProps {
 }
 
 const creditPackages = [
-  { id: 'credits_50', credits: 50, amount: 49, description: '50 Credits' },
-  { id: 'credits_200', credits: 200, amount: 149, description: '200 Credits', popular: true },
-  { id: 'credits_500', credits: 500, amount: 299, description: '500 Credits', bestValue: true },
+  { id: 'credits_50', credits: 50, amount: 25, description: '50 Credits' },
+  { id: 'credits_200', credits: 200, amount: 75, description: '200 Credits', popular: true },
+  { id: 'credits_500', credits: 500, amount: 150, description: '500 Credits', bestValue: true },
 ];
 
 export const CreditTopUpDialog = ({ open, onOpenChange }: CreditTopUpDialogProps) => {

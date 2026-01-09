@@ -16,18 +16,37 @@ export const Footer = () => {
       return;
     }
 
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
     setSubscribing(true);
     try {
       const { data, error } = await supabase.functions.invoke('subscribe-newsletter', {
         body: { email, source: 'footer' }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Newsletter subscription error:', error);
+        throw new Error(error.message || "Subscription failed. Please try again.");
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
       
-      toast.success(data.message || "Successfully subscribed! 🎉");
+      // Show success with celebration animation
+      toast.success(data?.message || "🎉 Successfully subscribed! Check your email for confirmation.", {
+        duration: 5000,
+        icon: "✉️",
+      });
       setEmail("");
     } catch (error: any) {
-      toast.error(error.message || "Failed to subscribe");
+      console.error('Newsletter error:', error);
+      toast.error(error.message || "Failed to subscribe. Please check your email and try again.");
     } finally {
       setSubscribing(false);
     }

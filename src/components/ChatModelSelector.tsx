@@ -26,7 +26,7 @@ const MODEL_CATEGORIES: ModelCategory[] = [
     name: "Fast",
     icon: Zap,
     description: "Quick responses with lightweight models",
-    models: ["lovable-gemini-flash", "lovable-gpt5-mini"],
+    models: ["lovable-gemini-flash", "lovable-gpt5-mini", "mistral"],
   },
   {
     id: "reasoning",
@@ -40,21 +40,21 @@ const MODEL_CATEGORIES: ModelCategory[] = [
     name: "Web Search",
     icon: Globe,
     description: "Search the web with real-time data",
-    models: ["perplexity"],
+    models: ["perplexity", "grok"],
   },
   {
     id: "deep-research",
     name: "Deep Research",
     icon: Search,
     description: "Multi-query comprehensive research",
-    models: ["perplexity-reasoning"],
+    models: ["perplexity-reasoning", "perplexity-pro"],
   },
   {
-    id: "research",
-    name: "Research",
+    id: "uncensored",
+    name: "Uncensored",
     icon: Sparkles,
-    description: "Expert reasoning with sources",
-    models: ["perplexity-pro", "grok"],
+    description: "Unfiltered AI responses",
+    models: ["uncensored-chat"],
   },
 ];
 
