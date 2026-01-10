@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { CREDIT_PACKAGES } from "@/config/creditPackages";
 import Navbar from "@/components/Navbar";
 import { useQuery } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -162,11 +163,7 @@ const Payment = () => {
     }
   };
 
-  const creditPackages = [
-    { id: 'credits_50', credits: 50, amount: 49, perCredit: "₹0.98" },
-    { id: 'credits_200', credits: 200, amount: 149, perCredit: "₹0.75", popular: true },
-    { id: 'credits_500', credits: 500, amount: 299, perCredit: "₹0.60", bestValue: true },
-  ];
+  const creditPackages = CREDIT_PACKAGES;
 
   const handleRazorpayPayment = async () => {
     if (!user) {

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { CREDIT_PACKAGES } from "@/config/creditPackages";
 import { Check, Crown, Zap, CreditCard, Sparkles, Shield, Clock, Users, Globe, Star, ArrowRight } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -104,11 +105,13 @@ const Pricing = () => {
     },
   ];
 
-  const creditPackages = [
-    { credits: 50, price: 25, perCredit: "₹0.50" },
-    { credits: 200, price: 75, perCredit: "₹0.38", popular: true },
-    { credits: 500, price: 150, perCredit: "₹0.30", bestValue: true },
-  ];
+  const creditPackages = CREDIT_PACKAGES.map((pkg) => ({
+    credits: pkg.credits,
+    price: pkg.amount,
+    perCredit: pkg.perCredit,
+    popular: pkg.popular,
+    bestValue: pkg.bestValue,
+  }));
 
   const features = [
     { icon: Globe, title: "Web Search", description: "Real-time search with Perplexity" },

@@ -28,6 +28,7 @@ interface UserProfile {
   credits_remaining: number | null;
 }
 
+// Unified credit packages configuration
 const CREDIT_PACKAGES: Record<string, number> = {
   credits_50: 50,
   credits_200: 200,

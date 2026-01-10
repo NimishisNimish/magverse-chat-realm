@@ -2,17 +2,14 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Check, Zap, Crown, Coins } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { CREDIT_PACKAGES } from "@/config/creditPackages";
 
 interface CreditTopUpDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const creditPackages = [
-  { id: 'credits_50', credits: 50, amount: 25, description: '50 Credits' },
-  { id: 'credits_200', credits: 200, amount: 75, description: '200 Credits', popular: true },
-  { id: 'credits_500', credits: 500, amount: 150, description: '500 Credits', bestValue: true },
-];
+const creditPackages = CREDIT_PACKAGES;
 
 export const CreditTopUpDialog = ({ open, onOpenChange }: CreditTopUpDialogProps) => {
   const navigate = useNavigate();
