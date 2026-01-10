@@ -10,6 +10,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 
+// Unified credit packages configuration
 const CREDIT_PACKAGES: Record<string, number> = {
   credits_50: 50,
   credits_200: 200,
