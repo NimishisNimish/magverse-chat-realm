@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
+import { PatchDetailDialog } from "@/components/PatchDetailDialog";
 
 interface FeatureUpdate {
   id: string;
@@ -45,6 +46,8 @@ const Patches = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedUpdate, setSelectedUpdate] = useState<FeatureUpdate | null>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchUpdates();
@@ -273,6 +276,10 @@ const Patches = () => {
                           variant="ghost"
                           size="sm"
                           className="text-purple-400 hover:text-purple-300 p-0 h-auto"
+                          onClick={() => {
+                            setSelectedUpdate(update);
+                            setDetailDialogOpen(true);
+                          }}
                         >
                           Read more
                           <ChevronRight className="w-4 h-4 ml-1" />
@@ -311,6 +318,13 @@ const Patches = () => {
           </Button>
         </motion.div>
       </section>
+
+      {/* Patch Detail Dialog */}
+      <PatchDetailDialog
+        update={selectedUpdate}
+        open={detailDialogOpen}
+        onOpenChange={setDetailDialogOpen}
+      />
     </div>
   );
 };

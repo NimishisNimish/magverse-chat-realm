@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export interface StreamEvent {
   event: 'token' | 'done' | 'error';
@@ -8,6 +9,7 @@ export interface StreamEvent {
     fullContent?: string;
     messageId?: string;
     error?: string;
+    errorType?: 'rate_limit' | 'credits' | 'timeout' | 'server' | 'unknown';
   };
 }
 
@@ -92,6 +94,10 @@ export class StreamingClient {
           return;
         }
         
+        toast.error('⏱️ Model not responding', {
+          description: 'Try a faster model like Gemini Flash',
+          duration: 5000,
+        });
         onError(selectedModel, '⏱️ Model not responding. Try a faster model like Gemini Flash.');
       }
     }, FIRST_TOKEN_TIMEOUT);
@@ -100,6 +106,10 @@ export class StreamingClient {
     const overallTimeoutId = setTimeout(() => {
       console.warn(`⏰ [StreamingClient] Request timeout after ${timeout}ms`);
       this.abortController?.abort();
+      toast.error('⏱️ Request timed out', {
+        description: 'The model is taking too long. Try again or use a different model.',
+        duration: 5000,
+      });
       onError(selectedModel, '⏱️ Response timed out. Try again or use a different model.');
     }, timeout);
 
@@ -148,10 +158,26 @@ export class StreamingClient {
         }
         
         if (response.status === 429) {
+          toast.error('⚠️ Rate limit exceeded', {
+            description: 'Please wait a moment and try again.',
+            duration: 6000,
+          });
           throw new Error('⚠️ Rate limit exceeded. Please wait and try again.');
         } else if (response.status === 402) {
+          toast.error('💳 Credits exhausted', {
+            description: 'Please add credits to continue using the AI.',
+            action: {
+              label: 'Add Credits',
+              onClick: () => window.location.href = '/payment',
+            },
+            duration: 8000,
+          });
           throw new Error('💳 Credits exhausted. Please add credits to continue.');
         } else if (response.status === 504) {
+          toast.error('⏱️ Gateway timeout', {
+            description: 'The server is taking too long. Trying a faster model...',
+            duration: 5000,
+          });
           // Gateway timeout - try fallback
           const fallbackModel = FALLBACK_MODELS[selectedModel];
           if (fallbackModel && retryWithFallback) {
@@ -160,6 +186,10 @@ export class StreamingClient {
           }
           throw new Error('⏱️ Request timed out. Try a faster model.');
         } else if (response.status === 500) {
+          toast.error('⚠️ Server error', {
+            description: 'Something went wrong. Trying a different approach...',
+            duration: 5000,
+          });
           // Server error - try fallback
           const fallbackModel = FALLBACK_MODELS[selectedModel];
           if (fallbackModel && retryWithFallback) {
