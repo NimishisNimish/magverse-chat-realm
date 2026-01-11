@@ -57,6 +57,7 @@ const LinkPhone = lazy(() => import("./pages/LinkPhone"));
 const Patches = lazy(() => import("./pages/Patches"));
 const AdminPatches = lazy(() => import("./pages/AdminPatches"));
 const AdminStudentTrials = lazy(() => import("./pages/AdminStudentTrials"));
+const StudentVerification = lazy(() => import("./pages/StudentVerification"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 
@@ -134,6 +135,7 @@ const AnimatedRoutes = () => {
           <Route path="/privacy-policy" element={<PageTransition variant="fade"><PrivacyPolicy /></PageTransition>} />
           <Route path="/terms-of-service" element={<PageTransition variant="fade"><TermsOfService /></PageTransition>} />
           <Route path="/patches" element={<PageTransition variant="fade"><Patches /></PageTransition>} />
+          <Route path="/student-verification" element={<ProtectedRoute><PageTransition variant="fade"><StudentVerification /></PageTransition></ProtectedRoute>} />
           <Route path="/link-phone" element={<ProtectedRoute><PageTransition variant="scale"><LinkPhone /></PageTransition></ProtectedRoute>} />
           <Route path="/history" element={<ProtectedRoute><PageTransition variant={getTransitionVariant('/history')}><History /></PageTransition></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><PageTransition variant={getTransitionVariant('/profile')}><ProfileSettings /></PageTransition></ProtectedRoute>} />

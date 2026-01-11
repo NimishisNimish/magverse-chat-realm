@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface Message {
   id: string;
@@ -154,11 +155,33 @@ export const useStreamingChat = () => {
         const errorText = await response.text();
         
         if (response.status === 429) {
+          toast.error('⚠️ Rate limit exceeded', {
+            description: 'Please wait a moment and try again.',
+            duration: 6000,
+          });
           throw { message: '⚠️ Rate limit exceeded. Please wait and try again.', type: 'rate_limit' };
         } else if (response.status === 402) {
+          toast.error('💳 Credits exhausted', {
+            description: 'Please add credits to continue using the AI.',
+            action: {
+              label: 'Add Credits',
+              onClick: () => window.location.href = '/payment',
+            },
+            duration: 8000,
+          });
           throw { message: '💳 Credits exhausted. Please add credits to continue.', type: 'credits' };
         } else if (response.status === 503) {
+          toast.error('⏳ Service unavailable', {
+            description: 'The AI service is temporarily unavailable. Please try again.',
+            duration: 5000,
+          });
           throw { message: '⏳ Service temporarily unavailable. Please try again.', type: 'unavailable' };
+        } else if (response.status === 504) {
+          toast.error('⏱️ Gateway timeout', {
+            description: 'The server is taking too long. Try a faster model.',
+            duration: 5000,
+          });
+          throw { message: '⏱️ Gateway timeout. Try a faster model.', type: 'timeout' };
         }
         throw { message: `Request failed: ${response.status}`, type: 'unknown' };
       }
