@@ -1,10 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 /**
- * AI Reasoning - For complex queries
+ * AI Reasoning - For complex queries with streaming thinking support
  * - Supports deep research models
  * - Higher timeout limits
  * - Web search integration
+ * - Streaming thinking content extraction
  */
 
 const corsHeaders = {
@@ -20,13 +21,13 @@ const MAX_CONTEXT_MESSAGES = 10;
 
 // Reasoning model routing
 const REASONING_MODELS: Record<string, { provider: string; model: string }> = {
-  'gemini-pro': { provider: 'lovable', model: 'google/gemini-2.5-pro' },
+  'gemini-pro': { provider: 'lovable', model: 'google/gemini-3-pro-preview' },
   'gpt5': { provider: 'lovable', model: 'openai/gpt-5' },
   'perplexity-pro': { provider: 'perplexity', model: 'sonar-pro' },
   'perplexity-reasoning': { provider: 'perplexity', model: 'sonar-deep-research' },
 };
 
-const FALLBACK = { provider: 'lovable', model: 'google/gemini-2.5-flash' };
+const FALLBACK = { provider: 'lovable', model: 'google/gemini-3-flash-preview' };
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -37,23 +38,41 @@ serve(async (req) => {
   console.log(`🧠 [ai-reasoning] Request started at ${new Date().toISOString()}`);
 
   try {
-    const { messages, model = 'gemini-pro', webSearch = false } = await req.json();
+    const { messages, model = 'gemini-pro', webSearch = false, enableThinking = true } = await req.json();
 
     // Get model config or fallback
     const config = REASONING_MODELS[model] || FALLBACK;
-    console.log(`📤 Using ${config.provider}/${config.model}, webSearch=${webSearch}`);
+    console.log(`📤 Using ${config.provider}/${config.model}, webSearch=${webSearch}, thinking=${enableThinking}`);
 
     // Optimize messages
     const optimizedMessages = messages.length > MAX_CONTEXT_MESSAGES
       ? messages.slice(-MAX_CONTEXT_MESSAGES)
       : messages;
 
-    // Add reasoning-focused system prompt
+    // Add reasoning-focused system prompt with thinking support
+    const systemPrompt = enableThinking 
+      ? `You are a thorough analytical assistant with advanced reasoning capabilities. 
+
+When solving complex problems, structure your response like this:
+1. First, think through the problem in a <thinking> block
+2. Show your step-by-step reasoning clearly
+3. Then provide your final answer after </thinking>
+
+Format example:
+<thinking>
+Let me analyze this carefully...
+Step 1: [First consideration]
+Step 2: [Second consideration]
+Conclusion: [Key insight]
+</thinking>
+
+[Your well-structured final answer here]
+
+Be thorough but concise. Show your reasoning process for complex questions.`
+      : 'You are a thorough analytical assistant. Think step-by-step and provide comprehensive answers with clear reasoning.';
+
     const finalMessages = [
-      { 
-        role: 'system', 
-        content: 'You are a thorough analytical assistant. Think step-by-step and provide comprehensive answers with clear reasoning.' 
-      },
+      { role: 'system', content: systemPrompt },
       ...optimizedMessages,
     ];
 
@@ -104,6 +123,7 @@ serve(async (req) => {
           model: config.model,
           messages: finalMessages,
           stream: true,
+          max_tokens: 8192,
         }),
         signal: abortController.signal,
       });
@@ -137,7 +157,150 @@ serve(async (req) => {
     // Check content type - stream if SSE, otherwise return JSON
     const contentType = response.headers.get('content-type') || '';
     
+    if (contentType.includes('text/event-stream') && enableThinking) {
+      // Process stream to extract thinking content
+      const reader = response.body?.getReader();
+      const encoder = new TextEncoder();
+      
+      let isInsideThinking = false;
+      let thinkingContent = '';
+
+      const stream = new ReadableStream({
+        async start(controller) {
+          if (!reader) {
+            controller.close();
+            return;
+          }
+
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+
+              let newlineIndex: number;
+              while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+                let line = buffer.slice(0, newlineIndex);
+                buffer = buffer.slice(newlineIndex + 1);
+                if (line.endsWith('\r')) line = line.slice(0, -1);
+
+                if (!line.trim() || line.startsWith(':')) continue;
+                if (!line.startsWith('data:')) continue;
+
+                const dataStr = line.substring(5).trim();
+                if (dataStr === '[DONE]') {
+                  // Send final thinking content if we have any
+                  if (thinkingContent) {
+                    const thinkingEvent = `data: ${JSON.stringify({
+                      thinking: true,
+                      content: thinkingContent,
+                      complete: true
+                    })}\n\n`;
+                    controller.enqueue(encoder.encode(thinkingEvent));
+                  }
+                  controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                  continue;
+                }
+
+                try {
+                  const parsed = JSON.parse(dataStr);
+                  const content = parsed.choices?.[0]?.delta?.content || '';
+                  
+                  if (content) {
+                    // Check for thinking tags
+                    let remaining = content;
+                    
+                    while (remaining) {
+                      if (!isInsideThinking) {
+                        const thinkingStart = remaining.indexOf('<thinking>');
+                        if (thinkingStart !== -1) {
+                          // Emit content before thinking tag
+                          if (thinkingStart > 0) {
+                            const beforeThinking = remaining.slice(0, thinkingStart);
+                            const event = `data: ${JSON.stringify({
+                              choices: [{ delta: { content: beforeThinking } }]
+                            })}\n\n`;
+                            controller.enqueue(encoder.encode(event));
+                          }
+                          isInsideThinking = true;
+                          remaining = remaining.slice(thinkingStart + 10);
+                          
+                          // Send thinking start event
+                          const thinkingStartEvent = `data: ${JSON.stringify({
+                            thinking: true,
+                            started: true
+                          })}\n\n`;
+                          controller.enqueue(encoder.encode(thinkingStartEvent));
+                        } else {
+                          // No thinking tag, emit as normal content
+                          const event = `data: ${JSON.stringify({
+                            choices: [{ delta: { content: remaining } }]
+                          })}\n\n`;
+                          controller.enqueue(encoder.encode(event));
+                          remaining = '';
+                        }
+                      } else {
+                        const thinkingEnd = remaining.indexOf('</thinking>');
+                        if (thinkingEnd !== -1) {
+                          // Add content before end tag to thinking
+                          thinkingContent += remaining.slice(0, thinkingEnd);
+                          
+                          // Send thinking complete event
+                          const thinkingEvent = `data: ${JSON.stringify({
+                            thinking: true,
+                            content: thinkingContent,
+                            complete: true
+                          })}\n\n`;
+                          controller.enqueue(encoder.encode(thinkingEvent));
+                          
+                          isInsideThinking = false;
+                          remaining = remaining.slice(thinkingEnd + 11);
+                        } else {
+                          // Still inside thinking
+                          thinkingContent += remaining;
+                          
+                          // Send thinking content update (streaming)
+                          const thinkingEvent = `data: ${JSON.stringify({
+                            thinking: true,
+                            delta: remaining,
+                            content: thinkingContent
+                          })}\n\n`;
+                          controller.enqueue(encoder.encode(thinkingEvent));
+                          remaining = '';
+                        }
+                      }
+                    }
+                  }
+                } catch {
+                  // JSON parse error - ignore incomplete chunks
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Stream processing error:', error);
+          } finally {
+            controller.close();
+          }
+        }
+      });
+
+      return new Response(stream, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+          "X-Request-Start": requestStart.toString(),
+        },
+      });
+    }
+    
     if (contentType.includes('text/event-stream')) {
+      // Plain streaming without thinking extraction
       return new Response(response.body, {
         headers: {
           ...corsHeaders,

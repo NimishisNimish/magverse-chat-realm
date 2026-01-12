@@ -12,6 +12,12 @@ interface Source {
   snippet?: string;
 }
 
+interface ThinkingState {
+  isThinking: boolean;
+  content: string;
+  complete: boolean;
+}
+
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -40,6 +46,7 @@ interface ChatMessageListProps {
   enableMultiStepReasoning: boolean;
   chatId: string | null;
   streamingMessageId?: string | null;
+  thinkingStates?: Record<string, ThinkingState>;
   onEditStart: (messageId: string, content: string) => void;
   onEditChange: (text: string) => void;
   onEditSave: (messageId: string) => void;
@@ -48,6 +55,7 @@ interface ChatMessageListProps {
   onCopy: (text: string) => void;
   onDownloadImage: (url: string, filename: string) => void;
   onRetry: (message: Message) => void;
+  onRetryWithModel?: (message: Message, modelId: string) => void;
   onSuggestionSelect: (suggestion: string) => void;
 }
 
@@ -141,6 +149,7 @@ export const ChatMessageList = memo(({
   enableMultiStepReasoning,
   chatId,
   streamingMessageId,
+  thinkingStates,
   onEditStart,
   onEditChange,
   onEditSave,
@@ -149,6 +158,7 @@ export const ChatMessageList = memo(({
   onCopy,
   onDownloadImage,
   onRetry,
+  onRetryWithModel,
   onSuggestionSelect,
 }: ChatMessageListProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -179,6 +189,7 @@ export const ChatMessageList = memo(({
               enableMultiStepReasoning={enableMultiStepReasoning}
               chatId={chatId}
               isStreaming={streamingMessageId === message.id}
+              thinkingState={thinkingStates?.[message.id]}
               onEditStart={onEditStart}
               onEditChange={onEditChange}
               onEditSave={onEditSave}
@@ -187,6 +198,7 @@ export const ChatMessageList = memo(({
               onCopy={onCopy}
               onDownloadImage={onDownloadImage}
               onRetry={onRetry}
+              onRetryWithModel={onRetryWithModel}
             />
           ))}
         </AnimatePresence>
