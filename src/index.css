@@ -2,52 +2,65 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Agentix-inspired Dark Theme - Pure black with purple accents */
+/* Gen-Z Pro Theme - Ultra dark with neon accents and smooth gradients */
 
 @layer base {
   :root {
-    /* Pure black Agentix-style theme */
-    --background: 0 0% 0%;
+    /* Gen-Z Pro Dark Theme - True black with electric accents */
+    --background: 0 0% 2%;
     --foreground: 0 0% 98%;
 
-    --card: 0 0% 4%;
+    --card: 0 0% 5%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 4%;
+    --popover: 0 0% 5%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 255 80% 60%;
+    /* Electric purple-pink gradient primary */
+    --primary: 280 85% 65%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 0 0% 8%;
     --secondary-foreground: 0 0% 98%;
 
-    --muted: 0 0% 10%;
-    --muted-foreground: 0 0% 55%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 60%;
 
-    --accent: 255 80% 60%;
+    /* Neon accent - electric cyan-purple */
+    --accent: 280 85% 65%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 14%;
-    --input: 0 0% 10%;
-    --ring: 255 80% 60%;
+    --border: 0 0% 16%;
+    --input: 0 0% 12%;
+    --ring: 280 85% 65%;
 
-    --radius: 0.75rem;
+    --radius: 0.875rem;
 
-    --glass-bg: 0 0% 4%;
-    --glass-border: 0 0% 14%;
-    --glow-primary: 255 80% 60%;
-    --glow-secondary: 270 80% 55%;
+    /* Gen-Z Pro Glass effects */
+    --glass-bg: 0 0% 5%;
+    --glass-border: 0 0% 18%;
+    
+    /* Neon glow colors */
+    --glow-primary: 280 85% 65%;
+    --glow-secondary: 320 85% 60%;
+    --glow-tertiary: 190 95% 55%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(255 80% 60%), hsl(270 80% 55%));
-    --gradient-glow: linear-gradient(135deg, hsl(255 80% 60% / 0.3), hsl(270 80% 55% / 0.3));
+    /* Gradient definitions */
+    --gradient-primary: linear-gradient(135deg, hsl(280 85% 65%), hsl(320 85% 60%));
+    --gradient-glow: linear-gradient(135deg, hsl(280 85% 65% / 0.4), hsl(320 85% 60% / 0.3));
+    --gradient-neon: linear-gradient(90deg, hsl(280 85% 65%), hsl(320 85% 60%), hsl(190 95% 55%));
+    
+    /* Chat specific */
+    --chat-sidebar: 0 0% 3%;
+    --chat-bubble-user: 280 85% 65%;
+    --chat-bubble-ai: 0 0% 8%;
   }
 
   .light {
-    --background: 0 0% 100%;
+    --background: 0 0% 99%;
     --foreground: 0 0% 4%;
 
     --card: 0 0% 100%;
@@ -56,7 +69,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 4%;
 
-    --primary: 255 80% 55%;
+    --primary: 280 75% 55%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 0 0% 96%;
@@ -65,7 +78,7 @@
     --muted: 0 0% 96%;
     --muted-foreground: 0 0% 45%;
 
-    --accent: 255 80% 55%;
+    --accent: 280 75% 55%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -73,17 +86,23 @@
 
     --border: 0 0% 90%;
     --input: 0 0% 90%;
-    --ring: 255 80% 55%;
+    --ring: 280 75% 55%;
 
-    --radius: 0.75rem;
+    --radius: 0.875rem;
 
     --glass-bg: 0 0% 98%;
     --glass-border: 0 0% 90%;
-    --glow-primary: 255 80% 55%;
-    --glow-secondary: 270 80% 55%;
+    --glow-primary: 280 75% 55%;
+    --glow-secondary: 320 75% 55%;
+    --glow-tertiary: 190 85% 50%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(255 80% 55%), hsl(270 80% 55%));
-    --gradient-glow: linear-gradient(135deg, hsl(255 80% 55% / 0.3), hsl(270 80% 55% / 0.3));
+    --gradient-primary: linear-gradient(135deg, hsl(280 75% 55%), hsl(320 75% 55%));
+    --gradient-glow: linear-gradient(135deg, hsl(280 75% 55% / 0.3), hsl(320 75% 55% / 0.2));
+    --gradient-neon: linear-gradient(90deg, hsl(280 75% 55%), hsl(320 75% 55%), hsl(190 85% 50%));
+    
+    --chat-sidebar: 0 0% 97%;
+    --chat-bubble-user: 280 75% 55%;
+    --chat-bubble-ai: 0 0% 96%;
   }
 }
 
