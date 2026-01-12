@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export interface StreamEvent {
-  event: 'token' | 'done' | 'error';
+  event: 'token' | 'thinking' | 'done' | 'error';
   data: {
     model: string;
     token?: string;
@@ -10,6 +10,12 @@ export interface StreamEvent {
     messageId?: string;
     error?: string;
     errorType?: 'rate_limit' | 'credits' | 'timeout' | 'server' | 'unknown';
+    thinking?: {
+      isThinking: boolean;
+      content: string;
+      delta?: string;
+      complete?: boolean;
+    };
   };
 }
 
@@ -53,6 +59,12 @@ export interface StreamMetrics {
   totalTime: number | null;
 }
 
+export interface ThinkingState {
+  isThinking: boolean;
+  content: string;
+  complete: boolean;
+}
+
 export class StreamingClient {
   private abortController: AbortController | null = null;
   private firstTokenReceived = false;
@@ -69,7 +81,8 @@ export class StreamingClient {
     onToken: (model: string, token: string, fullContent: string, ttft: number | null) => void,
     onDone: (model: string, messageId: string, metrics: StreamMetrics) => void,
     onError: (model: string, error: string) => void,
-    retryWithFallback = true
+    retryWithFallback = true,
+    onThinking?: (model: string, thinking: ThinkingState) => void
   ): Promise<void> {
     const { endpoint, timeout } = getEndpoint(selectedModel);
     const FIRST_TOKEN_TIMEOUT = Math.min(timeout, 30000); // Max 30s for first token
@@ -90,7 +103,7 @@ export class StreamingClient {
         const fallbackModel = FALLBACK_MODELS[selectedModel];
         if (fallbackModel && retryWithFallback) {
           console.log(`🔄 Retrying with fallback model: ${fallbackModel}`);
-          this.startStream(messages, fallbackModel, chatId, onToken, onDone, onError, false);
+          this.startStream(messages, fallbackModel, chatId, onToken, onDone, onError, false, onThinking);
           return;
         }
         
@@ -127,6 +140,7 @@ export class StreamingClient {
       const requestBody = {
         messages,
         model: getLovableModelName(selectedModel),
+        enableThinking: endpoint === 'ai-reasoning', // Enable thinking for reasoning models
       };
 
       const response = await fetch(url, {
@@ -182,7 +196,7 @@ export class StreamingClient {
           const fallbackModel = FALLBACK_MODELS[selectedModel];
           if (fallbackModel && retryWithFallback) {
             console.log(`🔄 Timeout, retrying with fallback: ${fallbackModel}`);
-            return this.startStream(messages, fallbackModel, chatId, onToken, onDone, onError, false);
+            return this.startStream(messages, fallbackModel, chatId, onToken, onDone, onError, false, onThinking);
           }
           throw new Error('⏱️ Request timed out. Try a faster model.');
         } else if (response.status === 500) {
@@ -194,7 +208,7 @@ export class StreamingClient {
           const fallbackModel = FALLBACK_MODELS[selectedModel];
           if (fallbackModel && retryWithFallback) {
             console.log(`🔄 Server error, retrying with fallback: ${fallbackModel}`);
-            return this.startStream(messages, fallbackModel, chatId, onToken, onDone, onError, false);
+            return this.startStream(messages, fallbackModel, chatId, onToken, onDone, onError, false, onThinking);
           }
           throw new Error('⚠️ Server error. Please try a different model.');
         }
@@ -213,6 +227,7 @@ export class StreamingClient {
 
       let buffer = '';
       let fullContent = '';
+      let thinkingContent = '';
 
       const processLine = (line: string) => {
         const trimmedLine = line.trim();
@@ -224,6 +239,33 @@ export class StreamingClient {
 
         try {
           const data = JSON.parse(dataStr);
+          
+          // Handle thinking events
+          if (data.thinking) {
+            if (!this.firstTokenReceived) {
+              this.firstTokenReceived = true;
+              this.metrics.ttft = Date.now() - this.metrics.requestStart;
+              clearTimeout(firstTokenTimeoutId);
+              console.log(`🧠 First thinking token received for ${selectedModel} in ${this.metrics.ttft}ms`);
+            }
+            
+            if (data.content) {
+              thinkingContent = data.content;
+            } else if (data.delta) {
+              thinkingContent += data.delta;
+            }
+            
+            if (onThinking) {
+              onThinking(selectedModel, {
+                isThinking: !data.complete,
+                content: thinkingContent,
+                complete: !!data.complete,
+              });
+            }
+            return;
+          }
+          
+          // Handle regular content
           const content = data.choices?.[0]?.delta?.content;
           if (content) {
             // Mark first token received - clear the first token timeout
@@ -275,14 +317,14 @@ export class StreamingClient {
       this.metrics.totalTime = Date.now() - this.metrics.requestStart;
       
       // Check if we actually got content
-      if (!fullContent.trim()) {
+      if (!fullContent.trim() && !thinkingContent.trim()) {
         console.warn('⚠️ Stream completed but no content received');
         
         // Try fallback on empty response
         const fallbackModel = FALLBACK_MODELS[selectedModel];
         if (fallbackModel && retryWithFallback) {
           console.log(`🔄 Empty response, retrying with fallback: ${fallbackModel}`);
-          return this.startStream(messages, fallbackModel, chatId, onToken, onDone, onError, false);
+          return this.startStream(messages, fallbackModel, chatId, onToken, onDone, onError, false, onThinking);
         }
         
         onError(selectedModel, '⚠️ No response received. Please try again.');

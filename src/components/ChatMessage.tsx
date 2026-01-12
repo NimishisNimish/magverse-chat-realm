@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +7,7 @@ import { AIModelLogo } from '@/components/AIModelLogo';
 import { AIModelBadge } from '@/components/AIModelBadge';
 import { FeedbackButtons } from '@/components/FeedbackButtons';
 import { MessageSources } from '@/components/MessageSources';
+import { ThinkingAccordion } from '@/components/chat/ThinkingAccordion';
 import CodeBlock from '@/components/CodeBlock';
 import { softCleanMarkdown } from '@/utils/markdownCleaner';
 import { 
@@ -17,8 +18,21 @@ import {
   Copy, 
   Download, 
   Brain,
-  Clock
+  Clock,
+  RotateCcw,
+  FileDown,
+  ChevronDown
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
+import { saveAs } from 'file-saver';
+import { toast } from 'sonner';
 
 interface Source {
   url: string;
@@ -54,6 +68,11 @@ interface ChatMessageProps {
   enableMultiStepReasoning: boolean;
   chatId: string | null;
   isStreaming?: boolean;
+  thinkingState?: {
+    isThinking: boolean;
+    content: string;
+    complete: boolean;
+  };
   onEditStart: (messageId: string, content: string) => void;
   onEditChange: (text: string) => void;
   onEditSave: (messageId: string) => void;
@@ -62,7 +81,17 @@ interface ChatMessageProps {
   onCopy: (text: string) => void;
   onDownloadImage: (url: string, filename: string) => void;
   onRetry: (message: Message) => void;
+  onRetryWithModel?: (message: Message, modelId: string) => void;
 }
+
+// Available models for retry
+const RETRY_MODELS = [
+  { id: 'lovable-gemini-flash', name: 'Gemini Flash', icon: '⚡' },
+  { id: 'lovable-gemini-pro', name: 'Gemini Pro', icon: '🧠' },
+  { id: 'lovable-gpt5-mini', name: 'GPT-5 Mini', icon: '✨' },
+  { id: 'lovable-gpt5', name: 'GPT-5', icon: '🚀' },
+  { id: 'perplexity', name: 'Perplexity Sonar', icon: '🔍' },
+];
 
 // Parse content and extract code blocks
 const parseContentWithCodeBlocks = (content: string): React.ReactNode[] => {
@@ -134,6 +163,84 @@ const MessageContent = memo(({
 
 MessageContent.displayName = 'MessageContent';
 
+// Download as PDF function
+const downloadAsPdf = async (content: string, model?: string) => {
+  try {
+    const { jsPDF } = await import('jspdf');
+    const doc = new jsPDF();
+    
+    // Title
+    doc.setFontSize(16);
+    doc.text('AI Response', 14, 20);
+    
+    // Model info
+    if (model) {
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(`Model: ${model}`, 14, 28);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 34);
+    }
+    
+    // Content
+    doc.setTextColor(0);
+    doc.setFontSize(11);
+    const lines = doc.splitTextToSize(content, 180);
+    doc.text(lines, 14, 45);
+    
+    doc.save(`ai-response-${Date.now()}.pdf`);
+    toast.success('Downloaded as PDF');
+  } catch (error) {
+    console.error('PDF download error:', error);
+    toast.error('Failed to download PDF');
+  }
+};
+
+// Download as Word function
+const downloadAsWord = async (content: string, model?: string) => {
+  try {
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: [
+          new Paragraph({
+            text: 'AI Response',
+            heading: HeadingLevel.HEADING_1,
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `Model: ${model || 'AI Assistant'}`,
+                italics: true,
+                color: '666666',
+              }),
+            ],
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `Generated: ${new Date().toLocaleString()}`,
+                italics: true,
+                color: '666666',
+              }),
+            ],
+          }),
+          new Paragraph({ text: '' }),
+          ...content.split('\n').map(line => 
+            new Paragraph({ text: line })
+          ),
+        ],
+      }],
+    });
+
+    const blob = await Packer.toBlob(doc);
+    saveAs(blob, `ai-response-${Date.now()}.docx`);
+    toast.success('Downloaded as Word document');
+  } catch (error) {
+    console.error('Word download error:', error);
+    toast.error('Failed to download Word document');
+  }
+};
+
 const ChatMessage = memo(({
   message,
   isEditing,
@@ -144,6 +251,7 @@ const ChatMessage = memo(({
   enableMultiStepReasoning,
   chatId,
   isStreaming,
+  thinkingState,
   onEditStart,
   onEditChange,
   onEditSave,
@@ -152,11 +260,22 @@ const ChatMessage = memo(({
   onCopy,
   onDownloadImage,
   onRetry,
+  onRetryWithModel,
 }: ChatMessageProps) => {
+  const [showRetryMenu, setShowRetryMenu] = useState(false);
+  
   // Check if this model should show sources (Perplexity or any message with sources)
   const shouldShowSources = message.role === 'assistant' && message.sources && message.sources.length > 0;
   const isPerplexityModel = message.model && 
     ['perplexity', 'perplexity-pro', 'perplexity-reasoning'].includes(message.model);
+  
+  // Handle retry with different model
+  const handleRetryWithModel = (modelId: string) => {
+    if (onRetryWithModel) {
+      onRetryWithModel(message, modelId);
+    }
+    setShowRetryMenu(false);
+  };
   
   return (
     <motion.div
@@ -167,6 +286,17 @@ const ChatMessage = memo(({
       className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} mb-6`}
     >
       <div className={`max-w-[85%] ${message.role === 'user' ? 'ml-auto' : ''}`}>
+        {/* Thinking Accordion for reasoning models */}
+        {message.role === 'assistant' && thinkingState && (thinkingState.isThinking || thinkingState.content) && (
+          <ThinkingAccordion
+            isThinking={thinkingState.isThinking}
+            thinkingContent={thinkingState.content}
+            isComplete={thinkingState.complete}
+            duration={message.responseTime}
+            defaultOpen={showThinkingProcess}
+          />
+        )}
+        
         <div
           className={`rounded-2xl px-4 py-3 ${
             message.role === 'user'
@@ -256,37 +386,16 @@ const ChatMessage = memo(({
             <MessageSources sources={message.sources!} />
           )}
 
-          {/* Thinking Process Display */}
-          {message.role === 'assistant' && (message.thinkingProcess || message.reasoningSteps) && (
-            <details className="mt-3 pt-3 border-t border-border/40" open={showThinkingProcess}>
-              <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2">
-                <Brain className="h-3 w-3" />
-                {message.reasoningSteps ? 'Multi-Step Reasoning Process' : 'Thinking Process'}
-              </summary>
-              <div className="mt-2 p-3 bg-background/50 rounded-lg border border-border/30 text-xs space-y-2">
-                {message.reasoningSteps ? (
-                  message.reasoningSteps.map((step) => (
-                    <div key={step.step} className="space-y-1">
-                      <div className="flex items-start gap-2">
-                        <Badge variant="outline" className="shrink-0 text-xs">
-                          Step {step.step}
-                        </Badge>
-                        <span className="text-muted-foreground italic">{step.thought}</span>
-                      </div>
-                      {step.conclusion && (
-                        <div className="pl-14 text-foreground">
-                          → {step.conclusion}
-                        </div>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-muted-foreground whitespace-pre-wrap">
-                    {message.thinkingProcess}
-                  </div>
-                )}
-              </div>
-            </details>
+          {/* Legacy Thinking Process Display (for non-streaming) */}
+          {message.role === 'assistant' && !thinkingState && (message.thinkingProcess || message.reasoningSteps) && (
+            <ThinkingAccordion
+              isThinking={false}
+              thinkingContent={message.thinkingProcess || ''}
+              reasoningSteps={message.reasoningSteps}
+              isComplete={true}
+              duration={message.responseTime}
+              defaultOpen={showThinkingProcess}
+            />
           )}
         </div>
 
@@ -312,7 +421,7 @@ const ChatMessage = memo(({
 
         {/* Action buttons for assistant messages */}
         {message.role === 'assistant' && (
-          <div className="flex items-center gap-1 mt-2">
+          <div className="flex items-center gap-1 mt-2 flex-wrap">
             {/* Retry button for error messages */}
             {message.isError && (
               <Button
@@ -342,6 +451,7 @@ const ChatMessage = memo(({
             
             {!message.isError && (
               <>
+                {/* Regenerate with same model */}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -352,14 +462,77 @@ const ChatMessage = memo(({
                 >
                   <RefreshCw className="h-3 w-3" />
                 </Button>
+                
+                {/* Retry with different model dropdown */}
+                {onRetryWithModel && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={loading}
+                        className="h-7 px-2 gap-1"
+                        title="Retry with different model"
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        <ChevronDown className="h-2.5 w-2.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-48">
+                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                        Retry with different model
+                      </div>
+                      <DropdownMenuSeparator />
+                      {RETRY_MODELS.filter(m => m.id !== message.model).map((model) => (
+                        <DropdownMenuItem
+                          key={model.id}
+                          onClick={() => handleRetryWithModel(model.id)}
+                          className="gap-2"
+                        >
+                          <span>{model.icon}</span>
+                          <span>{model.name}</span>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                
+                {/* Copy */}
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => onCopy(message.content)}
                   className="h-7 px-2"
+                  title="Copy response"
                 >
                   <Copy className="h-3 w-3" />
                 </Button>
+                
+                {/* Download Menu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 gap-1"
+                      title="Download response"
+                    >
+                      <FileDown className="h-3 w-3" />
+                      <ChevronDown className="h-2.5 w-2.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => downloadAsPdf(message.content, message.model)} className="gap-2">
+                      <FileText className="h-4 w-4" />
+                      Download as PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => downloadAsWord(message.content, message.model)} className="gap-2">
+                      <FileText className="h-4 w-4" />
+                      Download as Word
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                
                 <FeedbackButtons
                   messageId={message.id}
                   chatId={chatId || ''}
