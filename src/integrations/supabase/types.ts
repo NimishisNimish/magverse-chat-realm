@@ -749,6 +749,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "invoices_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       message_annotations: {
@@ -1036,6 +1043,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "phone_verification_codes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       preset_performance: {
@@ -1276,6 +1290,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refund_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -1587,6 +1608,84 @@ export type Database = {
           title?: string | null
           updated_at?: string | null
           version?: string | null
+        }
+        Relationships: []
+      }
+      profiles_safe: {
+        Row: {
+          animation_preferences: Json | null
+          avatar_url: string | null
+          bio: string | null
+          created_at: string | null
+          credits_remaining: number | null
+          display_name: string | null
+          email_credit_alerts_enabled: boolean | null
+          email_digest_enabled: boolean | null
+          email_invoices_enabled: boolean | null
+          email_marketing_enabled: boolean | null
+          email_system_enabled: boolean | null
+          email_welcome_enabled: boolean | null
+          id: string | null
+          is_pro: boolean | null
+          last_credit_reset: string | null
+          monthly_credits: number | null
+          monthly_credits_used: number | null
+          phone_verified: boolean | null
+          phone_verified_at: string | null
+          subscription_expires_at: string | null
+          subscription_type: string | null
+          theme_preferences: Json | null
+          username: string | null
+        }
+        Insert: {
+          animation_preferences?: Json | null
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          credits_remaining?: number | null
+          display_name?: string | null
+          email_credit_alerts_enabled?: boolean | null
+          email_digest_enabled?: boolean | null
+          email_invoices_enabled?: boolean | null
+          email_marketing_enabled?: boolean | null
+          email_system_enabled?: boolean | null
+          email_welcome_enabled?: boolean | null
+          id?: string | null
+          is_pro?: boolean | null
+          last_credit_reset?: string | null
+          monthly_credits?: number | null
+          monthly_credits_used?: number | null
+          phone_verified?: boolean | null
+          phone_verified_at?: string | null
+          subscription_expires_at?: string | null
+          subscription_type?: string | null
+          theme_preferences?: Json | null
+          username?: string | null
+        }
+        Update: {
+          animation_preferences?: Json | null
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          credits_remaining?: number | null
+          display_name?: string | null
+          email_credit_alerts_enabled?: boolean | null
+          email_digest_enabled?: boolean | null
+          email_invoices_enabled?: boolean | null
+          email_marketing_enabled?: boolean | null
+          email_system_enabled?: boolean | null
+          email_welcome_enabled?: boolean | null
+          id?: string | null
+          is_pro?: boolean | null
+          last_credit_reset?: string | null
+          monthly_credits?: number | null
+          monthly_credits_used?: number | null
+          phone_verified?: boolean | null
+          phone_verified_at?: string | null
+          subscription_expires_at?: string | null
+          subscription_type?: string | null
+          theme_preferences?: Json | null
+          username?: string | null
         }
         Relationships: []
       }
