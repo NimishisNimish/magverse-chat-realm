@@ -1548,7 +1548,48 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      feature_updates_public: {
+        Row: {
+          category: string | null
+          content: string | null
+          created_at: string | null
+          id: string | null
+          image_url: string | null
+          is_published: boolean | null
+          published_at: string | null
+          summary: string | null
+          title: string | null
+          updated_at: string | null
+          version: string | null
+        }
+        Insert: {
+          category?: string | null
+          content?: string | null
+          created_at?: string | null
+          id?: string | null
+          image_url?: string | null
+          is_published?: boolean | null
+          published_at?: string | null
+          summary?: string | null
+          title?: string | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Update: {
+          category?: string | null
+          content?: string | null
+          created_at?: string | null
+          id?: string | null
+          image_url?: string | null
+          is_published?: boolean | null
+          published_at?: string | null
+          summary?: string | null
+          title?: string | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       check_and_deduct_credit: { Args: { p_user_id: string }; Returns: boolean }
