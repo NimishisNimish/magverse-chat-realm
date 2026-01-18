@@ -4,17 +4,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, LineChart, Line } from "recharts";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Users, TrendingUp, DollarSign, Zap, Activity } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import AdminActivityFeed from "@/components/AdminActivityFeed";
-import UserEngagementScoring from "@/components/UserEngagementScoring";
 import AdminChatHistory from "@/components/AdminChatHistory";
 import AdminRealTimeNotifications from "@/components/AdminRealTimeNotifications";
 import AdminFeedbackAnalytics from "@/components/AdminFeedbackAnalytics";
-import UserSegmentationDashboard from "@/components/UserSegmentationDashboard";
-import EmailCampaignAnalytics from "@/components/EmailCampaignAnalytics";
 import CronSchedulerAdmin from "@/components/CronSchedulerAdmin";
 import { Link } from "react-router-dom";
 import { LazyModelPerformanceLeaderboard } from "@/components/LazyCharts";
@@ -448,13 +445,9 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* New Admin Components */}
+      {/* Admin Components */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         <AdminRealTimeNotifications />
-        <UserEngagementScoring />
-      </div>
-
-      <div className="mt-6">
         <AdminFeedbackAnalytics />
       </div>
 
@@ -462,18 +455,10 @@ export default function AdminDashboard() {
         <AdminChatHistory />
       </div>
 
-      {/* New Advanced Analytics */}
+      {/* Advanced Analytics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         <CronSchedulerAdmin />
         <WebhookConfiguration />
-      </div>
-
-      <div className="mt-6">
-        <UserSegmentationDashboard />
-      </div>
-
-      <div className="mt-6">
-        <EmailCampaignAnalytics />
       </div>
     </div>
   );

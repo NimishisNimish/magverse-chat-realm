@@ -6,76 +6,38 @@ import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { AdminSubscriptionManager } from "@/components/AdminSubscriptionManager";
-import { AdminCreditPurchases } from "@/components/AdminCreditPurchases";
-import { AdminTestUncensoredAI } from "@/components/AdminTestUncensoredAI";
-import { AdminRefundManager } from "@/components/AdminRefundManager";
 import { 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  FileText, 
-  Upload, 
-  Search, 
-  RefreshCw,
   Shield,
-  AlertTriangle,
-  CreditCard,
-  Users,
-  Coins,
-  Zap,
-  RotateCcw,
+  RefreshCw,
   Activity,
-  GraduationCap
+  Users,
+  MessageSquare,
+  TrendingUp,
+  BarChart3,
 } from "lucide-react";
 import { format } from "date-fns";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 
-interface Transaction {
-  id: string;
-  user_id: string;
-  amount: number;
-  status: string;
-  verification_status: string;
-  plan_type: string;
-  payment_method: string;
-  payment_reference: string | null;
-  gateway_payment_id: string | null;
-  created_at: string;
-  verified_at: string | null;
-  verified_by: string | null;
-  auto_verified: boolean;
-}
-
-interface Profile {
-  id: string;
-  username: string;
-  display_name: string;
-  email?: string;
+interface DashboardStats {
+  totalUsers: number;
+  totalMessages: number;
+  messagesToday: number;
+  activeUsers: number;
+  proUsers: number;
+  lifetimeUsers: number;
 }
 
 const Admin = () => {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [profiles, setProfiles] = useState<Map<string, Profile>>(new Map());
+  const [stats, setStats] = useState<DashboardStats>({
+    totalUsers: 0,
+    totalMessages: 0,
+    messagesToday: 0,
+    activeUsers: 0,
+    proUsers: 0,
+    lifetimeUsers: 0,
+  });
   const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTab, setSelectedTab] = useState("pending");
-  const [showRejectDialog, setShowRejectDialog] = useState(false);
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
-  const [rejectionReason, setRejectionReason] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   
   const { user } = useAuth();
@@ -88,16 +50,7 @@ const Admin = () => {
 
   useEffect(() => {
     if (isAdmin) {
-      loadTransactions();
-      const channel = supabase
-        .channel('admin-transactions')
-        .on('postgres_changes', 
-          { event: '*', schema: 'public', table: 'transactions' },
-          () => loadTransactions()
-        )
-        .subscribe();
-
-      return () => { supabase.removeChannel(channel); };
+      loadDashboardStats();
     }
   }, [isAdmin]);
 
@@ -127,140 +80,59 @@ const Admin = () => {
     setIsAdmin(true);
   };
 
-  const loadTransactions = async () => {
+  const loadDashboardStats = async () => {
     try {
       setLoading(true);
-      const { data: txData, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .order('created_at', { ascending: false });
+      
+      // Get user stats
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('subscription_type, created_at');
 
-      if (error) throw error;
+      if (profileError) throw profileError;
 
-      if (txData) {
-        setTransactions(txData);
-        
-        // Load profile info for all users
-        const userIds = [...new Set(txData.map(tx => tx.user_id))];
-        const { data: profilesData } = await supabase
-          .from('profiles')
-          .select('id, username, display_name')
-          .in('id', userIds);
+      const now = new Date();
+      const todayStart = new Date(now);
+      todayStart.setHours(0, 0, 0, 0);
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-        if (profilesData) {
-          const profileMap = new Map();
-          profilesData.forEach(p => profileMap.set(p.id, p));
-          setProfiles(profileMap);
-        }
-      }
+      // Get message count for today
+      const { count: messagesToday } = await supabase
+        .from('chat_messages')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', todayStart.toISOString());
+
+      // Get total message count
+      const { count: totalMessages } = await supabase
+        .from('chat_messages')
+        .select('*', { count: 'exact', head: true });
+
+      const totalUsers = profiles?.length || 0;
+      const proUsers = profiles?.filter(p => p.subscription_type === 'monthly').length || 0;
+      const lifetimeUsers = profiles?.filter(p => p.subscription_type === 'lifetime').length || 0;
+      const activeUsers = profiles?.filter(p => 
+        new Date(p.created_at) >= weekAgo
+      ).length || 0;
+
+      setStats({
+        totalUsers,
+        totalMessages: totalMessages || 0,
+        messagesToday: messagesToday || 0,
+        activeUsers,
+        proUsers,
+        lifetimeUsers,
+      });
     } catch (error: any) {
-      console.error('Error loading transactions:', error);
+      console.error('Error loading dashboard stats:', error);
       toast({
         title: "Error",
-        description: "Failed to load transactions",
+        description: "Failed to load dashboard stats",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
-
-  const handleVerifyPayment = async (transactionId: string, action: 'approve' | 'reject') => {
-    try {
-      setProcessing(transactionId);
-      
-      const { data, error } = await supabase.functions.invoke('admin-verify-payment', {
-        body: {
-          transactionId,
-          action,
-          rejectionReason: action === 'reject' ? rejectionReason : undefined,
-        },
-      });
-
-      if (error) throw error;
-
-      if (data.success) {
-        toast({
-          title: action === 'approve' ? "Payment Approved" : "Payment Rejected",
-          description: data.message,
-        });
-        setShowRejectDialog(false);
-        setRejectionReason("");
-        loadTransactions();
-      } else {
-        throw new Error(data.error || 'Verification failed');
-      }
-    } catch (error: any) {
-      console.error('Error verifying payment:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to verify payment",
-        variant: "destructive",
-      });
-    } finally {
-      setProcessing(null);
-    }
-  };
-
-  const openRejectDialog = (transaction: Transaction) => {
-    setSelectedTransaction(transaction);
-    setShowRejectDialog(true);
-  };
-
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: any; icon: any }> = {
-      completed: { variant: "default", icon: CheckCircle },
-      pending: { variant: "secondary", icon: Clock },
-      failed: { variant: "destructive", icon: XCircle },
-    };
-
-    const config = variants[status] || variants.pending;
-    const Icon = config.icon;
-
-    return (
-      <Badge variant={config.variant} className="flex items-center gap-1">
-        <Icon className="w-3 h-3" />
-        {status}
-      </Badge>
-    );
-  };
-
-  const getVerificationBadge = (verificationStatus: string) => {
-    const variants: Record<string, { variant: any; icon: any; label: string }> = {
-      verified: { variant: "default", icon: CheckCircle, label: "Verified" },
-      pending_verification: { variant: "secondary", icon: Clock, label: "Pending" },
-      rejected: { variant: "destructive", icon: XCircle, label: "Rejected" },
-    };
-
-    const config = variants[verificationStatus] || variants.pending_verification;
-    const Icon = config.icon;
-
-    return (
-      <Badge variant={config.variant} className="flex items-center gap-1">
-        <Icon className="w-3 h-3" />
-        {config.label}
-      </Badge>
-    );
-  };
-
-  const filteredTransactions = transactions.filter(tx => {
-    const matchesSearch = searchQuery === "" || 
-      profiles.get(tx.user_id)?.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      profiles.get(tx.user_id)?.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tx.id.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesTab = 
-      (selectedTab === "pending" && tx.verification_status === "pending_verification") ||
-      (selectedTab === "verified" && tx.verification_status === "verified") ||
-      (selectedTab === "rejected" && tx.verification_status === "rejected") ||
-      (selectedTab === "all");
-
-    return matchesSearch && matchesTab;
-  });
-
-  const pendingCount = transactions.filter(tx => tx.verification_status === "pending_verification").length;
-  const verifiedCount = transactions.filter(tx => tx.verification_status === "verified").length;
-  const rejectedCount = transactions.filter(tx => tx.verification_status === "rejected").length;
 
   if (!isAdmin) {
     return (
@@ -288,31 +160,18 @@ const Admin = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-4xl font-bold gradient-text mb-2">Admin Dashboard</h1>
-              <p className="text-muted-foreground">Manage payments and subscriptions</p>
+              <p className="text-muted-foreground">Monitor your platform at a glance</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => navigate('/admin/student-trials')} variant="outline" size="sm">
-                <GraduationCap className="w-4 h-4 mr-2" />
-                Student Trials
-              </Button>
-              <Button onClick={() => navigate('/admin/patches')} variant="outline" size="sm">
-                <FileText className="w-4 h-4 mr-2" />
-                Patch Notes
-              </Button>
-              <Button onClick={() => navigate('/admin/advanced-analytics')} variant="outline" size="sm">
-                Advanced Analytics
-              </Button>
-              <Button onClick={() => navigate('/admin/traffic')} variant="outline" size="sm">
-                Real-Time Traffic
-              </Button>
-              <Button onClick={() => navigate('/admin/activity')} variant="outline" size="sm">
-                User Activity
+              <Button onClick={() => navigate('/admin/analytics')} variant="outline" size="sm">
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Analytics
               </Button>
               <Button onClick={() => navigate('/token-usage')} variant="outline" size="sm">
                 <Activity className="w-4 h-4 mr-2" />
                 Token Usage
               </Button>
-              <Button onClick={loadTransactions} variant="outline" size="sm" disabled={loading}>
+              <Button onClick={loadDashboardStats} variant="outline" size="sm" disabled={loading}>
                 <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
@@ -320,262 +179,103 @@ const Admin = () => {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid md:grid-cols-4 gap-4">
+          <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-4">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Transactions</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Total Users
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">{transactions.length}</div>
+                <div className="text-3xl font-bold">{stats.totalUsers}</div>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Pending Review</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4" />
+                  Total Messages
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-yellow-500">{pendingCount}</div>
+                <div className="text-3xl font-bold">{stats.totalMessages}</div>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Verified</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4" />
+                  Messages Today
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-green-500">{verifiedCount}</div>
+                <div className="text-3xl font-bold text-primary">{stats.messagesToday}</div>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Rejected</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Activity className="w-4 h-4" />
+                  New Users (7d)
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-destructive">{rejectedCount}</div>
+                <div className="text-3xl font-bold text-green-500">{stats.activeUsers}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Pro Users
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-blue-500">{stats.proUsers}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Lifetime Users
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-amber-500">{stats.lifetimeUsers}</div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Main Admin Tabs */}
-          <Tabs defaultValue="payments" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="payments" className="flex items-center gap-2">
-                <CreditCard className="w-4 h-4" />
-                Payment Verification
-              </TabsTrigger>
-              <TabsTrigger value="credits" className="flex items-center gap-2">
-                <Coins className="w-4 h-4" />
-                Credit Purchases
-              </TabsTrigger>
-              <TabsTrigger value="refunds" className="flex items-center gap-2">
-                <RotateCcw className="w-4 h-4" />
-                Refunds
-              </TabsTrigger>
-              <TabsTrigger value="subscriptions" className="flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                Users & Subscriptions
-              </TabsTrigger>
-              <TabsTrigger value="uncensored" className="flex items-center gap-2">
-                <Zap className="w-4 h-4" />
-                Test AI
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="payments" className="space-y-6">
-              {/* Search */}
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by user, transaction ID..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
+          {/* Quick Info */}
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-primary" />
+                Admin Panel Overview
+              </CardTitle>
+              <CardDescription>
+                Welcome to the simplified admin dashboard. Use the navigation above to access detailed analytics and token usage.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+                  <h3 className="font-semibold mb-2">Analytics</h3>
+                  <p className="text-sm text-muted-foreground">
+                    View detailed usage analytics, model performance, and user engagement metrics.
+                  </p>
+                </div>
+                <div className="p-4 rounded-lg bg-muted/30 border border-border/50">
+                  <h3 className="font-semibold mb-2">Token Usage</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Monitor API token consumption across all models and users.
+                  </p>
                 </div>
               </div>
-
-              {/* Transactions */}
-              <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-                <TabsList>
-                  <TabsTrigger value="pending">
-                    Pending ({pendingCount})
-                  </TabsTrigger>
-                  <TabsTrigger value="verified">
-                    Verified ({verifiedCount})
-                  </TabsTrigger>
-                  <TabsTrigger value="rejected">
-                    Rejected ({rejectedCount})
-                  </TabsTrigger>
-                  <TabsTrigger value="all">
-                    All ({transactions.length})
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value={selectedTab} className="mt-6">
-                  <ScrollArea className="h-[600px]">
-                    <div className="space-y-4">
-                      {loading ? (
-                        <Card>
-                          <CardContent className="py-12 text-center">
-                            <p className="text-muted-foreground">Loading transactions...</p>
-                          </CardContent>
-                        </Card>
-                      ) : filteredTransactions.length === 0 ? (
-                        <Card>
-                          <CardContent className="py-12 text-center">
-                            <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                        <p className="text-muted-foreground">No transactions found</p>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    filteredTransactions.map((tx) => {
-                      const profile = profiles.get(tx.user_id);
-                      return (
-                        <Card key={tx.id} className="glass-card">
-                          <CardHeader>
-                            <div className="flex items-start justify-between">
-                              <div className="space-y-1">
-                                <CardTitle className="text-lg">
-                                  {profile?.display_name || profile?.username || "Unknown User"}
-                                </CardTitle>
-                                <CardDescription>
-                                  @{profile?.username || tx.user_id.substring(0, 8)}
-                                </CardDescription>
-                              </div>
-                              <div className="flex gap-2">
-                                {getStatusBadge(tx.status)}
-                                {getVerificationBadge(tx.verification_status)}
-                              </div>
-                            </div>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            <div className="grid md:grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <p className="text-sm text-muted-foreground">Amount</p>
-                                <p className="text-xl font-bold">₹{tx.amount}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <p className="text-sm text-muted-foreground">Plan</p>
-                                <Badge variant="outline">
-                                  {tx.plan_type === 'monthly' ? 'Yearly Pro' : 'Lifetime Pro'}
-                                </Badge>
-                              </div>
-                              <div className="space-y-2">
-                                <p className="text-sm text-muted-foreground">Payment Method</p>
-                                <p className="text-sm font-medium">{tx.payment_method?.toUpperCase() || 'N/A'}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <p className="text-sm text-muted-foreground">Created</p>
-                                <p className="text-sm">{format(new Date(tx.created_at), 'PPp')}</p>
-                              </div>
-                              {tx.gateway_payment_id && (
-                                <div className="space-y-2 md:col-span-2">
-                                  <p className="text-sm text-muted-foreground">Payment ID</p>
-                                  <p className="text-sm font-mono text-xs">{tx.gateway_payment_id}</p>
-                                </div>
-                              )}
-                              {tx.payment_reference && (
-                                <div className="space-y-2 md:col-span-2">
-                                  <p className="text-sm text-muted-foreground">Reference / Note</p>
-                                  <p className="text-sm">{tx.payment_reference}</p>
-                                </div>
-                              )}
-                              {tx.auto_verified && (
-                                <div className="md:col-span-2">
-                                  <Badge variant="secondary" className="flex items-center gap-1 w-fit">
-                                    <CheckCircle className="w-3 h-3" />
-                                    Auto-verified by gateway
-                                  </Badge>
-                                </div>
-                              )}
-                            </div>
-
-                            {tx.verification_status === 'pending_verification' && (
-                              <div className="flex gap-2 pt-4 border-t">
-                                <Button
-                                  onClick={() => handleVerifyPayment(tx.id, 'approve')}
-                                  disabled={processing === tx.id}
-                                  className="flex-1"
-                                  variant="default"
-                                >
-                                  <CheckCircle className="w-4 h-4 mr-2" />
-                                  {processing === tx.id ? 'Processing...' : 'Approve'}
-                                </Button>
-                                <Button
-                                  onClick={() => openRejectDialog(tx)}
-                                  disabled={processing === tx.id}
-                                  className="flex-1"
-                                  variant="destructive"
-                                >
-                                  <XCircle className="w-4 h-4 mr-2" />
-                                  Reject
-                                </Button>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      );
-                    })
-                  )}
-                </div>
-              </ScrollArea>
-            </TabsContent>
-          </Tabs>
-            </TabsContent>
-
-            <TabsContent value="credits">
-              <AdminCreditPurchases />
-            </TabsContent>
-
-            <TabsContent value="subscriptions">
-              <AdminSubscriptionManager />
-            </TabsContent>
-
-            <TabsContent value="refunds">
-              <AdminRefundManager />
-            </TabsContent>
-
-            <TabsContent value="uncensored">
-              <AdminTestUncensoredAI />
-            </TabsContent>
-          </Tabs>
+            </CardContent>
+          </Card>
         </div>
       </div>
-
-      {/* Reject Dialog */}
-      <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-destructive" />
-              Reject Payment
-            </DialogTitle>
-            <DialogDescription>
-              Please provide a reason for rejecting this payment. This will be recorded for audit purposes.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <Textarea
-              placeholder="Enter rejection reason..."
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-              rows={4}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRejectDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => selectedTransaction && handleVerifyPayment(selectedTransaction.id, 'reject')}
-              disabled={!rejectionReason.trim() || processing !== null}
-            >
-              {processing ? 'Processing...' : 'Reject Payment'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
