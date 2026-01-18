@@ -1,10 +1,10 @@
-import openaiLogo from "@/assets/ai-logos/chatgpt-reference.png";
-import geminiLogo from "@/assets/ai-logos/gemini-reference.png";
-import claudeLogo from "@/assets/ai-logos/claude-reference.png";
-import perplexityLogo from "@/assets/ai-logos/perplexity-reference.png";
-import grokLogo from "@/assets/ai-logos/grok-reference.png";
+import chatgptLogo from "@/assets/ai-logos/chatgpt-logo.png";
+import geminiLogo from "@/assets/ai-logos/gemini-logo.svg";
+import claudeLogo from "@/assets/ai-logos/claude-logo.svg";
+import perplexityLogo from "@/assets/ai-logos/perplexity-logo.svg";
+import grokLogo from "@/assets/ai-logos/grok-logo.svg";
 import uncensoredLogo from "@/assets/ai-logos/uncensored-logo.png";
-
+import mistralLogo from "@/assets/ai-logos/mistral-logo.png";
 
 interface AIModelLogoProps {
   modelId: string;
@@ -13,7 +13,7 @@ interface AIModelLogoProps {
 }
 
 // Define logo types for proper dark mode handling
-type LogoType = 'svg-dark' | 'svg-colorful' | 'png-dark' | 'png-light' | 'png-colorful';
+type LogoType = 'svg-colorful' | 'png-dark' | 'png-light' | 'png-colorful' | 'needs-invert';
 
 interface LogoConfig {
   src: string;
@@ -21,32 +21,35 @@ interface LogoConfig {
 }
 
 const logoMap: Record<string, LogoConfig> = {
-  // OpenAI / ChatGPT models - dark SVG, needs inversion in dark mode
-  'chatgpt': { src: openaiLogo, type: 'png-dark' },
-  'lovable-gpt5': { src: openaiLogo, type: 'png-dark' },
-  'lovable-gpt5-mini': { src: openaiLogo, type: 'png-dark' },
-  'lovable-gpt5-image': { src: openaiLogo, type: 'png-dark' },
+  // OpenAI / ChatGPT models - dark logo, needs white background or inversion
+  'chatgpt': { src: chatgptLogo, type: 'needs-invert' },
+  'lovable-gpt5': { src: chatgptLogo, type: 'needs-invert' },
+  'lovable-gpt5-mini': { src: chatgptLogo, type: 'needs-invert' },
+  'lovable-gpt5-image': { src: chatgptLogo, type: 'needs-invert' },
 
   // Google Gemini models - colorful SVG, works in both modes
-  'gemini': { src: geminiLogo, type: 'png-colorful' },
-  'gemini-flash-image': { src: geminiLogo, type: 'png-colorful' },
-  'lovable-gemini-flash': { src: geminiLogo, type: 'png-colorful' },
-  'lovable-gemini-pro': { src: geminiLogo, type: 'png-colorful' },
-  'lovable-gemini-flash-image': { src: geminiLogo, type: 'png-colorful' },
+  'gemini': { src: geminiLogo, type: 'svg-colorful' },
+  'gemini-flash-image': { src: geminiLogo, type: 'svg-colorful' },
+  'lovable-gemini-flash': { src: geminiLogo, type: 'svg-colorful' },
+  'lovable-gemini-pro': { src: geminiLogo, type: 'svg-colorful' },
+  'lovable-gemini-flash-image': { src: geminiLogo, type: 'svg-colorful' },
 
-  // Anthropic Claude - dark SVG, needs inversion in dark mode
-  'claude': { src: claudeLogo, type: 'png-dark' },
+  // Anthropic Claude - colorful SVG
+  'claude': { src: claudeLogo, type: 'svg-colorful' },
 
   // Perplexity models - dark SVG, needs inversion in dark mode
-  'perplexity': { src: perplexityLogo, type: 'png-dark' },
-  'perplexity-pro': { src: perplexityLogo, type: 'png-dark' },
-  'perplexity-reasoning': { src: perplexityLogo, type: 'png-dark' },
+  'perplexity': { src: perplexityLogo, type: 'needs-invert' },
+  'perplexity-pro': { src: perplexityLogo, type: 'needs-invert' },
+  'perplexity-reasoning': { src: perplexityLogo, type: 'needs-invert' },
 
-  // Grok - dark SVG, needs inversion in dark mode
-  'grok': { src: grokLogo, type: 'png-dark' },
+  // Grok - works as is
+  'grok': { src: grokLogo, type: 'needs-invert' },
+
+  // Mistral
+  'mistral': { src: mistralLogo, type: 'needs-invert' },
 
   // Uncensored.chat - PNG with dark background
-  'uncensored-chat': { src: uncensoredLogo, type: 'png-light' },
+  'uncensored-chat': { src: uncensoredLogo, type: 'png-colorful' },
 };
 
 const sizeClasses = {
@@ -59,17 +62,17 @@ const sizeClasses = {
 // Dark mode filter classes based on logo type
 const getDarkModeClass = (type: LogoType): string => {
   switch (type) {
-    case 'svg-dark':
-      // Invert dark SVGs to white in dark mode
+    case 'needs-invert':
+      // For logos that need inversion in dark mode
       return 'dark:invert dark:brightness-100';
-    case 'png-dark':
-      // For dark PNGs, use strong inversion and brightness
-      return 'dark:invert dark:brightness-[1.8] dark:contrast-[1.2]';
     case 'svg-colorful':
     case 'png-colorful':
     case 'png-light':
-      // Colorful SVGs/PNGs and light PNGs are fine as-is
+      // Colorful SVGs/PNGs are fine as-is
       return '';
+    case 'png-dark':
+      // Dark PNGs need brightness adjustment
+      return 'dark:brightness-[1.5]';
     default:
       return '';
   }

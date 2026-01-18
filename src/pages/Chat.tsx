@@ -45,7 +45,7 @@ import FilePreview from "@/components/FilePreview";
 import { DocumentPreviewPane } from "@/components/DocumentPreviewPane";
 import { PDFViewerDialog } from "@/components/PDFViewerDialog";
 import { PDFAttachmentCard } from "@/components/PDFAttachmentCard";
-import { CreditTopUpDialog } from "@/components/CreditTopUpDialog";
+// CreditTopUpDialog removed - pricing feature no longer exists
 import { useToast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -2882,11 +2882,6 @@ const Chat = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Credit Top-Up Dialog */}
-      <CreditTopUpDialog 
-        open={showCreditTopUpDialog}
-        onOpenChange={setShowCreditTopUpDialog}
-      />
 
       {/* PDF Viewer Dialog - Google Drive style */}
       <PDFViewerDialog
