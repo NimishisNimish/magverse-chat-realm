@@ -7,8 +7,9 @@ const SLACK_WEBHOOK_URL = Deno.env.get("SLACK_WEBHOOK_URL");
 const DISCORD_WEBHOOK_URL = Deno.env.get("DISCORD_WEBHOOK_URL");
 
 interface AlertRequest {
-  adminEmails: string[];
-  adminPhones: string[];
+  adminUserIds?: string[];
+  adminEmails?: string[];
+  adminPhones?: string[];
   modelName: string;
   status: 'down' | 'degraded' | 'recovered' | 'predictive_warning';
   details: string;
@@ -41,15 +42,15 @@ const corsHeaders = {
 const getStatusColor = (status: string): { slack: string; discord: number } => {
   switch (status) {
     case 'down':
-      return { slack: '#dc2626', discord: 0xdc2626 }; // Red
+      return { slack: '#dc2626', discord: 0xdc2626 };
     case 'degraded':
-      return { slack: '#eab308', discord: 0xeab308 }; // Yellow
+      return { slack: '#eab308', discord: 0xeab308 };
     case 'recovered':
-      return { slack: '#16a34a', discord: 0x16a34a }; // Green
+      return { slack: '#16a34a', discord: 0x16a34a };
     case 'predictive_warning':
-      return { slack: '#f97316', discord: 0xf97316 }; // Orange
+      return { slack: '#f97316', discord: 0xf97316 };
     default:
-      return { slack: '#6b7280', discord: 0x6b7280 }; // Gray
+      return { slack: '#6b7280', discord: 0x6b7280 };
   }
 };
 
@@ -65,8 +66,6 @@ const sendSlackNotification = async (
     return;
   }
 
-  const colors = getStatusColor(status);
-  
   const slackMessage: SlackMessage = {
     text: `${emoji} Model Health Alert: ${modelName}`,
     blocks: [
@@ -80,34 +79,21 @@ const sendSlackNotification = async (
       {
         type: "section",
         fields: [
-          {
-            type: "mrkdwn",
-            text: `*Status:*\n${status.toUpperCase().replace('_', ' ')}`
-          },
-          {
-            type: "mrkdwn",
-            text: `*Time:*\n${new Date().toLocaleString()}`
-          }
+          { type: "mrkdwn", text: `*Status:*\n${status.toUpperCase().replace('_', ' ')}` },
+          { type: "mrkdwn", text: `*Time:*\n${new Date().toLocaleString()}` }
         ]
       },
       {
         type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*Details:*\n${details}`
-        }
+        text: { type: "mrkdwn", text: `*Details:*\n${details}` }
       }
     ]
   };
 
-  // Add metadata if available
   if (metadata) {
     slackMessage.blocks?.push({
       type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `*Additional Info:*\n\`\`\`${JSON.stringify(metadata, null, 2)}\`\`\``
-      }
+      text: { type: "mrkdwn", text: `*Additional Info:*\n\`\`\`${JSON.stringify(metadata, null, 2)}\`\`\`` }
     });
   }
 
@@ -147,24 +133,13 @@ const sendDiscordNotification = async (
     description: details,
     color: colors.discord,
     fields: [
-      {
-        name: "Status",
-        value: status.toUpperCase().replace('_', ' '),
-        inline: true
-      },
-      {
-        name: "Time",
-        value: new Date().toLocaleString(),
-        inline: true
-      }
+      { name: "Status", value: status.toUpperCase().replace('_', ' '), inline: true },
+      { name: "Time", value: new Date().toLocaleString(), inline: true }
     ],
     timestamp: new Date().toISOString(),
-    footer: {
-      text: "Magverse AI Model Health Monitor"
-    }
+    footer: { text: "Magverse AI Model Health Monitor" }
   };
 
-  // Add metadata fields
   if (metadata) {
     for (const [key, value] of Object.entries(metadata)) {
       if (typeof value !== 'object') {
@@ -181,10 +156,7 @@ const sendDiscordNotification = async (
     const response = await fetch(DISCORD_WEBHOOK_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        embeds: [embed],
-        username: "Magverse AI Monitor",
-      }),
+      body: JSON.stringify({ embeds: [embed], username: "Magverse AI Monitor" }),
     });
 
     if (!response.ok) {
@@ -203,7 +175,7 @@ serve(async (req) => {
   }
 
   try {
-    const { adminEmails, adminPhones, modelName, status, details, metadata }: AlertRequest = await req.json();
+    const { adminUserIds, adminEmails, adminPhones, modelName, status, details, metadata }: AlertRequest = await req.json();
 
     const statusEmojis = {
       down: '🔴',
@@ -215,9 +187,30 @@ serve(async (req) => {
     const emoji = statusEmojis[status] || '⚠️';
     const subject = `${emoji} Model Health Alert: ${modelName} ${status.toUpperCase()}`;
 
+    // If adminUserIds provided, fetch contact info from database using service role
+    let emails: string[] = adminEmails || [];
+    let phones: string[] = adminPhones || [];
+
+    if (adminUserIds && adminUserIds.length > 0) {
+      // Create service role client to access encrypted data
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      // Get admin emails from auth.users
+      const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers();
+      if (authUsers?.users) {
+        const adminAuthUsers = authUsers.users.filter(u => adminUserIds.includes(u.id));
+        emails = adminAuthUsers.map(u => u.email).filter(Boolean) as string[];
+      }
+
+      console.log(`Found ${emails.length} admin emails from auth.users`);
+    }
+
     // Send email alerts
-    if (adminEmails && adminEmails.length > 0 && RESEND_API_KEY) {
-      const emailPromises = adminEmails.map(async (email) => {
+    if (emails.length > 0 && RESEND_API_KEY) {
+      const emailPromises = emails.map(async (email) => {
         const emailHtml = `
           <!DOCTYPE html>
           <html>
@@ -234,7 +227,6 @@ serve(async (req) => {
                 .status-predictive { background: #ffe; color: #c60; }
                 .details { background: white; padding: 20px; border-left: 4px solid #667eea; margin: 20px 0; border-radius: 4px; }
                 .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-                .button { display: inline-block; padding: 12px 24px; background: #667eea; color: white; text-decoration: none; border-radius: 6px; margin: 10px 0; }
               </style>
             </head>
             <body>
@@ -250,10 +242,7 @@ serve(async (req) => {
                   <div class="details">
                     <h3 style="margin-top: 0;">Details</h3>
                     <p>${details}</p>
-                    ${metadata ? `
-                      <h4>Additional Information</h4>
-                      <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">${JSON.stringify(metadata, null, 2)}</pre>
-                    ` : ''}
+                    ${metadata ? `<h4>Additional Information</h4><pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">${JSON.stringify(metadata, null, 2)}</pre>` : ''}
                   </div>
 
                   <p style="color: #666; font-size: 14px;">
@@ -262,7 +251,6 @@ serve(async (req) => {
                 </div>
                 <div class="footer">
                   <p>Magverse AI - Model Health Monitoring System</p>
-                  <p>To configure alert preferences, visit your admin settings.</p>
                 </div>
               </div>
             </body>
@@ -285,35 +273,7 @@ serve(async (req) => {
       });
 
       await Promise.all(emailPromises);
-      console.log(`✅ Sent email alerts to ${adminEmails.length} admin(s)`);
-    }
-
-    // Send SMS alerts
-    if (adminPhones && adminPhones.length > 0 && MSG91_API_KEY) {
-      const smsMessage = `${emoji} ${modelName} ${status.toUpperCase()}: ${details}`;
-
-      const smsPromises = adminPhones.map(async (phone) => {
-        // Remove any non-digit characters and ensure it starts with country code
-        const cleanPhone = phone.replace(/\D/g, '');
-        const formattedPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
-
-        return fetch(`https://api.msg91.com/api/v5/flow/`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "authkey": MSG91_API_KEY,
-          },
-          body: JSON.stringify({
-            flow_id: "YOUR_FLOW_ID", // Replace with your MSG91 flow ID
-            sender: "MAGVRS", // Your approved sender ID
-            mobiles: formattedPhone,
-            message: smsMessage,
-          }),
-        });
-      });
-
-      await Promise.all(smsPromises);
-      console.log(`✅ Sent SMS alerts to ${adminPhones.length} admin(s)`);
+      console.log(`✅ Sent email alerts to ${emails.length} admin(s)`);
     }
 
     // Send Slack notification
@@ -325,8 +285,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        emailsSent: adminEmails?.length || 0,
-        smsSent: adminPhones?.length || 0,
+        emailsSent: emails.length,
         slackSent: !!SLACK_WEBHOOK_URL,
         discordSent: !!DISCORD_WEBHOOK_URL,
       }),

@@ -7,7 +7,6 @@ const corsHeaders = {
 };
 
 const MSG91_API_KEY = Deno.env.get('MSG91_API_KEY');
-const MSG91_SENDER_ID = 'TXTIND';
 const MSG91_TEMPLATE_ID = '66a2c56ad6fc0544d0755ef5';
 
 serve(async (req) => {
@@ -25,6 +24,12 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
+    );
+
+    // Service role client for encrypted data operations
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
@@ -100,18 +105,12 @@ serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'OTP sent to your phone number'
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200
-        }
+        JSON.stringify({ success: true, message: 'OTP sent to your phone number' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
 
     } else if (action === 'verify_otp') {
-      // Verify OTP with simplified query
+      // Verify OTP
       const { data: codes, error: fetchError } = await supabaseClient
         .from('phone_verification_codes')
         .select('*')
@@ -133,12 +132,11 @@ serve(async (req) => {
         throw new Error('OTP has expired. Please request a new code.');
       }
 
-      // Check if phone number matches (normalize both for comparison)
+      // Check if phone number matches
       const normalizedStoredPhone = verificationCode.phone_number.replace(/\s+/g, '').replace(/-/g, '');
       const normalizedInputPhone = phoneNumber.replace(/\s+/g, '').replace(/-/g, '');
       
       if (normalizedStoredPhone !== normalizedInputPhone) {
-        console.error('Phone mismatch:', { stored: normalizedStoredPhone, input: normalizedInputPhone });
         throw new Error('Phone number does not match OTP. Please try again.');
       }
 
@@ -148,11 +146,17 @@ serve(async (req) => {
         .update({ verified: true })
         .eq('id', verificationCode.id);
 
-      // Update phone number in profile
-      await supabaseClient
+      // Use service role to update encrypted phone number
+      // Call the encrypt function and update the encrypted column
+      const { data: encryptResult } = await supabaseAdmin.rpc('encrypt_sensitive_data', {
+        data: phoneNumber,
+        user_id: user.id
+      });
+
+      await supabaseAdmin
         .from('profiles')
         .update({
-          phone_number: phoneNumber,
+          phone_number_encrypted: encryptResult || null,
           phone_verified: true,
           phone_verified_at: new Date().toISOString(),
           last_phone_change: new Date().toISOString()
@@ -160,15 +164,51 @@ serve(async (req) => {
         .eq('id', user.id);
 
       return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Phone number updated successfully'
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200
-        }
+        JSON.stringify({ success: true, message: 'Phone number updated successfully' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
+
+    } else if (action === 'update_directly') {
+      // Direct update (used by AuthContext.linkPhoneNumber)
+      if (!phoneNumber || !phoneNumber.match(/^\+[1-9]\d{1,14}$/)) {
+        throw new Error('Invalid phone number format');
+      }
+
+      // Check rate limiting
+      const { data: profile } = await supabaseClient
+        .from('profiles')
+        .select('last_phone_change')
+        .eq('id', user.id)
+        .single();
+
+      if (profile?.last_phone_change) {
+        const lastChange = new Date(profile.last_phone_change);
+        const hoursSinceLastChange = (Date.now() - lastChange.getTime()) / (1000 * 60 * 60);
+        
+        if (hoursSinceLastChange < 24) {
+          throw new Error('You can only change your phone number once per 24 hours');
+        }
+      }
+
+      // Encrypt and update
+      const { data: encryptResult } = await supabaseAdmin.rpc('encrypt_sensitive_data', {
+        data: phoneNumber,
+        user_id: user.id
+      });
+
+      await supabaseAdmin
+        .from('profiles')
+        .update({
+          phone_number_encrypted: encryptResult || null,
+          last_phone_change: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'Phone number linked successfully' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+
     } else {
       throw new Error('Invalid action');
     }
@@ -177,10 +217,7 @@ serve(async (req) => {
     console.error('Error changing phone:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
     );
   }
 });

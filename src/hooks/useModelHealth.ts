@@ -170,26 +170,16 @@ export const useModelHealth = () => {
 
       if (!adminRoles || adminRoles.length === 0) return;
 
-      const { data: adminProfiles } = await supabase
-        .from('profiles')
-        .select('id, recovery_email, phone_number')
-        .in('id', adminRoles.map(r => r.user_id));
+      // Get admin contact info - the edge function will handle decryption server-side
+      // Just pass admin user IDs to the edge function
+      const adminUserIds = adminRoles.map(r => r.user_id);
 
-      const adminEmails = adminProfiles
-        ?.map(p => p.recovery_email)
-        .filter(Boolean) as string[];
-      
-      const adminPhones = adminProfiles
-        ?.map(p => p.phone_number)
-        .filter(Boolean) as string[];
+      if (adminUserIds.length === 0) return;
 
-      if (adminEmails.length === 0 && adminPhones.length === 0) return;
-
-      // Send alerts via edge function
+      // Send alerts via edge function - let the edge function handle decryption
       await supabase.functions.invoke('send-model-health-alert', {
         body: {
-          adminEmails,
-          adminPhones,
+          adminUserIds,
           modelName,
           status,
           details,

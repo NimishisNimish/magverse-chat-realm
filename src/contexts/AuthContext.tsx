@@ -240,10 +240,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error: { message: 'Invalid phone number format. Use E.164 format (e.g., +919876543210)' } };
       }
 
-      const { error } = await supabase
-        .from('profiles')
-        .update({ phone_number: normalizedPhone })
-        .eq('id', user.id);
+      // Use the change-phone edge function to securely update encrypted phone
+      const { error } = await supabase.functions.invoke('change-phone', {
+        body: { 
+          action: 'update_directly',
+          phoneNumber: normalizedPhone 
+        }
+      });
+      
+      if (error) throw error;
 
       if (error) throw error;
       await refreshProfile();

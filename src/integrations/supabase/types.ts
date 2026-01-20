@@ -1116,11 +1116,9 @@ export type Database = {
           last_phone_change: string | null
           monthly_credits: number | null
           monthly_credits_used: number | null
-          phone_number: string | null
           phone_number_encrypted: string | null
           phone_verified: boolean | null
           phone_verified_at: string | null
-          recovery_email: string | null
           recovery_email_encrypted: string | null
           subscription_expires_at: string | null
           subscription_type: string | null
@@ -1149,11 +1147,9 @@ export type Database = {
           last_phone_change?: string | null
           monthly_credits?: number | null
           monthly_credits_used?: number | null
-          phone_number?: string | null
           phone_number_encrypted?: string | null
           phone_verified?: boolean | null
           phone_verified_at?: string | null
-          recovery_email?: string | null
           recovery_email_encrypted?: string | null
           subscription_expires_at?: string | null
           subscription_type?: string | null
@@ -1182,11 +1178,9 @@ export type Database = {
           last_phone_change?: string | null
           monthly_credits?: number | null
           monthly_credits_used?: number | null
-          phone_number?: string | null
           phone_number_encrypted?: string | null
           phone_verified?: boolean | null
           phone_verified_at?: string | null
-          recovery_email?: string | null
           recovery_email_encrypted?: string | null
           subscription_expires_at?: string | null
           subscription_type?: string | null
