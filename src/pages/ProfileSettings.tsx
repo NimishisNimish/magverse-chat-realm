@@ -321,11 +321,13 @@ export default function ProfileSettings() {
       
       setLoading(true);
       
-      // Update recovery email in database
-      const { error } = await supabase
-        .from('profiles')
-        .update({ recovery_email: recoveryEmail })
-        .eq('id', user!.id);
+      // Update recovery email using edge function for encryption
+      const { error } = await supabase.functions.invoke('change-email', {
+        body: { 
+          action: 'update_recovery_email',
+          email: recoveryEmail 
+        }
+      });
       
       if (error) throw error;
       
