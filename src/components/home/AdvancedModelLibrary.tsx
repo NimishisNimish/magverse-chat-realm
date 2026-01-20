@@ -53,13 +53,23 @@ export const AdvancedModelLibrary = () => {
     setSelectedIndex(emblaApi.selectedScrollSnap());
   }, [emblaApi]);
 
+  // Infinite auto-scroll through slides 1-7 then restart
   useEffect(() => {
     if (!emblaApi) return;
     onSelect();
     emblaApi.on('select', onSelect);
     
+    // Auto-scroll with infinite loop behavior
     const autoplay = setInterval(() => {
-      emblaApi.scrollNext();
+      const currentIndex = emblaApi.selectedScrollSnap();
+      const slideCount = Math.min(MODEL_CONFIG.length, 7); // Limit to 7 slides
+      
+      if (currentIndex >= slideCount - 1) {
+        // Jump back to first slide after reaching slide 7
+        emblaApi.scrollTo(0);
+      } else {
+        emblaApi.scrollNext();
+      }
     }, 4000);
 
     return () => {
@@ -104,7 +114,7 @@ export const AdvancedModelLibrary = () => {
         <div className="relative max-w-6xl mx-auto">
           <div className="overflow-hidden" ref={emblaRef}>
             <div className="flex gap-6">
-              {MODEL_CONFIG.map((model, index) => {
+              {MODEL_CONFIG.slice(0, 7).map((model, index) => {
                 const logoSrc = getModelLogo(model.id);
                 
                 return (
@@ -121,17 +131,18 @@ export const AdvancedModelLibrary = () => {
                       <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                       
                       <div className="flex flex-col items-center space-y-4 text-center relative z-10">
-                        {/* Logo - Larger size */}
-                        <div className="w-20 h-20 rounded-xl bg-muted/50 border border-border flex items-center justify-center group-hover:border-primary/50 transition-colors overflow-hidden">
-                          {logoSrc ? (
-                            <img 
-                              src={logoSrc} 
-                              alt={model.name}
-                              className="w-14 h-14 object-contain"
-                            />
-                          ) : (
-                            <model.icon className={`w-10 h-10 ${model.color}`} />
-                          )}
+                      {/* Logo - Larger size with transparent background */}
+                      <div className="w-20 h-20 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform overflow-hidden">
+                        {logoSrc ? (
+                          <img 
+                            src={logoSrc} 
+                            alt={model.name}
+                            className="w-16 h-16 object-contain drop-shadow-md"
+                            style={{ background: 'transparent' }}
+                          />
+                        ) : (
+                          <model.icon className={`w-12 h-12 ${model.color}`} />
+                        )}
                         </div>
                         
                         {/* Name */}
@@ -176,7 +187,7 @@ export const AdvancedModelLibrary = () => {
 
         {/* Dots indicator */}
         <div className="flex justify-center gap-2 mt-8">
-          {MODEL_CONFIG.slice(0, 6).map((_, index) => (
+          {MODEL_CONFIG.slice(0, 7).map((_, index) => (
             <button
               key={index}
               onClick={() => emblaApi?.scrollTo(index)}
