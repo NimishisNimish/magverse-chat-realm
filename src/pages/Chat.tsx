@@ -236,6 +236,7 @@ const Chat = () => {
   const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
   const [searchParams] = useSearchParams();
   const [activeQuickAction, setActiveQuickAction] = useState<QuickActionType>(null);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const [imagePrompt, setImagePrompt] = useState("");
   const [imageStyle, setImageStyle] = useState("realistic");
@@ -1206,14 +1207,20 @@ const Chat = () => {
       } else {
         // Non-streaming for direct API models
         try {
-          console.log('📤 Using non-streaming mode for:', modelsToUse);
+          // If web search is enabled, route to Perplexity Sonar
+          const useWebSearch = webSearchEnabled || activeQuickAction === 'research';
+          const modelsForRequest = useWebSearch && !modelsToUse.includes('perplexity') 
+            ? ['perplexity'] // Force Perplexity Sonar for web search
+            : modelsToUse;
+          
+          console.log('📤 Using non-streaming mode for:', modelsForRequest, 'webSearch:', useWebSearch);
           const invokePromise = supabase.functions.invoke('chat-with-ai', {
             body: {
               messages: messagesForApi,
-              selectedModels: modelsToUse,
+              selectedModels: modelsForRequest,
               chatId,
               attachmentUrl: currentAttachmentUrl,
-              webSearchEnabled: activeQuickAction === 'research',
+              webSearchEnabled: useWebSearch,
               deepResearch: activeQuickAction === 'research',
               enableMultiStepReasoning,
               stream: false,
@@ -2409,19 +2416,25 @@ const Chat = () => {
                     <span className="text-xs hidden sm:inline">Create</span>
                   </Button>
 
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleToolSelect('research-mode')}
-                    className={`h-7 px-2.5 rounded-full border gap-1.5 shrink-0 ${
-                      activeQuickAction === 'research' 
-                        ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400' 
-                        : 'bg-muted/50 border-border/40 hover:bg-muted'
-                    }`}
-                  >
-                    <Search className="h-3.5 w-3.5" />
-                    <span className="text-xs hidden sm:inline">Search</span>
-                  </Button>
+                  {/* Web Search Toggle - Routes to Perplexity Sonar */}
+                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all shrink-0 ${
+                    webSearchEnabled 
+                      ? 'bg-cyan-500/20 border-cyan-500/50' 
+                      : 'bg-muted/50 border-border/40'
+                  }`}>
+                    <Globe className={`h-3.5 w-3.5 ${webSearchEnabled ? 'text-cyan-400' : 'text-muted-foreground'}`} />
+                    <span className="text-xs font-medium">Web</span>
+                    <Switch
+                      checked={webSearchEnabled}
+                      onCheckedChange={(checked) => {
+                        setWebSearchEnabled(checked);
+                        if (checked) {
+                          sonnerToast.info('🌐 Web search enabled - queries will use Perplexity Sonar');
+                        }
+                      }}
+                      className="h-4 w-7"
+                    />
+                  </div>
 
                   {/* More Tools Button */}
                   <DropdownMenu>
@@ -2481,7 +2494,7 @@ const Chat = () => {
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={handleKeyPress}
-                      placeholder="Ask anything... ✨"
+                      placeholder={webSearchEnabled ? "Search the web and ask anything... 🌐" : "Ask anything... ✨"}
                       className="min-h-[44px] max-h-[200px] resize-none rounded-xl border-0 bg-transparent px-3 py-3 text-sm sm:text-base focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
                       disabled={loading}
                     />
