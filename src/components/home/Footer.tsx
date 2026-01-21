@@ -132,7 +132,6 @@ export const Footer = () => {
               {[
                 { label: 'About Us', href: '#about' },
                 { label: 'Contact', href: '#contact' },
-                { label: 'Patches & Updates', to: '/patches' },
                 { label: 'Privacy Policy', to: '/privacy-policy' },
                 { label: 'Terms of Service', to: '/terms-of-service' },
               ].map((item) => (

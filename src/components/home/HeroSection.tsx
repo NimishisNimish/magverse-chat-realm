@@ -61,12 +61,12 @@ export const HeroSection = ({ user }: HeroSectionProps) => {
         ChatGPT, Claude, Gemini, Perplexity, and more — all in one place.
       </motion.p>
 
-      {/* CTA Buttons */}
+      {/* CTA Button */}
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.3 }}
-        className="flex flex-col sm:flex-row items-center gap-4 relative z-10"
+        className="relative z-10"
       >
         <Link to={user ? "/chat" : "/auth"}>
           <Button 
@@ -75,15 +75,6 @@ export const HeroSection = ({ user }: HeroSectionProps) => {
           >
             Get Started Free
             <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-          </Button>
-        </Link>
-        <Link to="/pricing">
-          <Button 
-            variant="outline" 
-            size="lg" 
-            className="px-8 py-6 text-lg font-semibold rounded-full border-border/50 bg-transparent hover:bg-muted/30 hover:border-primary/50 transition-all"
-          >
-            View Pricing
           </Button>
         </Link>
       </motion.div>

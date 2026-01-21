@@ -19,18 +19,22 @@ export interface StreamEvent {
   };
 }
 
-// Endpoint routing by model type
-const getEndpoint = (modelId: string): { endpoint: string; timeout: number } => {
-  // Fast models -> fast-chat endpoint (5s first token deadline)
+// Endpoint routing by model type - increased timeouts for reliability
+const getEndpoint = (modelId: string): { endpoint: string; timeout: number; firstTokenTimeout: number } => {
+  // Fast models -> fast-chat endpoint
   if (modelId.includes('flash') || modelId.includes('mini') || modelId.includes('nano')) {
-    return { endpoint: 'ai-fast-chat', timeout: 30000 };
+    return { endpoint: 'ai-fast-chat', timeout: 90000, firstTokenTimeout: 45000 };
   }
-  // Reasoning/Pro models -> reasoning endpoint (30s first token deadline)
+  // Reasoning/Pro models -> reasoning endpoint
   if (modelId.includes('pro') || modelId.includes('reasoning') || modelId.includes('gpt5')) {
-    return { endpoint: 'ai-reasoning', timeout: 120000 };
+    return { endpoint: 'ai-reasoning', timeout: 180000, firstTokenTimeout: 60000 };
   }
-  // Default to fast-chat
-  return { endpoint: 'ai-fast-chat', timeout: 30000 };
+  // Research models (Perplexity)
+  if (modelId.includes('perplexity')) {
+    return { endpoint: 'ai-fast-chat', timeout: 120000, firstTokenTimeout: 60000 };
+  }
+  // Default - generous timeouts
+  return { endpoint: 'ai-fast-chat', timeout: 90000, firstTokenTimeout: 45000 };
 };
 
 // Model mapping for Lovable AI Gateway
@@ -84,8 +88,8 @@ export class StreamingClient {
     retryWithFallback = true,
     onThinking?: (model: string, thinking: ThinkingState) => void
   ): Promise<void> {
-    const { endpoint, timeout } = getEndpoint(selectedModel);
-    const FIRST_TOKEN_TIMEOUT = Math.min(timeout, 30000); // Max 30s for first token
+    const { endpoint, timeout, firstTokenTimeout } = getEndpoint(selectedModel);
+    const FIRST_TOKEN_TIMEOUT = firstTokenTimeout;
     
     this.abortController = new AbortController();
     this.firstTokenReceived = false;
