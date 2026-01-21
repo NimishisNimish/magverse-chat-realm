@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { ExternalLink, ChevronDown, ChevronUp, Globe, Search, BookOpen } from "lucide-react";
+import { useState, memo } from "react";
+import { ChevronDown, ChevronUp, Search, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { CitationCard } from "@/components/CitationCard";
 
 interface Source {
   url: string;
@@ -14,113 +15,90 @@ interface MessageSourcesProps {
   sources: Source[];
 }
 
-// Extract domain from URL for display
-const getDomain = (url: string): string => {
-  try {
-    const domain = new URL(url).hostname.replace('www.', '');
-    return domain;
-  } catch {
-    return url;
-  }
-};
-
-// Get favicon URL for a domain
-const getFaviconUrl = (url: string): string => {
-  try {
-    const domain = new URL(url).hostname;
-    return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
-  } catch {
-    return '';
-  }
-};
-
-export const MessageSources = ({ sources }: MessageSourcesProps) => {
+export const MessageSources = memo(({ sources }: MessageSourcesProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
   if (!sources || sources.length === 0) return null;
 
   return (
-    <div className="mt-4 border-t border-border/50 pt-4">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="mt-4 pt-4 border-t border-border/30"
+    >
+      {/* Header */}
       <Button
         variant="ghost"
         size="sm"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-2"
+        className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-3 -ml-2 h-8"
       >
-        <Search className="w-4 h-4 text-purple-400" />
-        <span className="text-sm font-medium">
-          Web Sources ({sources.length})
-        </span>
-        <Badge variant="outline" className="text-xs border-purple-500/30 text-purple-400">
-          Verified
-        </Badge>
-        {isExpanded ? (
-          <ChevronUp className="w-4 h-4 ml-1" />
-        ) : (
-          <ChevronDown className="w-4 h-4 ml-1" />
-        )}
+        <div className="flex items-center gap-2">
+          <div className="p-1 rounded-md bg-gradient-to-br from-primary/20 to-primary/5">
+            <Search className="w-3.5 h-3.5 text-primary" />
+          </div>
+          <span className="text-sm font-medium">
+            Web Sources
+          </span>
+          <Badge 
+            variant="secondary" 
+            className="text-[10px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-0"
+          >
+            {sources.length}
+          </Badge>
+        </div>
+        
+        <motion.div
+          animate={{ rotate: isExpanded ? 0 : -90 }}
+          transition={{ duration: 0.2 }}
+        >
+          <ChevronDown className="w-4 h-4" />
+        </motion.div>
       </Button>
 
+      {/* Sources Grid */}
       <AnimatePresence>
         {isExpanded && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-hidden"
+            transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+            className="overflow-hidden"
           >
-            {sources.map((source, index) => (
-              <motion.a
-                key={index}
-                href={source.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="flex items-start gap-3 p-3 rounded-xl bg-gradient-to-br from-muted/30 to-muted/10 border border-border/50 hover:border-purple-500/50 hover:bg-muted/50 transition-all duration-200 group"
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {sources.map((source, index) => (
+                <CitationCard
+                  key={`${source.url}-${index}`}
+                  index={index}
+                  url={source.url}
+                  title={source.title}
+                  snippet={source.snippet}
+                  delay={index}
+                />
+              ))}
+            </div>
+            
+            {/* Footer hint */}
+            {sources.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: sources.length * 0.05 + 0.3 }}
+                className="flex items-center gap-2 mt-3 pt-3 border-t border-border/20"
               >
-                {/* Source Number Badge */}
-                <div className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-400 text-xs font-bold">
-                  {index + 1}
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  {/* Title Row with Favicon */}
-                  <div className="flex items-center gap-2 mb-1">
-                    <img 
-                      src={getFaviconUrl(source.url)} 
-                      alt="" 
-                      className="w-4 h-4 rounded-sm"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                    <p className="text-sm font-medium text-foreground truncate group-hover:text-purple-400 transition-colors">
-                      {source.title || getDomain(source.url)}
-                    </p>
-                    <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-purple-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100" />
-                  </div>
-                  
-                  {/* Snippet */}
-                  {source.snippet && (
-                    <p className="text-xs text-muted-foreground line-clamp-2 mb-1">
-                      {source.snippet}
-                    </p>
-                  )}
-                  
-                  {/* Domain */}
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground/70">
-                    <Globe className="w-3 h-3" />
-                    <span className="truncate">{getDomain(source.url)}</span>
-                  </div>
-                </div>
-              </motion.a>
-            ))}
+                <Sparkles className="w-3 h-3 text-primary/60" />
+                <span className="text-[11px] text-muted-foreground/70">
+                  Click any source to view the original content
+                </span>
+              </motion.div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
-};
+});
+
+MessageSources.displayName = 'MessageSources';

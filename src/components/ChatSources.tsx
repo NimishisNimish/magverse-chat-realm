@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { Globe, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import { useState, memo } from "react";
+import { Globe, ChevronDown, ChevronUp, Search, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
+import { CitationCard } from "@/components/CitationCard";
 
 interface Source {
   url: string;
@@ -16,28 +17,10 @@ interface ChatSourcesProps {
   modelId?: string;
 }
 
-const extractDomain = (url: string): string => {
-  try {
-    const domain = new URL(url).hostname.replace('www.', '');
-    return domain;
-  } catch {
-    return url;
-  }
-};
-
-const getFaviconUrl = (url: string): string => {
-  try {
-    const domain = new URL(url).hostname;
-    return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
-  } catch {
-    return '';
-  }
-};
-
-export const ChatSources = ({ sources, modelId }: ChatSourcesProps) => {
-  const [expanded, setExpanded] = useState(false);
+export const ChatSources = memo(({ sources, modelId }: ChatSourcesProps) => {
+  const [expanded, setExpanded] = useState(true);
   
-  // Only show sources for Perplexity models
+  // Only show sources for Perplexity models or when sources exist
   const isPerplexityModel = modelId?.includes('perplexity');
   
   if (!sources || sources.length === 0 || !isPerplexityModel) {
@@ -48,95 +31,94 @@ export const ChatSources = ({ sources, modelId }: ChatSourcesProps) => {
   const hasMore = sources.length > 3;
 
   return (
-    <div className="mt-4 pt-4 border-t border-border/30">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="mt-4 pt-4 border-t border-border/30"
+    >
+      {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <Globe className="w-4 h-4 text-primary" />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground -ml-2 h-8"
+        >
+          <div className="p-1 rounded-md bg-gradient-to-br from-primary/20 to-primary/5">
+            <Search className="w-3.5 h-3.5 text-primary" />
           </div>
-          <span className="text-sm font-medium">{sources.length} sources</span>
-        </div>
-        {hasMore && (
+          <span className="text-sm font-medium">Web Sources</span>
+          <Badge 
+            variant="secondary" 
+            className="text-[10px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-0"
+          >
+            {sources.length}
+          </Badge>
+          <motion.div
+            animate={{ rotate: expanded ? 0 : -90 }}
+            transition={{ duration: 0.2 }}
+          >
+            <ChevronDown className="w-4 h-4" />
+          </motion.div>
+        </Button>
+        
+        {hasMore && !expanded && (
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setExpanded(!expanded)}
-            className="h-7 text-xs gap-1"
+            onClick={() => setExpanded(true)}
+            className="h-7 text-xs gap-1 text-primary hover:text-primary"
           >
-            {expanded ? (
-              <>
-                Show less
-                <ChevronUp className="w-3 h-3" />
-              </>
-            ) : (
-              <>
-                Show all
-                <ChevronDown className="w-3 h-3" />
-              </>
-            )}
+            Show all
           </Button>
         )}
       </div>
 
+      {/* Sources Grid */}
       <AnimatePresence>
-        <div className="grid gap-2">
-          {displayedSources.map((source, index) => {
-            const domain = source.domain || extractDomain(source.url);
-            const favicon = getFaviconUrl(source.url);
+        {expanded && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="grid gap-2.5">
+              {displayedSources.map((source, index) => (
+                <CitationCard
+                  key={`${source.url}-${index}`}
+                  index={index}
+                  url={source.url}
+                  title={source.title || ''}
+                  snippet={source.snippet}
+                  delay={index}
+                />
+              ))}
+            </div>
             
-            return (
-              <motion.a
-                key={index}
-                href={source.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="group flex items-start gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 border border-border/30 hover:border-primary/30 transition-all"
+            {/* Footer */}
+            {sources.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: displayedSources.length * 0.05 + 0.3 }}
+                className="flex items-center gap-2 mt-3 pt-3 border-t border-border/20"
               >
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-background border border-border/50 shrink-0">
-                  {favicon ? (
-                    <img 
-                      src={favicon} 
-                      alt="" 
-                      className="w-4 h-4"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <Globe className="w-4 h-4 text-muted-foreground" />
-                  )}
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
-                      {index + 1}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground truncate">
-                      {domain}
-                    </span>
-                  </div>
-                  <p className="text-sm font-medium line-clamp-1 group-hover:text-primary transition-colors">
-                    {source.title || domain}
-                  </p>
-                  {source.snippet && (
-                    <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                      {source.snippet}
-                    </p>
-                  )}
-                </div>
-                
-                <ExternalLink className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-              </motion.a>
-            );
-          })}
-        </div>
+                <Sparkles className="w-3 h-3 text-primary/60" />
+                <span className="text-[11px] text-muted-foreground/70">
+                  Powered by Perplexity AI • Click to view sources
+                </span>
+              </motion.div>
+            )}
+          </motion.div>
+        )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
-};
+});
+
+ChatSources.displayName = 'ChatSources';
 
 export default ChatSources;
