@@ -1,7 +1,7 @@
 import { AIModelLogo } from './AIModelLogo';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect, memo, useMemo } from 'react';
-import { Sparkles, Zap } from 'lucide-react';
+import { useState, useEffect, memo, useMemo, useRef } from 'react';
+import { Sparkles, Zap, Gauge } from 'lucide-react';
 
 interface AITypingIndicatorProps {
   modelId: string;
@@ -28,6 +28,9 @@ export const AITypingIndicator = memo(({
   ttft = null
 }: AITypingIndicatorProps) => {
   const [elapsed, setElapsed] = useState(0);
+  const prevTokensRef = useRef(0);
+  const [wordsPerSecond, setWordsPerSecond] = useState<number | null>(null);
+  const lastUpdateRef = useRef<number>(Date.now());
 
   useEffect(() => {
     if (!startTime) return;
@@ -37,6 +40,37 @@ export const AITypingIndicator = memo(({
     }, 100);
     
     return () => clearInterval(interval);
+  }, [startTime]);
+
+  // Calculate words per second based on token delta
+  useEffect(() => {
+    if (tokensReceived > 0 && ttft !== null) {
+      const now = Date.now();
+      const timeDelta = now - lastUpdateRef.current;
+      const tokenDelta = tokensReceived - prevTokensRef.current;
+      
+      // Only calculate if we have meaningful delta (at least 100ms and some tokens)
+      if (timeDelta >= 100 && tokenDelta > 0) {
+        // Calculate instantaneous speed (words per second)
+        const instantSpeed = (tokenDelta / timeDelta) * 1000;
+        
+        // Smooth the value with exponential moving average
+        setWordsPerSecond(prev => {
+          if (prev === null) return instantSpeed;
+          return prev * 0.7 + instantSpeed * 0.3; // 70% old, 30% new
+        });
+        
+        lastUpdateRef.current = now;
+        prevTokensRef.current = tokensReceived;
+      }
+    }
+  }, [tokensReceived, ttft]);
+
+  // Reset when startTime changes (new request)
+  useEffect(() => {
+    prevTokensRef.current = 0;
+    setWordsPerSecond(null);
+    lastUpdateRef.current = Date.now();
   }, [startTime]);
 
   const statusText = useMemo(() => 
@@ -185,7 +219,7 @@ export const AITypingIndicator = memo(({
             </div>
           </div>
           
-          {/* Stats column - TTFT prominent, token count visible */}
+          {/* Stats column - TTFT, token count, and speed visible */}
           <div className="flex flex-col items-end gap-1 text-xs tabular-nums">
             {ttft !== null && (
               <motion.div 
@@ -197,11 +231,24 @@ export const AITypingIndicator = memo(({
                 <span>TTFT: {ttft}ms</span>
               </motion.div>
             )}
+            
+            {/* Typing speed indicator */}
+            {wordsPerSecond !== null && wordsPerSecond > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent/50 text-accent-foreground font-medium"
+              >
+                <Gauge className="w-3 h-3" />
+                <span>{wordsPerSecond.toFixed(1)} w/s</span>
+              </motion.div>
+            )}
+            
             {tokensReceived > 0 && (
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex items-center gap-1 text-primary"
+                className="flex items-center gap-1 text-muted-foreground"
               >
                 <Sparkles className="w-3 h-3" />
                 <span>{tokensReceived} words</span>
