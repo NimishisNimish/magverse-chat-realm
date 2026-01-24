@@ -1,7 +1,7 @@
 import { AIModelLogo } from './AIModelLogo';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, memo, useMemo } from 'react';
-import { Sparkles, Clock, Zap, Brain, Loader2 } from 'lucide-react';
+import { Sparkles, Zap } from 'lucide-react';
 
 interface AITypingIndicatorProps {
   modelId: string;
@@ -12,16 +12,12 @@ interface AITypingIndicatorProps {
   ttft?: number | null;
 }
 
-// Progressive status stages with icons
-const STATUS_STAGES = [
-  { elapsed: 0, text: "Connecting to AI...", icon: Loader2 },
-  { elapsed: 1500, text: "Analyzing your prompt...", icon: Brain },
-  { elapsed: 4000, text: "Generating response...", icon: Sparkles },
-  { elapsed: 10000, text: "Processing context...", icon: Brain },
-  { elapsed: 20000, text: "Complex reasoning...", icon: Brain },
-  { elapsed: 35000, text: "Taking a bit longer...", icon: Clock },
-  { elapsed: 60000, text: "Still working on it...", icon: Loader2 },
-];
+// Simplified status: only "Connecting" until TTFT, then "Generating"
+const getStatusText = (tokensReceived: number, ttft: number | null): string => {
+  if (tokensReceived > 0) return 'Generating...';
+  if (ttft !== null) return 'Streaming...';
+  return 'Connecting...';
+};
 
 export const AITypingIndicator = memo(({ 
   modelId, 
@@ -43,13 +39,10 @@ export const AITypingIndicator = memo(({
     return () => clearInterval(interval);
   }, [startTime]);
 
-  const currentStage = useMemo(() => {
-    return [...STATUS_STAGES]
-      .reverse()
-      .find(s => elapsed >= s.elapsed) || STATUS_STAGES[0];
-  }, [elapsed]);
-
-  const StatusIcon = currentStage.icon;
+  const statusText = useMemo(() => 
+    getStatusText(tokensReceived, ttft), 
+    [tokensReceived, ttft]
+  );
 
   const formatElapsed = (ms: number): string => {
     const seconds = Math.floor(ms / 1000);
@@ -59,13 +52,17 @@ export const AITypingIndicator = memo(({
     return `${minutes}m ${remainingSeconds}s`;
   };
 
-  // Calculate estimated progress (logarithmic curve, max 95%)
+  // Token-synchronized progress:
+  // - While waiting (no tokens): time-based up to 15%
+  // - Once streaming: token-based up to 95%
   const progress = useMemo(() => {
     if (tokensReceived > 0) {
-      return Math.min(50 + Math.log10(tokensReceived + 1) * 15, 95);
+      // Token-based progress: estimate ~400 tokens for full response
+      return Math.min(15 + (tokensReceived / 400) * 80, 95);
     }
+    // Time-based progress for waiting phase (max 15%)
     const seconds = elapsed / 1000;
-    return Math.min(Math.log10(seconds + 1) * 30 + 8, 45);
+    return Math.min(Math.log10(seconds + 1) * 15 + 5, 15);
   }, [elapsed, tokensReceived]);
 
   return (
@@ -152,21 +149,16 @@ export const AITypingIndicator = memo(({
               </div>
             </div>
             
-            {/* Status text with icon */}
+            {/* Simplified status text with icon */}
             <div className="flex items-center gap-2">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={currentStage.text}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 10 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex items-center gap-1.5 text-xs text-muted-foreground"
-                >
-                  <StatusIcon className="w-3 h-3 animate-pulse" />
-                  <span>{currentStage.text}</span>
-                </motion.div>
-              </AnimatePresence>
+              <motion.div
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground"
+              >
+                <Sparkles className="w-3 h-3 animate-pulse text-primary" />
+                <span>{statusText}</span>
+              </motion.div>
               
               {showElapsed && startTime && elapsed > 0 && (
                 <span className="text-xs text-muted-foreground/60 tabular-nums">
@@ -193,19 +185,27 @@ export const AITypingIndicator = memo(({
             </div>
           </div>
           
-          {/* Stats column */}
-          <div className="flex flex-col items-end gap-1 text-[10px] text-muted-foreground tabular-nums">
+          {/* Stats column - TTFT prominent, token count visible */}
+          <div className="flex flex-col items-end gap-1 text-xs tabular-nums">
             {ttft !== null && (
-              <div className="flex items-center gap-1 text-green-500">
-                <Zap className="w-2.5 h-2.5" />
-                <span>{ttft}ms</span>
-              </div>
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium"
+              >
+                <Zap className="w-3 h-3" />
+                <span>TTFT: {ttft}ms</span>
+              </motion.div>
             )}
             {tokensReceived > 0 && (
-              <div className="flex items-center gap-1 text-primary">
-                <Sparkles className="w-2.5 h-2.5" />
-                <span>{tokensReceived}</span>
-              </div>
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center gap-1 text-primary"
+              >
+                <Sparkles className="w-3 h-3" />
+                <span>{tokensReceived} words</span>
+              </motion.div>
             )}
           </div>
         </div>
