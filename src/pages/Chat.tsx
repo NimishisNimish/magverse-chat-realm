@@ -266,6 +266,9 @@ const Chat = () => {
     completed: number;
     inProgress: string[];
   }>({ total: 0, completed: 0, inProgress: [] });
+  // Streaming metrics for real-time display
+  const [streamingTtft, setStreamingTtft] = useState<number | null>(null);
+  const [streamingTokens, setStreamingTokens] = useState(0);
   const [showThinkingProcess, setShowThinkingProcess] = useState<boolean>(() => {
     const saved = localStorage.getItem('showThinkingProcess');
     return saved ? JSON.parse(saved) : true;
@@ -443,13 +446,7 @@ const Chat = () => {
     localStorage.setItem('enableMultiStepReasoning', JSON.stringify(enableMultiStepReasoning));
   }, [enableMultiStepReasoning]);
 
-  useEffect(() => {
-    localStorage.setItem('showThinkingProcess', JSON.stringify(showThinkingProcess));
-  }, [showThinkingProcess]);
-
-  useEffect(() => {
-    localStorage.setItem('enableMultiStepReasoning', JSON.stringify(enableMultiStepReasoning));
-  }, [enableMultiStepReasoning]);
+  // Duplicate hooks removed (were at lines 438-444)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1047,6 +1044,9 @@ const Chat = () => {
     setLoading(true);
     setResponseStartTime(Date.now());
     setElapsedTime(0);
+    // Reset streaming metrics for new message
+    setStreamingTtft(null);
+    setStreamingTokens(0);
     
     // Create abort controller
     abortControllerRef.current = new AbortController();
@@ -1118,9 +1118,15 @@ const Chat = () => {
                 console.log('✅ First token received from', model, 'TTFT:', ttft, 'ms');
                 hasReceivedToken = true;
                 streamTtft = ttft;
+                // Update streaming TTFT state for UI
+                setStreamingTtft(ttft);
                 // CRITICAL: Disable loading state on first token so skeleton hides & streaming text shows
                 setLoading(false);
               }
+              // Update streaming token count (word count for progress)
+              const wordCount = fullContent.split(/\s+/).filter(Boolean).length;
+              setStreamingTokens(wordCount);
+              
               setMessages(prev => 
                 prev.map(msg => 
                   msg.id === streamingMessage.id
@@ -2168,6 +2174,8 @@ const Chat = () => {
                             modelName={model.name}
                             startTime={responseStartTime || undefined}
                             showElapsed={true}
+                            tokensReceived={streamingTokens}
+                            ttft={streamingTtft}
                           />
                         );
                       })}
