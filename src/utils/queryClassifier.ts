@@ -39,11 +39,11 @@ export const getOptimalModels = (queryType: QueryType): string[] => {
     case 'research':
       return ['perplexity']; // Web search enabled
     case 'creative':
-      return ['claude', 'gemini']; // Best for creative writing
+      return ['claude', 'lovable-gemini-pro']; // Best for creative writing
     case 'math':
-      return ['chatgpt', 'bytez-qwen']; // Strong math reasoning
+      return ['lovable-gpt5', 'chatgpt']; // Strong math reasoning
     default:
-      return ['gemini']; // Fast, balanced for general queries
+      return ['lovable-gemini-flash']; // Fast, balanced for general queries
   }
 };
 

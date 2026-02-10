@@ -19,8 +19,10 @@ import {
   Trophy,
   Activity,
   MessageSquare,
-  Sparkles
+  Sparkles,
+  Download
 } from 'lucide-react';
+import { exportModelComparisonPDF } from '@/utils/modelComparisonPdfExport';
 
 interface ModelMetrics {
   model_name: string;
@@ -207,7 +209,20 @@ export default function ModelComparison() {
               </Button>
             </Link>
           </div>
-          <h1 className="text-4xl font-bold mb-2">Model Comparison</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-4xl font-bold mb-2">Model Comparison</h1>
+            {aggregatedMetrics.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportModelComparisonPDF(aggregatedMetrics, bestModels)}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Export PDF
+              </Button>
+            )}
+          </div>
           <p className="text-muted-foreground">
             Compare AI model performance with TTFT, response time, and generation speed
           </p>

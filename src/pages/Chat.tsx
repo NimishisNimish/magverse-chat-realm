@@ -107,6 +107,8 @@ import { SmartPromptSuggestions } from "@/components/SmartPromptSuggestions";
 import { QuickActions, QuickActionType } from "@/components/QuickActions";
 import { playSound, getSoundPreference, setSoundPreference, isSoundSupported } from "@/utils/soundNotifications";
 import { classifyQuery, getOptimalModels, getQueryTypeInfo, QueryType } from "@/utils/queryClassifier";
+import { useModelRecommendation } from "@/hooks/useModelRecommendation";
+import { ModelRecommendationBanner } from "@/components/ModelRecommendationBanner";
 
 // AI Models with categories for Fast/Reasoning sections like Perplexity
 // NOTE: Gemini Direct has been REMOVED - use Lovable AI models instead
@@ -310,6 +312,9 @@ const Chat = () => {
   } = useGuestChat();
   const [showGuestLimitModal, setShowGuestLimitModal] = useState(false);
   const isGuest = !user;
+
+  // Smart model recommendation
+  const { recommendation: modelRecommendation, dismiss: dismissRecommendation } = useModelRecommendation(input, selectedModels);
 
   useCreditAlerts();
   usePaymentNotifications();
@@ -2373,6 +2378,16 @@ const Chat = () => {
                   </div>
                 </div>
               )}
+
+              {/* Smart Model Recommendation */}
+              <ModelRecommendationBanner
+                recommendation={modelRecommendation}
+                onSwitch={(modelId) => {
+                  setSelectedModels([modelId]);
+                  dismissRecommendation();
+                }}
+                onDismiss={dismissRecommendation}
+              />
 
               {/* Main Input Container - Gen Z Aesthetic */}
               <div className="relative bg-gradient-to-r from-muted/30 via-muted/20 to-muted/30 rounded-2xl border border-border/40 p-2 sm:p-3 backdrop-blur-sm">
