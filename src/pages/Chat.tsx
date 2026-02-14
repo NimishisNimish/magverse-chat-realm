@@ -1092,19 +1092,20 @@ const Chat = () => {
 
       const startTime = Date.now();
 
-      // Use streaming ONLY for Lovable AI models
-      const isLovableModel = modelsToUse.length === 1 && modelsToUse[0].startsWith('lovable-');
+      // Use streaming for ALL single-model requests
+      const canStream = modelsToUse.length === 1;
       
-      if (isLovableModel) {
-        console.log('📡 Starting streaming for Lovable model:', modelsToUse[0]);
-        const streamingClient = new (await import('@/utils/streamingClient')).StreamingClient();
+      if (canStream) {
+        const modelToStream = modelsToUse[0];
+        const isLovableModel = modelToStream.startsWith('lovable-');
+        console.log(`📡 Starting streaming for ${isLovableModel ? 'Lovable' : 'Direct API'} model:`, modelToStream);
         
         let hasReceivedToken = false;
         const streamingMessage: Message = {
           id: `streaming-${Date.now()}`,
           role: "assistant",
           content: "",
-          model: modelsToUse[0],
+          model: modelToStream,
           timestamp: new Date(),
           userMessageId: userMessage.id,
         };
@@ -1114,63 +1115,197 @@ const Chat = () => {
         let streamTtft: number | null = null;
         
         try {
-          await streamingClient.startStream(
-            messagesForApi,
-            modelsToUse[0],
-            chatId,
-            (model, token, fullContent, ttft) => {
-              if (!hasReceivedToken) {
-                console.log('✅ First token received from', model, 'TTFT:', ttft, 'ms');
-                hasReceivedToken = true;
-                streamTtft = ttft;
-                // Update streaming TTFT state for UI
-                setStreamingTtft(ttft);
-                // CRITICAL: Disable loading state on first token so skeleton hides & streaming text shows
+          if (isLovableModel) {
+            // Lovable AI models use StreamingClient (OpenAI-compatible SSE)
+            const streamingClient = new (await import('@/utils/streamingClient')).StreamingClient();
+            
+            await streamingClient.startStream(
+              messagesForApi,
+              modelToStream,
+              chatId,
+              (model, token, fullContent, ttft) => {
+                if (!hasReceivedToken) {
+                  console.log('✅ First token received from', model, 'TTFT:', ttft, 'ms');
+                  hasReceivedToken = true;
+                  streamTtft = ttft;
+                  setStreamingTtft(ttft);
+                  setLoading(false);
+                }
+                const wordCount = fullContent.split(/\s+/).filter(Boolean).length;
+                setStreamingTokens(wordCount);
+                
+                setMessages(prev => 
+                  prev.map(msg => 
+                    msg.id === streamingMessage.id
+                      ? { ...msg, content: fullContent, isError: false, ttft: streamTtft || undefined }
+                      : msg
+                  )
+                );
+              },
+              (model, messageId, metrics) => {
+                console.log('✅ Stream complete for', model, 'TTFT:', metrics.ttft, 'Total:', metrics.totalTime);
+                setMessages(prev => 
+                  prev.map(msg => 
+                    msg.id === streamingMessage.id
+                      ? { 
+                          ...msg, 
+                          id: messageId || msg.id, 
+                          isError: false,
+                          ttft: metrics.ttft || undefined,
+                          responseTime: metrics.totalTime || undefined,
+                        }
+                      : msg
+                  )
+                );
                 setLoading(false);
+              },
+              (model, error) => {
+                console.error('❌ Stream error:', model, error);
+                setLoading(false);
+                setMessages(prev =>
+                  prev.map(msg =>
+                    msg.id === streamingMessage.id
+                      ? { ...msg, content: `❌ ${error}`, isError: true }
+                      : msg
+                  )
+                );
               }
-              // Update streaming token count (word count for progress)
-              const wordCount = fullContent.split(/\s+/).filter(Boolean).length;
-              setStreamingTokens(wordCount);
+            );
+          } else {
+            // Direct API models: stream via chat-with-ai with stream: true (custom SSE events)
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error('Not authenticated');
+
+            const useWebSearch = webSearchEnabled || activeQuickAction === 'research';
+            const modelsForRequest = useWebSearch && !modelsToUse.includes('perplexity') 
+              ? ['perplexity'] 
+              : modelsToUse;
+
+            const response = await fetch(
+              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-with-ai`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({
+                  messages: messagesForApi,
+                  selectedModels: modelsForRequest,
+                  chatId,
+                  attachmentUrl: currentAttachmentUrl,
+                  webSearchEnabled: useWebSearch,
+                  deepResearch: activeQuickAction === 'research',
+                  enableMultiStepReasoning,
+                  stream: true,
+                }),
+                signal: abortControllerRef.current?.signal,
+              }
+            );
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              let errorMessage = `Request failed: ${response.status}`;
+              try {
+                const errorJson = JSON.parse(errorText);
+                errorMessage = errorJson.error || errorMessage;
+              } catch {}
               
-              setMessages(prev => 
-                prev.map(msg => 
-                  msg.id === streamingMessage.id
-                    ? { ...msg, content: fullContent, isError: false, ttft: streamTtft || undefined }
-                    : msg
-                )
-              );
-            },
-            (model, messageId, metrics) => {
-              console.log('✅ Stream complete for', model, 'TTFT:', metrics.ttft, 'Total:', metrics.totalTime);
-              setMessages(prev => 
-                prev.map(msg => 
-                  msg.id === streamingMessage.id
-                    ? { 
-                        ...msg, 
-                        id: messageId || msg.id, 
-                        isError: false,
-                        ttft: metrics.ttft || undefined,
-                        responseTime: metrics.totalTime || undefined,
-                      }
-                    : msg
-                )
-              );
-              // Ensure loading is off on completion (even if no tokens were received)
-              setLoading(false);
-            },
-            (model, error) => {
-              console.error('❌ Stream error:', model, error);
-              // Turn off loading and show error in the message
-              setLoading(false);
-              setMessages(prev =>
-                prev.map(msg =>
-                  msg.id === streamingMessage.id
-                    ? { ...msg, content: `❌ ${error}`, isError: true }
-                    : msg
-                )
-              );
+              if (response.status === 429) {
+                sonnerToast.error('⚠️ Rate limit exceeded', { description: 'Please wait a moment and try again.' });
+              } else if (response.status === 402) {
+                sonnerToast.error('💳 Credits exhausted', { description: 'Please add credits to continue.' });
+              }
+              throw new Error(errorMessage);
             }
-          );
+
+            const reader = response.body?.getReader();
+            if (!reader) throw new Error('No reader available');
+
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullContent = '';
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+
+              let newlineIndex: number;
+              while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+                let line = buffer.slice(0, newlineIndex);
+                buffer = buffer.slice(newlineIndex + 1);
+                if (line.endsWith('\r')) line = line.slice(0, -1);
+                if (!line.trim() || line.startsWith(':')) continue;
+
+                // Parse custom SSE format: "event: type\ndata: {...}"
+                if (line.startsWith('event:')) {
+                  // Store event type for next data line
+                  continue;
+                }
+
+                if (line.startsWith('data:')) {
+                  const dataStr = line.slice(5).trim();
+                  if (!dataStr || dataStr === '[DONE]') continue;
+
+                  try {
+                    const data = JSON.parse(dataStr);
+                    
+                    // Handle token events
+                    if (data.token !== undefined) {
+                      if (!hasReceivedToken) {
+                        hasReceivedToken = true;
+                        streamTtft = Date.now() - startTime;
+                        setStreamingTtft(streamTtft);
+                        setLoading(false);
+                        console.log(`⚡ TTFT: ${streamTtft}ms for ${modelToStream}`);
+                      }
+                      
+                      fullContent = data.fullContent || (fullContent + data.token);
+                      const wordCount = fullContent.split(/\s+/).filter(Boolean).length;
+                      setStreamingTokens(wordCount);
+                      
+                      setMessages(prev =>
+                        prev.map(msg =>
+                          msg.id === streamingMessage.id
+                            ? { ...msg, content: fullContent, isError: false, ttft: streamTtft || undefined }
+                            : msg
+                        )
+                      );
+                    }
+                    
+                    // Handle done events
+                    if (data.messageId !== undefined && data.metrics) {
+                      const responseTime = Date.now() - startTime;
+                      setMessages(prev =>
+                        prev.map(msg =>
+                          msg.id === streamingMessage.id
+                            ? { ...msg, id: data.messageId || msg.id, responseTime, ttft: streamTtft || undefined }
+                            : msg
+                        )
+                      );
+                    }
+                    
+                    // Handle error events
+                    if (data.error) {
+                      throw new Error(data.error);
+                    }
+                  } catch (parseError: any) {
+                    if (parseError.message && !parseError.message.includes('JSON')) {
+                      throw parseError; // Re-throw non-parse errors
+                    }
+                    // Ignore JSON parse errors from partial chunks
+                  }
+                }
+              }
+            }
+            
+            // If we got no tokens at all, show error
+            if (!fullContent.trim()) {
+              throw new Error('No response received from AI. Try again or switch models.');
+            }
+          }
 
           const elapsed = Date.now() - startTime;
           console.log(`✅ Streaming complete in ${elapsed}ms`);
@@ -1185,7 +1320,6 @@ const Chat = () => {
           setLoading(false);
           return; // Exit function on successful streaming
         } catch (streamError: any) {
-          // This catch handles unexpected errors (network abort, unexpected exceptions)
           console.error('❌ Streaming failed after', Date.now() - startTime, 'ms:', streamError.message);
           
           if (typeof window !== 'undefined' && (window as any).__trackApiError) {
@@ -1195,7 +1329,6 @@ const Chat = () => {
             (window as any).__trackApiError(status, modelsToUse[0], streamError.message);
           }
           
-          // Show error in the streaming message
           const errorMsg = streamError.message.includes('timeout') 
             ? '⏱️ Response timed out. The AI model is taking too long. Try again or use a different model.'
             : `❌ ${streamError.message || 'Stream failed'}`;
@@ -1216,15 +1349,14 @@ const Chat = () => {
           return;
         }
       } else {
-        // Non-streaming for direct API models
+        // Multi-model non-streaming fallback
         try {
-          // If web search is enabled, route to Perplexity Sonar
           const useWebSearch = webSearchEnabled || activeQuickAction === 'research';
           const modelsForRequest = useWebSearch && !modelsToUse.includes('perplexity') 
-            ? ['perplexity'] // Force Perplexity Sonar for web search
+            ? ['perplexity']
             : modelsToUse;
           
-          console.log('📤 Using non-streaming mode for:', modelsForRequest, 'webSearch:', useWebSearch);
+          console.log('📤 Using non-streaming mode for multi-model:', modelsForRequest);
           const invokePromise = supabase.functions.invoke('chat-with-ai', {
             body: {
               messages: messagesForApi,
@@ -1244,18 +1376,8 @@ const Chat = () => {
 
           const { data, error } = await Promise.race([invokePromise, timeoutPromise]) as any;
 
-          console.log('📥 Response received:', { 
-            hasData: !!data, 
-            hasError: !!error,
-            responsesCount: data?.responses?.length 
-          });
+          if (error) throw error;
 
-          if (error) {
-            console.error('❌ Function invoke error:', error);
-            throw error;
-          }
-
-          // Record metrics for each model
           if (data?.responses && user) {
             const responseTime = Date.now() - startTime;
             for (const modelResponse of data.responses) {
@@ -1300,12 +1422,11 @@ const Chat = () => {
           }
           
           setLoading(false);
-          return; // Success, exit function
+          return;
         } catch (error: any) {
           console.error('Chat error:', error);
           lastError = error;
           
-          // Track API error for quota notifications
           if (typeof window !== 'undefined' && (window as any).__trackApiError) {
             const status = error.message?.includes('429') ? 429 :
                          error.message?.includes('402') ? 402 :
@@ -1316,20 +1437,17 @@ const Chat = () => {
             });
           }
           
-          // Don't retry if aborted
           if (error.name === 'AbortError') {
             setLoading(false);
             setRetryAttempt(0);
             return;
           }
           
-          // If this was the last attempt, show error and play error sound
           if (attempt === maxRetries) {
             if (soundEnabled && isSoundSupported()) {
               playSound('error');
             }
             
-            // Better error messages
             let errorMessage = "Failed to send message after multiple attempts";
             if (error.message?.includes('Rate limit')) {
               errorMessage = "Rate limit exceeded. Please try again in a moment.";
@@ -1347,8 +1465,8 @@ const Chat = () => {
               variant: "destructive",
             });
           }
-        } // End catch
-      } // End else (non-streaming)
+        }
+      } // End multi-model non-streaming
     }
     
     // Final cleanup after retry loop
