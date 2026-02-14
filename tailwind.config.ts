@@ -130,6 +130,10 @@ export default {
           "0%": { transform: "translateX(0)" },
           "100%": { transform: "translateX(-50%)" },
         },
+        "carousel-scroll-reverse": {
+          "0%": { transform: "translateX(-50%)" },
+          "100%": { transform: "translateX(0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -143,6 +147,7 @@ export default {
         "slide-in-bottom": "slide-in-bottom 0.3s ease-out",
         "bounce-subtle": "bounce-subtle 2s ease-in-out infinite",
         "carousel-scroll": "carousel-scroll 30s linear infinite",
+        "carousel-scroll-reverse": "carousel-scroll-reverse 35s linear infinite",
       },
     },
   },

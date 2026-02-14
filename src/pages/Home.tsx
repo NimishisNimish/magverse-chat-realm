@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { HeroSection } from "@/components/home/HeroSection";
 import { IndustryLeaders } from "@/components/home/IndustryLeaders";
 import { InfiniteModelCarousel } from "@/components/home/InfiniteModelCarousel";
-import { AdvancedModelLibrary } from "@/components/home/AdvancedModelLibrary";
+
 import { SuperchargeWorkflow } from "@/components/home/SuperchargeWorkflow";
 import { TestimonialsSection } from "@/components/home/TestimonialsSection";
 import { AboutSection } from "@/components/home/AboutSection";
@@ -38,7 +38,6 @@ const Home = () => {
       <HeroSection user={user} />
       <InfiniteModelCarousel />
       <IndustryLeaders />
-      <AdvancedModelLibrary />
       <SuperchargeWorkflow />
       <TestimonialsSection />
       <AboutSection />

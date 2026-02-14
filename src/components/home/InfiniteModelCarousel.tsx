@@ -30,8 +30,9 @@ export const InfiniteModelCarousel = () => {
         </p>
       </div>
 
+      {/* Row 1 - scrolls left */}
       <div
-        className="relative group"
+        className="relative group mb-4"
         style={{
           maskImage: "linear-gradient(to right, transparent, black 10%, black 90%, transparent)",
           WebkitMaskImage: "linear-gradient(to right, transparent, black 10%, black 90%, transparent)",
@@ -40,7 +41,37 @@ export const InfiniteModelCarousel = () => {
         <div className="flex w-max animate-carousel-scroll group-hover:[animation-play-state:paused]">
           {[...models, ...models].map((m, i) => (
             <div
-              key={i}
+              key={`row1-${i}`}
+              className="flex-shrink-0 w-52 md:w-60 mx-3 rounded-2xl border border-border bg-card/80 backdrop-blur-sm p-6 flex flex-col items-center text-center gap-3 transition-shadow hover:shadow-lg hover:shadow-primary/10"
+            >
+              <img
+                src={m.logo}
+                alt={`${m.name} logo`}
+                className="w-14 h-14 object-contain rounded-xl"
+                loading="lazy"
+              />
+              <div>
+                <p className="font-semibold text-foreground text-base">{m.name}</p>
+                <p className="text-xs text-muted-foreground">{m.sub}</p>
+              </div>
+              <p className="text-sm text-muted-foreground leading-snug">{m.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Row 2 - scrolls right (reverse) */}
+      <div
+        className="relative group"
+        style={{
+          maskImage: "linear-gradient(to right, transparent, black 10%, black 90%, transparent)",
+          WebkitMaskImage: "linear-gradient(to right, transparent, black 10%, black 90%, transparent)",
+        }}
+      >
+        <div className="flex w-max animate-carousel-scroll-reverse group-hover:[animation-play-state:paused]">
+          {[...models.slice().reverse(), ...models.slice().reverse()].map((m, i) => (
+            <div
+              key={`row2-${i}`}
               className="flex-shrink-0 w-52 md:w-60 mx-3 rounded-2xl border border-border bg-card/80 backdrop-blur-sm p-6 flex flex-col items-center text-center gap-3 transition-shadow hover:shadow-lg hover:shadow-primary/10"
             >
               <img
